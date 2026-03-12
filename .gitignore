@@ -1,0 +1,25 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Generated output
+oficios_gerados/
+logs/
+
+# Excel / Word generated files (keep only the model)
+CONTROLE_OFICIOS_FINAL.xlsx
+
+# OS
+.DS_Store
+Thumbs.db
