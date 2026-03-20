@@ -1,22 +1,29 @@
 import os
 import re
 import json
+import sys
 import time
+import uuid
 import logging
 import getpass
 import winreg
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from google import genai
-from docxtpl import DocxTemplate
-from openpyxl import Workbook
+# google-genai, docxtpl e openpyxl são importados de forma lazy dentro de main()
+# para que o módulo possa ser carregado em testes sem essas dependências.
 
 # =============================================================================
 # CONFIGURAÇÕES GERAIS
 # =============================================================================
 # Configurações de Negócio
-PASTA_SAIDA = "oficios_gerados"
-PASTA_LOGS  = "logs"
+PASTA_SAIDA         = "oficios_gerados"
+PASTA_LOGS          = "logs"
+PASTA_PROPOSITURAS  = "proposituras"
+PASTA_PLANILHA      = "planilha_gerada"
+
+# Identificador único desta sessão — incluído em todos os registros de log.
+SESSAO_ID = uuid.uuid4().hex[:8]
 
 MESES_PT = {
     1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
@@ -40,27 +47,57 @@ MAPA_AUTORES = {
 # =============================================================================
 logger = logging.getLogger("auto_oficios")
 
-def configurar_logging():
-    """Configura handlers de log para arquivo (DEBUG) e console (WARNING+)."""
+def configurar_logging(verbose: bool = False) -> str:
+    """Configura handlers de log rotativos para arquivo (DEBUG) e console.
+
+    - Arquivo: rotação automática a cada 2 MB, mantendo os últimos 5 arquivos.
+    - Console: WARNING+ por padrão; INFO+ quando verbose=True.
+    - Cada linha de log inclui o ID único da sessão (SESSAO_ID).
+    - Instala sys.excepthook para capturar exceções não tratadas no log.
+
+    Returns:
+        Caminho completo do arquivo de log criado.
+    """
+    # Evita acumulação de handlers em recargas / testes.
+    logger.handlers.clear()
+
     Path(PASTA_LOGS).mkdir(exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = os.path.join(PASTA_LOGS, f"auto_oficios_{timestamp}.log")
+    log_path = os.path.join(PASTA_LOGS, f"auto_oficios_{timestamp}_{SESSAO_ID}.log")
 
     fmt = logging.Formatter(
-        "%(asctime)s [%(levelname)-8s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        f"%(asctime)s [{SESSAO_ID}] [%(levelname)-8s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
-    fh = logging.FileHandler(log_path, encoding="utf-8")
+
+    fh = RotatingFileHandler(
+        log_path, encoding="utf-8",
+        maxBytes=2 * 1024 * 1024,  # 2 MB
+        backupCount=5,
+    )
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
 
+    console_level = logging.INFO if verbose else logging.WARNING
     ch = logging.StreamHandler()
-    ch.setLevel(logging.WARNING)
+    ch.setLevel(console_level)
     ch.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
 
     logger.setLevel(logging.DEBUG)
     logger.addHandler(fh)
     logger.addHandler(ch)
+
+    def _excepthook(exc_type, exc_value, exc_tb):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_tb)
+            return
+        logger.critical(
+            "Exceção não tratada — o processo será encerrado.",
+            exc_info=(exc_type, exc_value, exc_tb),
+        )
+
+    sys.excepthook = _excepthook
+    logger.debug(f"Sessão de log iniciada. ID={SESSAO_ID}")
     return log_path
 
 # =============================================================================
@@ -99,6 +136,33 @@ def obter_api_key():
     return chave
 
 # =============================================================================
+# LISTAGEM DE PROPOSITURAS
+# =============================================================================
+def listar_proposituras() -> list[Path]:
+    """Varre a pasta PASTA_PROPOSITURAS e retorna os arquivos suportados.
+
+    Quando dois arquivos com o mesmo nome base coexistem (ex: mocoes.txt e
+    mocoes.docx), apenas a versão preferencial é incluída na lista, evitando
+    duplicatas na escolha do usuário.
+    """
+    pasta = Path(PASTA_PROPOSITURAS)
+    if not pasta.is_dir():
+        return []
+
+    formatos = set(_ORDEM_PREFERENCIA)
+    vistos: dict[str, Path] = {}  # nome-base -> arquivo preferencial já escolhido
+
+    for arq in sorted(pasta.iterdir()):
+        if arq.suffix.lower() not in formatos:
+            continue
+        pref = Path(resolver_arquivo_preferencial(str(arq)))
+        if pref.stem not in vistos:
+            vistos[pref.stem] = pref
+
+    return list(vistos.values())
+
+
+# =============================================================================
 # INTERFACE DE LINHA DE COMANDO
 # =============================================================================
 def solicitar_inputs():
@@ -130,12 +194,141 @@ def solicitar_inputs():
         except ValueError:
             print("   Erro: formato inválido. Use dd-mm-aaaa (ex: 18-02-2026).")
 
+    # --- Seleção da propositura a partir da pasta proposituras/ ---
+    proposituras = listar_proposituras()
+    if not proposituras:
+        print(f"\n   Erro: nenhum arquivo suportado encontrado em '{PASTA_PROPOSITURAS}/'.")
+        print(f"   Adicione arquivos .txt/.docx/.doc/.odt/.pdf e tente novamente.")
+        raise SystemExit(1)
+
+    if len(proposituras) == 1:
+        arquivo = str(proposituras[0])
+        print(f"\n4. Propositura encontrada automaticamente: {proposituras[0].name}")
+    else:
+        print(f"\n4. Proposituras disponíveis em '{PASTA_PROPOSITURAS}/':")
+        for idx, p in enumerate(proposituras, start=1):
+            print(f"   [{idx}] {p.name}")
+        while True:
+            try:
+                escolha = int(input(f"   Escolha (1-{len(proposituras)}): "))
+                if 1 <= escolha <= len(proposituras):
+                    arquivo = str(proposituras[escolha - 1])
+                    break
+                print(f"   Erro: digite um número entre 1 e {len(proposituras)}.")
+            except ValueError:
+                print("   Erro: entrada inválida. Digite o número da opção.")
+
     print("-" * 60)
-    return num_inicial, sigla, data_extenso, data_iso
+    return num_inicial, sigla, data_extenso, data_iso, arquivo
+
+# =============================================================================
+# RESOLUÇÃO DE FORMATO PREFERENCIAL
+# =============================================================================
+_ORDEM_PREFERENCIA = (".txt", ".docx", ".doc", ".odt", ".pdf")
+
+def resolver_arquivo_preferencial(caminho: str) -> str:
+    """Dado um caminho de arquivo, verifica se existem variantes com o mesmo nome
+    base em diferentes extensões suportadas e retorna o caminho de maior prioridade.
+    Se não houver variante melhor, retorna o próprio caminho original.
+    """
+    p = Path(caminho)
+    base = p.parent / p.stem
+    for ext in _ORDEM_PREFERENCIA:
+        candidato = base.with_suffix(ext)
+        if candidato.exists():
+            return str(candidato)
+    return caminho
+
+# =============================================================================
+# LEITURA DE ARQUIVOS DE MOÇÕES
+# =============================================================================
+_ODT_NS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+
+def _extrair_texto_odt(caminho: str) -> str:
+    """Extrai texto de um arquivo .odt usando zipfile + xml.etree (sem dependências extras)."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+
+    with zipfile.ZipFile(caminho, "r") as z:
+        with z.open("content.xml") as f:
+            tree = ET.parse(f)
+
+    partes = []
+    for elem in tree.iter():
+        if elem.tag == f"{{{_ODT_NS}}}p" or elem.tag == f"{{{_ODT_NS}}}line-break":
+            partes.append("".join(t for t in elem.itertext()))
+    return "\n".join(partes)
+
+def ler_arquivo_mocoes(caminho: str) -> str:
+    """Lê e extrai o texto de um arquivo .txt, .docx, .doc, .odt ou .pdf."""
+    sufixo = Path(caminho).suffix.lower()
+
+    if sufixo == ".txt":
+        with open(caminho, "r", encoding="utf-8") as f:
+            return f.read()
+
+    if sufixo == ".docx":
+        import docx as _docx
+        doc = _docx.Document(caminho)
+        return "\n".join(p.text for p in doc.paragraphs)
+
+    if sufixo == ".doc":
+        try:
+            import win32com.client
+        except ImportError:
+            raise ImportError("Para ler arquivos .doc instale pywin32: pip install pywin32")
+        word = win32com.client.Dispatch("Word.Application")
+        word.Visible = False
+        try:
+            doc = word.Documents.Open(str(Path(caminho).resolve()))
+            texto = doc.Content.Text
+            doc.Close(False)
+        finally:
+            word.Quit()
+        return texto
+
+    if sufixo == ".odt":
+        return _extrair_texto_odt(caminho)
+
+    if sufixo == ".pdf":
+        try:
+            import pypdf as _pypdf
+        except ImportError:
+            raise ImportError("Para ler arquivos .pdf instale pypdf: pip install pypdf")
+        reader = _pypdf.PdfReader(caminho)
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+    raise ValueError(f"Formato '{sufixo}' não suportado. Use .txt, .docx, .doc, .odt ou .pdf.")
 
 # =============================================================================
 # FUNÇÕES AUXILIARES (testáveis)
 # =============================================================================
+def normalizar_numero_mocao(numero: str) -> str:
+    """Remove sufixo de ano que a IA pode incluir no número da moção.
+
+    Exemplos: '124/2026' → '124', '124-26' → '124', '124' → '124'.
+    """
+    return re.sub(r'[-/]\d{2,4}$', '', numero).strip()
+
+
+def construir_nome_arquivo(
+    num_oficio_str: str,
+    sigla_servidor: str,
+    tipo_mocao: str,
+    num_mocao: str,
+    envio: str,
+    nome_dest: str,
+    sigla_autores: str,
+) -> str:
+    """Monta o nome do arquivo de ofício e remove caracteres inválidos no Windows."""
+    nome = (
+        f"Of. {num_oficio_str} - {sigla_servidor} - "
+        f"Moção de {tipo_mocao} nº {num_mocao}-26 - "
+        f"{envio.lower()} - {nome_dest} - {sigla_autores}.docx"
+    )
+    return re.sub(r'[\\/*?:"<>|]', "", nome)
+
+
 def limpar_json_da_resposta(texto):
     """Remove marcadores de bloco de código Markdown da resposta textual da IA."""
     texto = texto.strip()
@@ -194,7 +387,7 @@ def extrair_dados_com_ia(texto_mocao, cliente_genai):
     for tentativa in range(5):
         try:
             response = cliente_genai.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.1-pro-preview",
                 contents=prompt,
             )
             logger.debug(f"Resposta recebida (tentativa {tentativa + 1}).")
@@ -294,8 +487,13 @@ def processar_destinatario(dest):
 # EXECUÇÃO PRINCIPAL
 # =============================================================================
 def main():
+    # Imports pesados carregados aqui para não bloquear testes unitários.
+    from google import genai  # noqa: PLC0415
+    from docxtpl import DocxTemplate  # noqa: PLC0415
+    from openpyxl import Workbook  # noqa: PLC0415
+
     log_path = configurar_logging()
-    NUMERO_OFICIO_INICIAL, SIGLA_SERVIDOR, DATA_EXTENSO, DATA_ISO = solicitar_inputs()
+    NUMERO_OFICIO_INICIAL, SIGLA_SERVIDOR, DATA_EXTENSO, DATA_ISO, ARQUIVO_MOCOES = solicitar_inputs()
     inicio = time.time()
 
     try:
@@ -321,11 +519,10 @@ def main():
 
     # 1. Ler o arquivo de moções
     try:
-        with open("mocoes.txt", "r", encoding="utf-8") as f:
-            conteudo_completo = f.read()
-    except FileNotFoundError:
-        logger.critical("Arquivo 'mocoes.txt' não encontrado.")
-        print("Erro: Arquivo 'mocoes.txt' não encontrado.")
+        conteudo_completo = ler_arquivo_mocoes(ARQUIVO_MOCOES)
+    except Exception as e:
+        logger.critical(f"Erro ao ler arquivo de moções '{ARQUIVO_MOCOES}': {e}")
+        print(f"Erro ao ler arquivo: {e}")
         return
 
     textos_mocoes = re.split(r'(?=MOÇÃO Nº)', conteudo_completo)
@@ -354,6 +551,8 @@ def main():
             erros += 1
             continue
 
+        dados_mocao["numero_mocao"] = normalizar_numero_mocao(dados_mocao["numero_mocao"])
+
         texto_autoria, sigla_autores = formatar_autores(dados_mocao["autores"])
 
         for dest in dados_mocao["destinatarios"]:
@@ -376,12 +575,11 @@ def main():
             doc = DocxTemplate("modelo_oficio.docx")
             doc.render(contexto)
 
-            nome_arquivo = (
-                f"Of. {num_oficio_str} - {SIGLA_SERVIDOR} - "
-                f"Moção de {dados_mocao['tipo_mocao']} nº {dados_mocao['numero_mocao']}-26 - "
-                f"{info_dest['envio'].lower()} - {dest['nome']} - {sigla_autores}.docx"
+            nome_arquivo = construir_nome_arquivo(
+                num_oficio_str, SIGLA_SERVIDOR,
+                dados_mocao["tipo_mocao"], dados_mocao["numero_mocao"],
+                info_dest["envio"], dest["nome"], sigla_autores,
             )
-            nome_arquivo = re.sub(r'[\\/*?:"<>|]', "", nome_arquivo)
 
             caminho_salvar = os.path.join(PASTA_SAIDA, nome_arquivo)
             doc.save(caminho_salvar)
@@ -412,7 +610,8 @@ def main():
     ws.append(cabecalhos)
     for linha in dados_planilha:
         ws.append(linha)
-    wb.save("CONTROLE_OFICIOS_FINAL.xlsx")
+    Path(PASTA_PLANILHA).mkdir(exist_ok=True)
+    wb.save(os.path.join(PASTA_PLANILHA, "CONTROLE_OFICIOS.xlsx"))
 
     elapsed = time.time() - inicio
     minutos, segundos = divmod(int(elapsed), 60)
