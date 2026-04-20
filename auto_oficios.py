@@ -385,39 +385,51 @@ def extrair_dados_com_ia(texto_mocao: str, cliente_genai: Any) -> dict[str, Any]
     {texto_mocao}
     """
     
+    MAX_TENTATIVAS = 5
     logger.debug("Enviando moção à API Gemini.")
-    for tentativa in range(5):
+    for tentativa in range(MAX_TENTATIVAS):
         try:
             response = cliente_genai.models.generate_content(
                 model="gemini-3.1-pro-preview",
                 contents=prompt,
             )
             logger.debug(f"Resposta recebida (tentativa {tentativa + 1}).")
-            break
         except Exception as e:
             msg = str(e)
             match = re.search(r'retry_delay\s*\{\s*seconds:\s*(\d+)', msg)
             espera = int(match.group(1)) + 2 if match else 60
             if '429' in msg:
-                logger.warning(f"Rate limit atingido. Aguardando {espera}s (tentativa {tentativa + 1}/5).")
+                logger.warning(f"Rate limit atingido. Aguardando {espera}s (tentativa {tentativa + 1}/{MAX_TENTATIVAS}).")
                 print(f"   Rate limit atingido. Aguardando {espera}s antes de tentar novamente...")
                 time.sleep(espera)
+                continue
             else:
                 logger.error(f"Erro na API Gemini: {e}", exc_info=True)
                 raise
-    else:
-        raise Exception("Número máximo de tentativas excedido por rate limit.")
 
-    json_str = limpar_json_da_resposta(response.text)  # type: ignore[arg-type]
-    data: Any = json.loads(json_str)
-    resultado: dict[str, Any] = cast(dict[str, Any], data[0] if isinstance(data, list) else data)
+        raw_text: str = response.text  # type: ignore[union-attr]
+        logger.debug(f"Resposta bruta da IA (tentativa {tentativa + 1}): {raw_text!r}")
+        try:
+            json_str = limpar_json_da_resposta(raw_text)
+            data: Any = json.loads(json_str)
+            resultado: dict[str, Any] = cast(dict[str, Any], data[0] if isinstance(data, list) else data)
+            validar_dados_mocao(resultado)
+        except (ValueError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"Resposta inválida da IA (tentativa {tentativa + 1}/{MAX_TENTATIVAS}): {e}. "
+                f"Resposta bruta: {raw_text!r}"
+            )
+            if tentativa < MAX_TENTATIVAS - 1:
+                continue
+            raise
 
-    validar_dados_mocao(resultado)
-    logger.debug(
-        f"Dados extraídos — moção nº {resultado.get('numero_mocao')}, "
-        f"tipo: {resultado.get('tipo_mocao')}."
-    )
-    return resultado
+        logger.debug(
+            f"Dados extraídos — moção nº {resultado.get('numero_mocao')}, "
+            f"tipo: {resultado.get('tipo_mocao')}."
+        )
+        return resultado
+
+    raise Exception("Número máximo de tentativas excedido.")
 
 def formatar_autores(lista_autores: list[str]) -> tuple[str, str]:
     """Formata o texto de autoria (singular/plural) e gera a sigla combinada."""
