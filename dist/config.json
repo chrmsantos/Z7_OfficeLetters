@@ -1,0 +1,28 @@
+{
+  "_comentario": "Edite este arquivo para atualizar vereadores, prefeito ou cidade sem recompilar.",
+  "prefeito": {
+    "nome": "RAFAEL PIOVEZAN",
+    "endereco": "Prefeito Municipal\nSanta Bárbara d'Oeste/SP"
+  },
+  "autores": {
+    "Alex Dantas":          "ad",
+    "Arnaldo Alves":        "aa",
+    "Cabo Dorigon":         "cd",
+    "Careca do Esporte":    "vao",
+    "Carlos Fontes":        "capf",
+    "Celso Ávila":          "clab",
+    "Esther Moraes":        "egsbm",
+    "Felipe Corá":          "fegc",
+    "Gustavo Bagnoli":      "gbg",
+    "Isac Sorrillo":        "igs",
+    "Joi Fornasari":        "jlf",
+    "Juca Bortolucci":      "ecbj",
+    "Kifú":                 "jcss",
+    "Lúcio Donizete":       "ld",
+    "Marcelo Cury":         "mjm",
+    "Paulo Monaro":         "pcm",
+    "Rony Tavares":         "rgt",
+    "Tikinho TK":           "eac",
+    "Wilson da Engenharia": "war"
+  }
+}
