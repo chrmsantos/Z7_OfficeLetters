@@ -191,6 +191,7 @@ class TestConstruirNomeArquivo:
             tipo_mocao="Aplauso", num_mocao="124",
             envio="E-mail", nome_dest="Fulano de Tal",
             sigla_autores="AD",
+            ano=2026,
         )
         params.update(overrides)
         return construir_nome_arquivo(**params)
@@ -225,6 +226,7 @@ class TestConstruirNomeArquivo:
             tipo_mocao="Aplauso", num_mocao="124",
             envio="Em Mãos", nome_dest='Nome "Ilegal" <teste>',
             sigla_autores="AD",
+            ano=2026,
         )
         for ch in r'\/*?:"<>|':
             assert ch not in nome

@@ -598,6 +598,7 @@ class AutoOficiosApp(ctk.CTk):
 
             dados_planilha: list[list[str]] = []
             numero_atual = inputs["num_inicial"]
+            year = int(inputs["data_iso"][:4])
             erros = 0
             inicio = time.time()
 
@@ -639,6 +640,7 @@ class AutoOficiosApp(ctk.CTk):
                         num_str, inputs["sigla"],
                         dados["tipo_mocao"], dados["numero_mocao"],
                         info["envio"], dest["nome"], sigla_autores,
+                        ano=year,
                     )
                     doc.save(os.path.join(_ao.PASTA_SAIDA, nome))
 
@@ -648,7 +650,7 @@ class AutoOficiosApp(ctk.CTk):
                         num_str,
                         inputs["data_iso"],
                         f"{info['tratamento_rodape']} {info['destinatario_nome']}".strip(),
-                        f"Encaminha Moção de {dados['tipo_mocao']} nº {dados['numero_mocao']}/2026",
+                        f"Encaminha Moção de {dados['tipo_mocao']} nº {dados['numero_mocao']}/{year}",
                         ", ".join(dados["autores"]),
                         info["envio"],
                         inputs["sigla"],
@@ -660,7 +662,7 @@ class AutoOficiosApp(ctk.CTk):
             wb = Workbook()
             ws = wb.active
             assert ws is not None
-            ws.title = "Controle 2026"
+            ws.title = f"Controle {year}"
             ws.append(["Of. n.º", "Data", "Destinatário", "Assunto",
                         "Vereador", "Envio", "Autor"])
             for row in dados_planilha:

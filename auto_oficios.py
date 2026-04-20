@@ -32,16 +32,21 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
-# Mapeamento de Autores (Vereadores -> Siglas)
-MAPA_AUTORES = {
-    "Alex Dantas": "ad", "Arnaldo Alves": "aa", "Cabo Dorigon": "cd",
-    "Careca do Esporte": "vao", "Carlos Fontes": "capf", "Celso Ávila": "clab",
-    "Esther Moraes": "egsbm", "Felipe Corá": "fegc", "Gustavo Bagnoli": "gbg",
-    "Isac Sorrillo": "igs", "Joi Fornasari": "jlf", "Juca Bortolucci": "ecbj",
-    "Kifú": "jcss", "Lúcio Donizete": "ld", "Marcelo Cury": "mjm",
-    "Paulo Monaro": "pcm", "Rony Tavares": "rgt", "Tikinho TK": "eac",
-    "Wilson da Engenharia": "war"
-}
+# =============================================================================
+# CONFIGURAÇÃO EXTERNA (config.json)
+# =============================================================================
+def _carregar_config() -> dict:
+    """Carrega prefeito e mapa de autores de config.json (editável sem recompilar)."""
+    if getattr(sys, "frozen", False):
+        config_path = Path(sys.executable).parent / "config.json"
+    else:
+        config_path = Path(__file__).parent / "config.json"
+    with open(config_path, encoding="utf-8") as f:
+        return json.load(f)
+
+_CONFIG = _carregar_config()
+MAPA_AUTORES: dict[str, str] = _CONFIG["autores"]
+_PREFEITO: dict[str, str] = _CONFIG["prefeito"]
 
 # =============================================================================
 # LOGGING
@@ -197,14 +202,16 @@ def ler_arquivo_mocoes(caminho: str) -> str:
             import win32com.client
         except ImportError:
             raise ImportError("Para ler arquivos .doc instale pywin32: pip install pywin32")
-        word = win32com.client.Dispatch("Word.Application")
-        word.Visible = False
+        word = None
         try:
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
             doc = word.Documents.Open(str(Path(caminho).resolve()))
             texto = doc.Content.Text
             doc.Close(False)
         finally:
-            word.Quit()
+            if word is not None:
+                word.Quit()
         return texto
 
     if sufixo == ".odt":
@@ -239,11 +246,13 @@ def construir_nome_arquivo(
     envio: str,
     nome_dest: str,
     sigla_autores: str,
+    ano: int,
 ) -> str:
     """Monta o nome do arquivo de ofício e remove caracteres inválidos no Windows."""
+    ano_2d = f"{ano % 100:02d}"
     nome = (
         f"Of. {num_oficio_str} - {sigla_servidor} - "
-        f"Moção de {tipo_mocao} nº {num_mocao}-26 - "
+        f"Moção de {tipo_mocao} nº {num_mocao}-{ano_2d} - "
         f"{envio.lower()} - {nome_dest} - {sigla_autores}.docx"
     )
     return re.sub(r'[\\/*?:"<>|]', "", nome)
@@ -379,8 +388,8 @@ def processar_destinatario(dest: dict[str, Any]) -> dict[str, str]:
     if dest.get("is_prefeito") or "prefeito" in dest.get("nome", "").lower():
         return {
             "tratamento_rodape": "A Sua Excelência, o Senhor",
-            "destinatario_nome": "RAFAEL PIOVEZAN",
-            "destinatario_endereco": "Prefeito Municipal\nSanta Bárbara d’Oeste/SP",
+            "destinatario_nome": _PREFEITO["nome"],
+            "destinatario_endereco": _PREFEITO["endereco"],
             "vocativo": "Excelentíssimo Senhor Prefeito",
             "pronome_corpo": "Vossa Excelência",
             "envio": "Protocolo"
