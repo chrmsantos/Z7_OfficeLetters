@@ -92,7 +92,7 @@ class AutoOficiosApp(ctk.CTk):
         hdr.grid_columnconfigure(1, weight=0)
 
         title_frame = ctk.CTkFrame(hdr, fg_color="transparent")
-        title_frame.grid(row=0, column=0, sticky="w", padx=24)
+        title_frame.grid(row=0, column=0, sticky="w", padx=24, pady=(10, 0))
 
         ctk.CTkLabel(
             title_frame,
@@ -351,13 +351,23 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkButton(
             summary,
-            text="📁  Abrir Pasta de Saída",
+            text="📁  Ofícios",
             font=ctk.CTkFont(size=12),
-            height=36, width=200, corner_radius=8,
+            height=36, width=110, corner_radius=8,
             fg_color=_C["border"], hover_color=_C["accent2"],
             text_color=_C["text"],
             command=self._open_output_folder,
-        ).grid(row=0, column=1, padx=(0, 12), pady=8)
+        ).grid(row=0, column=1, padx=(0, 6), pady=8)
+
+        ctk.CTkButton(
+            summary,
+            text="📊  Planilha",
+            font=ctk.CTkFont(size=12),
+            height=36, width=110, corner_radius=8,
+            fg_color=_C["border"], hover_color=_C["accent2"],
+            text_color=_C["text"],
+            command=self._open_spreadsheet_folder,
+        ).grid(row=0, column=2, padx=(0, 12), pady=8)
 
     # ── Footer ────────────────────────────────────────────────────────────────
     def _build_footer(self) -> None:
@@ -532,6 +542,12 @@ class AutoOficiosApp(ctk.CTk):
     def _open_output_folder(self) -> None:
         from auto_oficios import PASTA_SAIDA
         folder = Path(PASTA_SAIDA).resolve()
+        folder.mkdir(exist_ok=True)
+        os.startfile(str(folder))
+
+    def _open_spreadsheet_folder(self) -> None:
+        from auto_oficios import PASTA_PLANILHA
+        folder = Path(PASTA_PLANILHA).resolve()
         folder.mkdir(exist_ok=True)
         os.startfile(str(folder))
 
