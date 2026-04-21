@@ -57,6 +57,11 @@ _MAPA_AUTORES_ITENS: tuple[tuple[str, str], ...] = tuple(
     (nome.lower(), sigla) for nome, sigla in MAPA_AUTORES.items()
 )
 
+# Lower-cased set of female councillor names for gender-correct attribution.
+_VEREADORES_FEMININO_LOWER: frozenset[str] = frozenset(
+    nome.lower() for nome in _CONFIG.get("vereadores_feminino", [])
+)
+
 # Pre-compiled regex patterns
 _RE_ANO_MOCAO     = re.compile(r'[-/]\d{2,4}$')
 _RE_NOME_INVALIDO = re.compile(r'[\\/*?:"<>|]')
@@ -417,22 +422,31 @@ def formatar_autores(lista_autores: list[str]) -> tuple[str, str]:
     """Formata o texto de autoria (singular/plural) e gera a sigla combinada."""
     siglas: list[str] = []
     nomes_limpos: list[str] = []
-    
+    femininos: list[bool] = []
+
     for autor in lista_autores:
         # Busca a sigla no mapa ignorando maiúsculas/minúsculas
         autor_lower = autor.lower()
         sigla = next((s for nome_l, s in _MAPA_AUTORES_ITENS if nome_l in autor_lower), "indef")
         siglas.append(sigla.upper())
         nomes_limpos.append(autor)
-        
+        femininos.append(any(nome_f in autor_lower for nome_f in _VEREADORES_FEMININO_LOWER))
+
     sigla_final = "-".join(siglas)
-    
+    todas_femininas = all(femininos)
+
     if len(nomes_limpos) == 1:
-        texto_autoria = f"do vereador {nomes_limpos[0]}"
+        if femininos[0]:
+            texto_autoria = f"da vereadora {nomes_limpos[0]}"
+        else:
+            texto_autoria = f"do vereador {nomes_limpos[0]}"
     else:
         nomes_str = ", ".join(nomes_limpos[:-1]) + " e " + nomes_limpos[-1]
-        texto_autoria = f"dos vereadores {nomes_str}"
-        
+        if todas_femininas:
+            texto_autoria = f"das vereadoras {nomes_str}"
+        else:
+            texto_autoria = f"dos vereadores {nomes_str}"
+
     return texto_autoria, sigla_final
 
 def processar_destinatario(dest: dict[str, Any]) -> dict[str, str]:

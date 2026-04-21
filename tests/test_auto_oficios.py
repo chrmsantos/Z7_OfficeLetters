@@ -279,6 +279,27 @@ class TestFormatarAutores:
         _, sigla = formatar_autores(["Alex Dantas", "Vereador X"])
         assert sigla == "AD-INDEF"
 
+    def test_vereadora_unica_texto(self):
+        texto, _ = formatar_autores(["Esther Moraes"])
+        assert texto == "da vereadora Esther Moraes"
+
+    def test_vereadora_unica_sigla(self):
+        _, sigla = formatar_autores(["Esther Moraes"])
+        assert sigla == "EGSBM"
+
+    def test_todas_vereadoras_plural(self):
+        # hypothetical: two female councillors
+        texto, _ = formatar_autores(["Esther Moraes", "Esther Moraes"])
+        assert texto.startswith("das vereadoras")
+
+    def test_misto_masculino_feminino_usa_masculino_plural(self):
+        texto, _ = formatar_autores(["Alex Dantas", "Esther Moraes"])
+        assert texto.startswith("dos vereadores")
+
+    def test_vereadora_case_insensitive(self):
+        texto, _ = formatar_autores(["esther moraes"])
+        assert texto == "da vereadora esther moraes"
+
 
 # =============================================================================
 # processar_destinatario
