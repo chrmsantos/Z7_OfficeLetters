@@ -44,7 +44,11 @@ MESES_PT = {
 def _carregar_config() -> dict:
     """Carrega prefeito e mapa de autores de config.json (editável sem recompilar)."""
     if getattr(sys, "frozen", False):
+        # 1) Arquivo editável ao lado do exe tem prioridade (permite customização sem recompilar)
         config_path = Path(sys.executable).parent / "config.json"
+        if not config_path.exists():
+            # 2) Fallback: config embutida no pacote PyInstaller (_MEIPASS)
+            config_path = Path(sys._MEIPASS) / "config.json"
     else:
         config_path = Path(__file__).parent / "config.json"
     with open(config_path, encoding="utf-8") as f:

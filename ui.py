@@ -728,6 +728,8 @@ class AutoOficiosApp(ctk.CTk):
     def _open_modelo_oficio(self) -> None:
         if getattr(sys, "frozen", False):
             modelo = Path(sys.executable).parent / "modelo_oficio.docx"
+            if not modelo.exists():
+                modelo = Path(sys._MEIPASS) / "modelo_oficio.docx"
         else:
             modelo = Path(__file__).parent / "modelo_oficio.docx"
         if not modelo.exists():
@@ -879,6 +881,8 @@ class AutoOficiosApp(ctk.CTk):
             Path(_ao.PASTA_SAIDA).mkdir(parents=True, exist_ok=True)
             if getattr(sys, "frozen", False):
                 _modelo_oficio = Path(sys.executable).parent / "modelo_oficio.docx"
+                if not _modelo_oficio.exists():
+                    _modelo_oficio = Path(sys._MEIPASS) / "modelo_oficio.docx"
             else:
                 _modelo_oficio = Path(__file__).parent / "modelo_oficio.docx"
             if not _modelo_oficio.exists():
