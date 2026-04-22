@@ -1056,7 +1056,8 @@ class AutoOficiosApp(ctk.CTk):
             text_color="#ffffff", command=_save,
         ).grid(row=0, column=2, sticky="e", padx=(0, 20), pady=10)
 
-    def _open_output_folder(self) -> None:        from auto_oficios import PASTA_SAIDA
+    def _open_output_folder(self) -> None:
+        from auto_oficios import PASTA_SAIDA
         folder = Path(PASTA_SAIDA).resolve()
         folder.mkdir(exist_ok=True)
         os.startfile(str(folder))
