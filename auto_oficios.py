@@ -18,7 +18,7 @@ from typing import Any, cast
 # =============================================================================
 # Identificação do produto
 APP_NAME    = "ZWave OfficeLetters"
-APP_VERSION = "1.8.0-beta1"
+APP_VERSION = "1.9.0-beta1"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
@@ -37,6 +37,55 @@ MESES_PT = {
     5: "maio", 6: "junho", 7: "julho", 8: "agosto",
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
+
+# =============================================================================
+# PROMPT DA IA (configurável)
+# =============================================================================
+_PROMPT_TEMPLATE_PADRAO: str = (
+    "    Atue como um assistente legislativo. Leia o texto da moção abaixo e extraia os dados estritamente no formato JSON.\n"
+    "    Se houver múltiplos destinatários exigidos na moção, retorne todos na lista 'destinatarios'.\n"
+    "    \n"
+    "    Formato JSON esperado:\n"
+    "    {\n"
+    '        "tipo_mocao": "Aplauso" ou "Apelo",\n'
+    '        "numero_mocao": "124",\n'
+    '        "autores": ["Nome do Vereador 1", "Nome do Vereador 2"],\n'
+    '        "destinatarios": [\n'
+    "            {\n"
+    '                "nome": "Nome da pessoa ou instituição",\n'
+    '                "cargo_ou_tratamento": "Ex: Presidente da CDHU / Aos cuidados de...",\n'
+    '                "endereco": "Endereço completo se houver no texto, senão vazio",\n'
+    '                "email": "Email se houver, senão vazio",\n'
+    '                "is_prefeito": true ou false,\n'
+    '                "is_instituicao": true ou false\n'
+    "            }\n"
+    "        ]\n"
+    "    }\n"
+    "    \n"
+    "    Texto da moção:\n"
+    "    {texto_mocao}\n"
+)
+
+
+def _prompt_file_path() -> Path:
+    """Returns the path to the user-editable prompt template file."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent / "prompt_template.txt"
+    return Path(__file__).parent / "prompt_template.txt"
+
+
+def _carregar_prompt_template() -> str:
+    """Loads prompt template from file if present, else returns the built-in default."""
+    p = _prompt_file_path()
+    if p.exists():
+        try:
+            return p.read_text(encoding="utf-8")
+        except Exception:
+            pass
+    return _PROMPT_TEMPLATE_PADRAO
+
+
+PROMPT_TEMPLATE: str = _carregar_prompt_template()
 
 # =============================================================================
 # CONFIGURAÇÃO EXTERNA (config.json)
@@ -351,30 +400,7 @@ def validar_dados_mocao(dados: dict[str, Any]) -> None:
 # =============================================================================
 def extrair_dados_com_ia(texto_mocao: str, cliente_genai: Any) -> dict[str, Any]:
     """Envia o texto da moção para o Gemini e retorna um JSON estruturado."""
-    prompt = f"""
-    Atue como um assistente legislativo. Leia o texto da moção abaixo e extraia os dados estritamente no formato JSON.
-    Se houver múltiplos destinatários exigidos na moção, retorne todos na lista 'destinatarios'.
-    
-    Formato JSON esperado:
-    {{
-        "tipo_mocao": "Aplauso" ou "Apelo",
-        "numero_mocao": "124",
-        "autores": ["Nome do Vereador 1", "Nome do Vereador 2"],
-        "destinatarios": [
-            {{
-                "nome": "Nome da pessoa ou instituição",
-                "cargo_ou_tratamento": "Ex: Presidente da CDHU / Aos cuidados de...",
-                "endereco": "Endereço completo se houver no texto, senão vazio",
-                "email": "Email se houver, senão vazio",
-                "is_prefeito": true ou false,
-                "is_instituicao": true ou false
-            }}
-        ]
-    }}
-    
-    Texto da moção:
-    {texto_mocao}
-    """
+    prompt = PROMPT_TEMPLATE.replace("{texto_mocao}", texto_mocao)
     
     MAX_TENTATIVAS = 5
     logger.debug("Enviando moção à API Gemini.")
