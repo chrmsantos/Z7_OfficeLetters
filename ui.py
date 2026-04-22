@@ -243,8 +243,13 @@ class AutoOficiosApp(ctk.CTk):
         self._key_status.grid(row=13, column=0, sticky="w", padx=22, pady=(0, 6))
 
         # ── Spacer + Botões ────────────────────────────────────────────────────
+        self._action_frame = ctk.CTkFrame(self._left, fg_color="transparent")
+        self._action_frame.grid(row=15, column=0, columnspan=1, sticky="ew", padx=20, pady=(0, 10))
+        self._action_frame.grid_columnconfigure(0, weight=3)
+        self._action_frame.grid_columnconfigure(1, weight=0)
+
         self._gen_btn = ctk.CTkButton(
-            self._left,
+            self._action_frame,
             text="⚡   GERAR OFÍCIOS",
             font=ctk.CTkFont(size=15, weight="bold"),
             height=54, corner_radius=12,
@@ -252,19 +257,19 @@ class AutoOficiosApp(ctk.CTk):
             text_color="#ffffff",
             command=self._start_processing,
         )
-        self._gen_btn.grid(row=15, column=0, sticky="ew", padx=20, pady=(0, 6))
+        self._gen_btn.grid(row=0, column=0, sticky="ew")
 
         self._cancel_btn = ctk.CTkButton(
-            self._left,
+            self._action_frame,
             text="⏹   CANCELAR",
             font=ctk.CTkFont(size=13, weight="bold"),
-            height=38, corner_radius=10,
+            height=54, corner_radius=12,
             fg_color=_C["panel"], hover_color=_C["error"],
             text_color=_C["error"],
             border_width=1, border_color=_C["error"],
             command=self._request_cancel,
         )
-        self._cancel_btn.grid(row=16, column=0, sticky="ew", padx=20, pady=(0, 10))
+        self._cancel_btn.grid(row=0, column=1, sticky="ew", padx=(8, 0))
         self._cancel_btn.grid_remove()  # hidden until processing starts
 
         modelos_frame = ctk.CTkFrame(self._left, fg_color="transparent")
@@ -402,7 +407,7 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkLabel(
             footer,
-            text=f"ZWave OfficeLetters v{_ao.APP_VERSION}  •  Câmara Municipal de Santa Bárbara d'Oeste/SP  •  Powered by Gemini AI",
+            text=f"ZWave OfficeLetters v{_ao.APP_VERSION}  •  Câmara Municipal de Santa Bárbara d'Oeste/SP  •  Licenced under GPLv3 •  Powered by Gemini AI",
             font=ctk.CTkFont(size=10),
             text_color=_C["dim"],
         ).grid(row=0, column=0, sticky="w", padx=16, pady=6)
@@ -542,12 +547,12 @@ class AutoOficiosApp(ctk.CTk):
         if names:
             self._prop_combo.set(names[0])
         else:
-            self._prop_combo.set("(nenhum arquivo em proposituras/)")
+            self._prop_combo.set("(nenhum arquivo em proposituras)")
 
     def _browse_file(self) -> None:
         path = filedialog.askopenfilename(
             title="Selecionar propositura",
-            initialdir=str(Path("proposituras").resolve()),
+            initialdir=str(Path(_ao.PASTA_PROPOSITURAS)),
             filetypes=[
                 ("Documentos", "*.txt *.docx *.doc *.odt *.pdf"),
                 ("Todos os arquivos", "*.*"),
@@ -712,7 +717,7 @@ class AutoOficiosApp(ctk.CTk):
             Q.put(("log", f"\n✦  {total} moção(ões) encontrada(s). Iniciando IA…\n", "bold"))
             Q.put(("progress", 0, total))
 
-            Path(_ao.PASTA_SAIDA).mkdir(exist_ok=True)
+            Path(_ao.PASTA_SAIDA).mkdir(parents=True, exist_ok=True)
             if not Path("modelo_oficio.docx").exists():
                 Q.put(("error", "Arquivo 'modelo_oficio.docx' não encontrado."))
                 return
@@ -802,7 +807,7 @@ class AutoOficiosApp(ctk.CTk):
             ws.title = f"Controle {year}"
             for row in dados_planilha:
                 ws.append(row)
-            Path(_ao.PASTA_PLANILHA).mkdir(exist_ok=True)
+            Path(_ao.PASTA_PLANILHA).mkdir(parents=True, exist_ok=True)
             wb.save(os.path.join(_ao.PASTA_PLANILHA, "CONTROLE_OFICIOS.xlsx"))
 
             elapsed = time.time() - inicio

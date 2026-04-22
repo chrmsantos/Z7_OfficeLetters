@@ -22,10 +22,11 @@ APP_VERSION = "1.6.0-beta2"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
-PASTA_SAIDA         = "oficios_gerados"
-PASTA_LOGS          = "logs"
-PASTA_PROPOSITURAS  = "proposituras"
-PASTA_PLANILHA      = "planilha_gerada"
+_BASE_DIR           = Path(os.environ.get("USERPROFILE", Path.home())) / "AppData" / "Local" / "ZWave" / "Tmp" / "OfficeLetters"
+PASTA_SAIDA         = str(_BASE_DIR / "oficios_gerados")
+PASTA_LOGS          = str(_BASE_DIR / "logs")
+PASTA_PROPOSITURAS  = str(_BASE_DIR / "proposituras")
+PASTA_PLANILHA      = str(_BASE_DIR / "planilha_gerada")
 MODELO_PLANILHA     = "modelo_planilha.xlsx"
 
 # Identificador único desta sessão — incluído em todos os registros de log.
@@ -87,7 +88,7 @@ def configurar_logging(verbose: bool = False) -> str:
     # Evita acumulação de handlers em recargas / testes.
     logger.handlers.clear()
 
-    Path(PASTA_LOGS).mkdir(exist_ok=True)
+    Path(PASTA_LOGS).mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = os.path.join(PASTA_LOGS, f"auto_oficios_{timestamp}_{SESSAO_ID}.log")
 
@@ -189,6 +190,7 @@ def listar_proposituras() -> list[Path]:
     """
     pasta = Path(PASTA_PROPOSITURAS)
     if not pasta.is_dir():
+        pasta.mkdir(parents=True, exist_ok=True)
         return []
 
     vistos: dict[str, Path] = {}  # nome-base -> arquivo preferencial já escolhido
