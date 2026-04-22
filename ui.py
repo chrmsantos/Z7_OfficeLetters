@@ -266,52 +266,47 @@ class AutoOficiosApp(ctk.CTk):
         self._section_title(self._left, 0, "CONFIGURAÇÃO")
         self._divider(self._left, 1)
 
-        # ── Número do ofício ──────────────────────────────────────────────────
-        self._field_label(self._left, 2, "Número do Ofício Inicial")
+        # ── Número / Iniciais / Data (lado a lado) ──────────────────────────
+        top_frame = ctk.CTkFrame(self._left, fg_color="transparent")
+        top_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 14))
+        top_frame.grid_columnconfigure(0, weight=2)
+        top_frame.grid_columnconfigure(1, weight=1)
+        top_frame.grid_columnconfigure(2, weight=2)
 
-        num_frame = ctk.CTkFrame(self._left, fg_color="transparent")
-        num_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 14))
-        num_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            top_frame, text="Nº do Ofício Inicial",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=_C["text"], anchor="w",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        ctk.CTkLabel(
+            top_frame, text="Iniciais",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=_C["text"], anchor="w",
+        ).grid(row=0, column=1, sticky="w", padx=(8, 0), pady=(0, 4))
+        ctk.CTkLabel(
+            top_frame, text="Data dos Ofícios",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=_C["text"], anchor="w",
+        ).grid(row=0, column=2, sticky="w", padx=(8, 0), pady=(0, 4))
 
         self._num_var = ctk.StringVar(value="1")
         self._num_entry = ctk.CTkEntry(
-            num_frame, textvariable=self._num_var,
+            top_frame, textvariable=self._num_var,
             placeholder_text="Ex: 300",
             font=ctk.CTkFont(size=15), height=42,
         )
-        self._num_entry.grid(row=0, column=0, sticky="ew")
+        self._num_entry.grid(row=1, column=0, sticky="ew")
 
-        ctk.CTkButton(
-            num_frame, text="−", width=38, height=42,
-            font=ctk.CTkFont(size=17, weight="bold"),
-            fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["text"],
-            command=lambda: self._step_num(-1),
-        ).grid(row=0, column=1, padx=(6, 0))
-
-        ctk.CTkButton(
-            num_frame, text="+", width=38, height=42,
-            font=ctk.CTkFont(size=17, weight="bold"),
-            fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["text"],
-            command=lambda: self._step_num(1),
-        ).grid(row=0, column=2, padx=(4, 0))
-
-        # ── Iniciais do redator ───────────────────────────────────────────────
-        self._field_label(self._left, 4, "Iniciais do Redator")
         self._sigla_var = ctk.StringVar()
         ctk.CTkEntry(
-            self._left, textvariable=self._sigla_var,
+            top_frame, textvariable=self._sigla_var,
             placeholder_text="Ex: xyz",
             font=ctk.CTkFont(size=15), height=42,
-        ).grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 14))
+        ).grid(row=1, column=1, sticky="ew", padx=(8, 0))
 
-        # ── Data ──────────────────────────────────────────────────────────────
-        self._field_label(self._left, 6, "Data dos Ofícios")
         self._data_var = ctk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
-
         self._data_btn = ctk.CTkButton(
-            self._left,
+            top_frame,
             textvariable=self._data_var,
             font=ctk.CTkFont(size=15),
             height=42, anchor="w",
@@ -320,7 +315,7 @@ class AutoOficiosApp(ctk.CTk):
             border_color=_C["border"],
             command=self._open_date_picker,
         )
-        self._data_btn.grid(row=7, column=0, sticky="ew", padx=20, pady=(0, 14))
+        self._data_btn.grid(row=1, column=2, sticky="ew", padx=(8, 0))
 
         # ── Propositura ───────────────────────────────────────────────────────
         self._field_label(self._left, 9, "Propositura")
@@ -628,13 +623,6 @@ class AutoOficiosApp(ctk.CTk):
             self._prop_combo.set("(nenhum arquivo em proposituras)")
         self.deiconify()
         self.focus_force()
-
-    def _step_num(self, delta: int) -> None:
-        try:
-            val = max(1, int(self._num_var.get()) + delta)
-        except ValueError:
-            val = 1
-        self._num_var.set(str(val))
 
     def _open_date_picker(self) -> None:
         from tkcalendar import Calendar  # lazy import
