@@ -14,6 +14,7 @@ import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
+import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any
 
@@ -63,8 +64,7 @@ class AutoOficiosApp(ctk.CTk):
         self._queue: queue.Queue[tuple[Any, ...]] = queue.Queue()
         self._processing = False
         self._cancel_event = threading.Event()
-        self._prop_files: dict[str, str] = {}
-        self._batch_arquivos: list[str] = []
+        self._prop_paths: list[str] = []
 
         self._build_ui()
         self._run_init_sync()
@@ -177,36 +177,56 @@ class AutoOficiosApp(ctk.CTk):
         )
         self._data_btn.grid(row=1, column=2, sticky="ew", padx=(8, 0))
 
-        # ── Propositura ───────────────────────────────────────────────────────
-        self._field_label(self._left, 9, "Propositura")
+        # ── Propositura(s) ────────────────────────────────────────────────────
+        self._field_label(self._left, 9, "Propositura(s)")
 
-        prop_frame = ctk.CTkFrame(self._left, fg_color="transparent")
-        prop_frame.grid(row=10, column=0, sticky="ew", padx=20, pady=(0, 14))
-        prop_frame.grid_columnconfigure(0, weight=1)
+        _list_outer = ctk.CTkFrame(self._left, fg_color=_C["border"], corner_radius=8)
+        _list_outer.grid(row=10, column=0, sticky="ew", padx=20, pady=(0, 6))
+        _list_outer.grid_columnconfigure(0, weight=1)
 
-        self._prop_var = ctk.StringVar()
-        self._prop_combo = ctk.CTkComboBox(
-            prop_frame, variable=self._prop_var,
-            font=ctk.CTkFont(size=13), height=42,
-            values=[], state="readonly",
+        self._prop_listbox = tk.Listbox(
+            _list_outer,
+            height=4,
+            font=("Segoe UI", 12),
+            bg=_C["panel"], fg=_C["text"],
+            selectbackground=_C["accent"], selectforeground="#ffffff",
+            activestyle="none",
+            bd=0, highlightthickness=0, relief="flat",
         )
-        self._prop_combo.grid(row=0, column=0, sticky="ew")
+        _sb = tk.Scrollbar(_list_outer, orient="vertical", command=self._prop_listbox.yview)
+        self._prop_listbox.configure(yscrollcommand=_sb.set)
+        self._prop_listbox.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=4)
+        _sb.pack(side="right", fill="y", pady=4)
+
+        prop_btn_frame = ctk.CTkFrame(self._left, fg_color="transparent")
+        prop_btn_frame.grid(row=11, column=0, sticky="ew", padx=20, pady=(0, 12))
+        prop_btn_frame.grid_columnconfigure(0, weight=1)
+        prop_btn_frame.grid_columnconfigure(1, weight=1)
+        prop_btn_frame.grid_columnconfigure(2, weight=1)
 
         ctk.CTkButton(
-            prop_frame, text="↺", width=42, height=42,
-            font=ctk.CTkFont(size=18),
+            prop_btn_frame, text="↺  Pasta", height=34,
+            font=ctk.CTkFont(size=12), corner_radius=8,
             fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["accent"],
+            text_color=_C["accent"], border_width=1, border_color=_C["border"],
             command=self._refresh_proposituras,
-        ).grid(row=0, column=1, padx=(6, 0))
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
         ctk.CTkButton(
-            prop_frame, text="📂", width=42, height=42,
-            font=ctk.CTkFont(size=16),
+            prop_btn_frame, text="📂  Adicionar", height=34,
+            font=ctk.CTkFont(size=12), corner_radius=8,
             fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["text"],
+            text_color=_C["text"], border_width=1, border_color=_C["border"],
             command=self._browse_file,
-        ).grid(row=0, column=2, padx=(4, 0))
+        ).grid(row=0, column=1, sticky="ew", padx=3)
+
+        ctk.CTkButton(
+            prop_btn_frame, text="✕  Remover", height=34,
+            font=ctk.CTkFont(size=12), corner_radius=8,
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["error"], border_width=1, border_color=_C["border"],
+            command=self._remove_propositura,
+        ).grid(row=0, column=2, sticky="ew", padx=(3, 0))
 
         # ── Chave API — apenas variável ──────────────────────────────────
         self._apikey_var = ctk.StringVar(value="")
@@ -491,13 +511,10 @@ class AutoOficiosApp(ctk.CTk):
     def _on_splash_ready(self, loaded_key: str, prop_files_list: list) -> None:
         """Populates UI after init steps complete."""
         self._apply_stored_key(loaded_key)
-        self._prop_files = {p.name: str(p) for p in prop_files_list}
-        names = list(self._prop_files.keys())
-        self._prop_combo.configure(values=names)
-        if names:
-            self._prop_combo.set(names[0])
-        else:
-            self._prop_combo.set("(nenhum arquivo em proposituras)")
+        self._prop_paths = [str(p) for p in prop_files_list]
+        self._prop_listbox.delete(0, tk.END)
+        for p in prop_files_list:
+            self._prop_listbox.insert(tk.END, p.name)
 
     def _open_date_picker(self) -> None:
         from tkcalendar import Calendar  # lazy import
@@ -680,15 +697,11 @@ class AutoOficiosApp(ctk.CTk):
 
     def _refresh_proposituras(self) -> None:
         from auto_oficios import listar_proposituras  # lazy import
-        self._batch_arquivos = []
         files = listar_proposituras()
-        self._prop_files = {p.name: str(p) for p in files}
-        names = list(self._prop_files.keys())
-        self._prop_combo.configure(values=names)
-        if names:
-            self._prop_combo.set(names[0])
-        else:
-            self._prop_combo.set("(nenhum arquivo em proposituras)")
+        self._prop_paths = [str(p) for p in files]
+        self._prop_listbox.delete(0, tk.END)
+        for p in files:
+            self._prop_listbox.insert(tk.END, p.name)
 
     def _browse_file(self) -> None:
         paths = filedialog.askopenfilenames(
@@ -701,24 +714,20 @@ class AutoOficiosApp(ctk.CTk):
         )
         if not paths:
             return
-        if len(paths) == 1:
-            name = Path(paths[0]).name
-            self._prop_files[name] = paths[0]
-            self._batch_arquivos = []
-            vals = self._prop_combo.cget("values")
-            if name not in vals:
-                self._prop_combo.configure(values=list(vals) + [name])
-            self._prop_combo.set(name)
-        else:
-            self._batch_arquivos = list(paths)
-            for p in paths:
-                self._prop_files[Path(p).name] = p
-            label = f"[Lote: {len(paths)} arquivos]"
-            self._prop_files[label] = ""
-            vals = self._prop_combo.cget("values")
-            if label not in vals:
-                self._prop_combo.configure(values=list(vals) + [label])
-            self._prop_combo.set(label)
+        existing = set(self._prop_paths)
+        for p in paths:
+            if p not in existing:
+                self._prop_paths.append(p)
+                self._prop_listbox.insert(tk.END, Path(p).name)
+                existing.add(p)
+
+    def _remove_propositura(self) -> None:
+        sel = self._prop_listbox.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        self._prop_listbox.delete(idx)
+        self._prop_paths.pop(idx)
 
     def _open_modelo_oficio(self) -> None:
         if getattr(sys, "frozen", False):
@@ -1159,20 +1168,11 @@ class AutoOficiosApp(ctk.CTk):
             messagebox.showerror("Erro de Validação", "Data inválida. Use dd-mm-aaaa.")
             return
 
-        prop_name = self._prop_var.get()
-        if prop_name.startswith("[Lote:") and self._batch_arquivos:
-            arquivos = [a for a in self._batch_arquivos if Path(a).exists()]
-            if not arquivos:
-                messagebox.showerror("Erro de Validação",
-                                     "Nenhum arquivo do lote foi encontrado.")
-                return
-        else:
-            arquivo = self._prop_files.get(prop_name, "")
-            if not arquivo or not Path(arquivo).exists():
-                messagebox.showerror("Erro de Validação",
-                                     "Selecione um arquivo de propositura válido.")
-                return
-            arquivos = [arquivo]
+        arquivos = [a for a in self._prop_paths if Path(a).exists()]
+        if not arquivos:
+            messagebox.showerror("Erro de Validação",
+                                 "Adicione pelo menos um arquivo de propositura válido.")
+            return
 
         api_key = self._apikey_var.get().strip() or getattr(self, "_stored_key", "")
         if not api_key:
