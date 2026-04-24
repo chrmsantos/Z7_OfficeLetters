@@ -5,25 +5,36 @@
     "endereco": "Prefeito Municipal\nSanta Bárbara d'Oeste/SP"
   },
   "autores": {
-    "Alex Dantas":          "ad",
-    "Arnaldo Alves":        "aa",
-    "Cabo Dorigon":         "cd",
-    "Careca do Esporte":    "vao",
-    "Carlos Fontes":        "capf",
-    "Celso Ávila":          "clab",
-    "Esther Moraes":        "egsbm",
-    "Felipe Corá":          "fegc",
-    "Gustavo Bagnoli":      "gbg",
-    "Isac Sorrillo":        "igs",
-    "Joi Fornasari":        "jlf",
-    "Juca Bortolucci":      "ecbj",
-    "Kifú":                 "jcss",
-    "Lúcio Donizete":       "ld",
-    "Marcelo Cury":         "mjm",
-    "Paulo Monaro":         "pcm",
-    "Rony Tavares":         "rgt",
-    "Tikinho TK":           "eac",
+    "Alex Dantas": "ad",
+    "Arnaldo Alves": "aa",
+    "Cabo Dorigon": "cd",
+    "Careca do Esporte": "vao",
+    "Carlos Fontes": "capf",
+    "Celso Ávila": "clab",
+    "Esther Moraes": "egsbm",
+    "Felipe Corá": "fegc",
+    "Gustavo Bagnoli": "gbg",
+    "Isac Sorrillo": "igs",
+    "Joi Fornasari": "jlf",
+    "Juca Bortolucci": "ecbj",
+    "Kifú": "jcss",
+    "Lúcio Donizete": "ld",
+    "Marcelo Cury": "mjm",
+    "Paulo Monaro": "pcm",
+    "Rony Tavares": "rgt",
+    "Tikinho TK": "eac",
     "Wilson da Engenharia": "war"
   },
-  "vereadores_feminino": ["Esther Moraes"]
+  "vereadores_feminino": [
+    "Esther Moraes"
+  ],
+  "redatores": {
+    "Alexandre José Carpim": "ajc",
+    "Allan Fadel Vendemiato": "afv",
+    "Bruno Rodrigues Argente": "bra",
+    "Christian Martin dos Santos": "cms",
+    "Henrique Macedo Guimarães": "hmg",
+    "Luciana Curtes": "lc",
+    "Marta de Fátima Camargo Pedroso": "mfcp"
+  }
 }
