@@ -27,7 +27,8 @@ PASTA_SAIDA         = str(_BASE_DIR / "oficios_gerados")
 PASTA_LOGS          = str(_BASE_DIR / "logs")
 PASTA_PROPOSITURAS  = str(_BASE_DIR / "proposituras")
 PASTA_PLANILHA      = str(_BASE_DIR / "planilha_gerada")
-MODELO_PLANILHA     = "modelo_planilha.xlsx"
+MODELO_OFICIO       = "templates/modelo_oficio.docx"
+MODELO_PLANILHA     = "templates/modelo_planilha.xlsx"
 
 # Identificador único desta sessão — incluído em todos os registros de log.
 SESSAO_ID = uuid.uuid4().hex[:8]
@@ -546,6 +547,7 @@ def criar_modelo_planilha(destino: "str | Path | None" = None) -> Path:
         else:
             destino = Path(__file__).parent / MODELO_PLANILHA
     destino = Path(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
 
     wb = Workbook()
     ws = wb.active

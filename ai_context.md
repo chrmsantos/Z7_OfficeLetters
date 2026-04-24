@@ -66,12 +66,15 @@ officeletters/
 ├── auto_oficios.py          # Core business logic — the only module with unit tests
 ├── ui.py                    # Full customtkinter GUI — sole entry point for users
 ├── config.json              # Editable config: prefeito name/address + MAPA_AUTORES
-├── modelo_oficio.docx       # Word template (NOT versioned, NOT bundled in exe)
 ├── auto_oficios.spec        # PyInstaller build spec
 ├── pytest.ini               # testpaths=tests, addopts=-v --tb=short
 ├── LICENSE                  # GNU GPL v3.0
 ├── README.md
 ├── ai_context.md            # ← this file
+│
+├── templates/
+│   ├── modelo_oficio.docx   # Word template (NOT versioned)
+│   └── modelo_planilha.xlsx # Excel template (auto-generated if missing)
 │
 ├── proposituras/            # Input folder — user places moção files here
 ├── oficios_gerados/         # Output folder — generated .docx letters
@@ -83,7 +86,8 @@ officeletters/
 │
 ├── dist/
 │   ├── AutoOficios.exe      # Compiled standalone executable (46 MB)
-│   └── modelo_oficio.docx   # Must be distributed alongside the .exe
+│   └── templates/
+│       └── modelo_oficio.docx   # Must be distributed alongside the .exe
 │
 └── .venv/                   # Python 3.14.4 virtual environment
 ```
@@ -209,7 +213,7 @@ Editable without recompiling. Loaded by `auto_oficios.py` at import.
 
 **When the mayor changes:** edit `nome` and `endereco` in this file.  
 **When a new councillor joins:** add an entry to `autores` (lowercase sigla — the code calls `.upper()` when formatting).  
-**For the distributed exe:** `config.json` must be placed alongside `AutoOficios.exe` and `modelo_oficio.docx`.
+**For the distributed exe:** `config.json` must be placed alongside `AutoOficios.exe`, and `templates/modelo_oficio.docx` inside a `templates/` subfolder.
 
 ---
 
@@ -321,8 +325,9 @@ Output: `dist\AutoOficios.exe` (~46 MB, single file, no console window).
 
 ```text
 AutoOficios.exe
-modelo_oficio.docx
 config.json
+templates/
+    modelo_oficio.docx
 ```
 
 The app creates `proposituras/`, `oficios_gerados/`, `planilha_gerada/`, `logs/` automatically on first run in the same directory.

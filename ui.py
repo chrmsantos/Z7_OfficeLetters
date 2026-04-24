@@ -64,6 +64,7 @@ class AutoOficiosApp(ctk.CTk):
         self._processing = False
         self._cancel_event = threading.Event()
         self._prop_files: dict[str, str] = {}
+        self._batch_arquivos: list[str] = []
 
         self._build_ui()
         self._run_init_sync()
@@ -207,20 +208,11 @@ class AutoOficiosApp(ctk.CTk):
             command=self._browse_file,
         ).grid(row=0, column=2, padx=(4, 0))
 
-        # ── Chave API — apenas variável e badge de status ──────────────────
+        # ── Chave API — apenas variável ──────────────────────────────────
         self._apikey_var = ctk.StringVar(value="")
         self._apikey_visible = False
         self._apikey_entry = None  # criado dentro do diálogo Avançado
         self._apikey_var.trace_add("write", self._on_apikey_changed)
-
-        self._key_status = ctk.CTkLabel(
-            self._left,
-            text="⚠  Chave não configurada",
-            font=ctk.CTkFont(size=11),
-            text_color=_C["warn"],
-            anchor="w",
-        )
-        self._key_status.grid(row=11, column=0, sticky="w", padx=22, pady=(2, 8))
 
         # ── Spacer + Botões ────────────────────────────────────────────────────
         self._action_frame = ctk.CTkFrame(self._left, fg_color="transparent")
@@ -436,11 +428,7 @@ class AutoOficiosApp(ctk.CTk):
     # Interactions
     # =========================================================================
     def _on_apikey_changed(self, *_: Any) -> None:
-        has_key = bool(self._apikey_var.get().strip()) or bool(getattr(self, "_stored_key", ""))
-        self._key_status.configure(
-            text="✔  Chave configurada" if has_key else "⚠  Chave não configurada",
-            text_color=_C["success"] if has_key else _C["warn"],
-        )
+        pass
 
     def _load_api_key_async(self) -> None:
         """Runs registry migration and key loading in a background thread.
@@ -692,6 +680,7 @@ class AutoOficiosApp(ctk.CTk):
 
     def _refresh_proposituras(self) -> None:
         from auto_oficios import listar_proposituras  # lazy import
+        self._batch_arquivos = []
         files = listar_proposituras()
         self._prop_files = {p.name: str(p) for p in files}
         names = list(self._prop_files.keys())
@@ -702,34 +691,47 @@ class AutoOficiosApp(ctk.CTk):
             self._prop_combo.set("(nenhum arquivo em proposituras)")
 
     def _browse_file(self) -> None:
-        path = filedialog.askopenfilename(
-            title="Selecionar propositura",
+        paths = filedialog.askopenfilenames(
+            title="Selecionar propositura(s)",
             initialdir=str(Path(_ao.PASTA_PROPOSITURAS)),
             filetypes=[
                 ("Documentos", "*.txt *.docx *.doc *.odt *.pdf"),
                 ("Todos os arquivos", "*.*"),
             ],
         )
-        if path:
-            name = Path(path).name
-            self._prop_files[name] = path
+        if not paths:
+            return
+        if len(paths) == 1:
+            name = Path(paths[0]).name
+            self._prop_files[name] = paths[0]
+            self._batch_arquivos = []
             vals = self._prop_combo.cget("values")
             if name not in vals:
                 self._prop_combo.configure(values=list(vals) + [name])
             self._prop_combo.set(name)
+        else:
+            self._batch_arquivos = list(paths)
+            for p in paths:
+                self._prop_files[Path(p).name] = p
+            label = f"[Lote: {len(paths)} arquivos]"
+            self._prop_files[label] = ""
+            vals = self._prop_combo.cget("values")
+            if label not in vals:
+                self._prop_combo.configure(values=list(vals) + [label])
+            self._prop_combo.set(label)
 
     def _open_modelo_oficio(self) -> None:
         if getattr(sys, "frozen", False):
-            modelo = Path(sys.executable).parent / "modelo_oficio.docx"
+            modelo = Path(sys.executable).parent / _ao.MODELO_OFICIO
             if not modelo.exists():
-                modelo = Path(getattr(sys, "_MEIPASS", "")) / "modelo_oficio.docx"
+                modelo = Path(getattr(sys, "_MEIPASS", "")) / _ao.MODELO_OFICIO
         else:
-            modelo = Path(__file__).parent / "modelo_oficio.docx"
+            modelo = Path(__file__).parent / _ao.MODELO_OFICIO
         if not modelo.exists():
             messagebox.showwarning(
                 "Modelo não encontrado",
                 f"O arquivo não foi encontrado:\n{modelo}\n\n"
-                "Crie o arquivo modelo_oficio.docx na mesma pasta do aplicativo e tente novamente.",
+                "Crie o arquivo modelo_oficio.docx na pasta templates do aplicativo e tente novamente.",
             )
             return
         os.startfile(str(modelo))
@@ -1158,11 +1160,19 @@ class AutoOficiosApp(ctk.CTk):
             return
 
         prop_name = self._prop_var.get()
-        arquivo = self._prop_files.get(prop_name, "")
-        if not arquivo or not Path(arquivo).exists():
-            messagebox.showerror("Erro de Validação",
-                                 "Selecione um arquivo de propositura válido.")
-            return
+        if prop_name.startswith("[Lote:") and self._batch_arquivos:
+            arquivos = [a for a in self._batch_arquivos if Path(a).exists()]
+            if not arquivos:
+                messagebox.showerror("Erro de Validação",
+                                     "Nenhum arquivo do lote foi encontrado.")
+                return
+        else:
+            arquivo = self._prop_files.get(prop_name, "")
+            if not arquivo or not Path(arquivo).exists():
+                messagebox.showerror("Erro de Validação",
+                                     "Selecione um arquivo de propositura válido.")
+                return
+            arquivos = [arquivo]
 
         api_key = self._apikey_var.get().strip() or getattr(self, "_stored_key", "")
         if not api_key:
@@ -1189,7 +1199,7 @@ class AutoOficiosApp(ctk.CTk):
             "sigla":        sigla,
             "data_extenso": data_extenso,
             "data_iso":     data_dt.strftime("%Y-%m-%d"),
-            "arquivo":      arquivo,
+            "arquivos":     arquivos,
             "api_key":      api_key,
         }
         threading.Thread(target=self._worker, args=(inputs,), daemon=True).start()
@@ -1212,11 +1222,15 @@ class AutoOficiosApp(ctk.CTk):
             _ao._salvar_api_key_no_ambiente(inputs["api_key"])
             cliente = genai.Client(api_key=inputs["api_key"])
 
-            Q.put(("log", f"📂  Lendo: {Path(inputs['arquivo']).name}", "accent"))
-            conteudo = _ao.ler_arquivo_mocoes(inputs["arquivo"])
+            arquivos_proc = inputs["arquivos"]
+            todos_textos: list[str] = []
+            for arq in arquivos_proc:
+                Q.put(("log", f"📂  Lendo: {Path(arq).name}", "accent"))
+                conteudo = _ao.ler_arquivo_mocoes(arq)
+                textos_arq = _RE_MOCAO_SPLIT.split(conteudo)
+                todos_textos.extend(t.strip() for t in textos_arq if t.strip())
 
-            textos = _RE_MOCAO_SPLIT.split(conteudo)
-            textos = [t.strip() for t in textos if t.strip()]
+            textos = todos_textos
             total = len(textos)
 
             Q.put(("log", f"\n✦  {total} moção(ões) encontrada(s). Iniciando IA…\n", "bold"))
@@ -1224,11 +1238,11 @@ class AutoOficiosApp(ctk.CTk):
 
             Path(_ao.PASTA_SAIDA).mkdir(parents=True, exist_ok=True)
             if getattr(sys, "frozen", False):
-                _modelo_oficio = Path(sys.executable).parent / "modelo_oficio.docx"
+                _modelo_oficio = Path(sys.executable).parent / _ao.MODELO_OFICIO
                 if not _modelo_oficio.exists():
-                    _modelo_oficio = Path(getattr(sys, "_MEIPASS", "")) / "modelo_oficio.docx"
+                    _modelo_oficio = Path(getattr(sys, "_MEIPASS", "")) / _ao.MODELO_OFICIO
             else:
-                _modelo_oficio = Path(__file__).parent / "modelo_oficio.docx"
+                _modelo_oficio = Path(__file__).parent / _ao.MODELO_OFICIO
             if not _modelo_oficio.exists():
                 Q.put(("error", f"Arquivo 'modelo_oficio.docx' n\u00e3o encontrado.\n{_modelo_oficio}"))
                 return
