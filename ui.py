@@ -255,7 +255,6 @@ class AutoOficiosApp(ctk.CTk):
         modelos_frame = ctk.CTkFrame(self._left, fg_color="transparent")
         modelos_frame.grid(row=17, column=0, sticky="ew", padx=20, pady=(0, 18))
         modelos_frame.grid_columnconfigure(0, weight=1)
-        modelos_frame.grid_columnconfigure(1, weight=1)
 
         _btn_kw: dict[str, Any] = dict(
             font=ctk.CTkFont(size=12),
@@ -265,17 +264,9 @@ class AutoOficiosApp(ctk.CTk):
             border_width=1, border_color=_C["border"],
         )
         ctk.CTkButton(
-            modelos_frame, text="📝  Template de Ofício",
-            command=self._open_modelo_oficio, **_btn_kw,
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
-        ctk.CTkButton(
-            modelos_frame, text="📈  Template de Planilha",
-            command=self._open_modelo_planilha, **_btn_kw,
-        ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
-        ctk.CTkButton(
             modelos_frame, text="🔧  Avançado",
             command=self._open_avancado, **_btn_kw,
-        ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+        ).grid(row=0, column=0, sticky="ew")
 
     # ── Right Panel (log + results) ───────────────────────────────────────────
     def _build_right_panel(self) -> None:
@@ -581,7 +572,7 @@ class AutoOficiosApp(ctk.CTk):
         """Opens the Advanced dialog: Gemini API key, Configurações and Prompt IA."""
         dlg = ctk.CTkToplevel(self)
         dlg.title("Avançado")
-        dlg.geometry("460x260")
+        dlg.geometry("460x310")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.configure(fg_color=_C["bg"])
@@ -589,7 +580,7 @@ class AutoOficiosApp(ctk.CTk):
         dlg.update_idletasks()
         px, py = self.winfo_x(), self.winfo_y()
         pw, ph = self.winfo_width(), self.winfo_height()
-        dlg.geometry(f"460x260+{px + (pw - 460) // 2}+{py + (ph - 260) // 2}")
+        dlg.geometry(f"460x310+{px + (pw - 460) // 2}+{py + (ph - 310) // 2}")
 
         # ── Chave Gemini API ──────────────────────────────────────────────────
         ctk.CTkLabel(
@@ -666,6 +657,14 @@ class AutoOficiosApp(ctk.CTk):
             btn_frame, text="🤖  Prompt IA",
             command=self._open_prompt_editor, **_btn_kw,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
+        ctk.CTkButton(
+            btn_frame, text="📝  Template de Ofício",
+            command=self._open_modelo_oficio, **_btn_kw,
+        ).grid(row=1, column=0, sticky="ew", padx=(0, 3), pady=(4, 0))
+        ctk.CTkButton(
+            btn_frame, text="📈  Template de Planilha",
+            command=self._open_modelo_planilha, **_btn_kw,
+        ).grid(row=1, column=1, sticky="ew", padx=(3, 0), pady=(4, 0))
 
         def _on_close() -> None:
             self._apikey_entry = None
