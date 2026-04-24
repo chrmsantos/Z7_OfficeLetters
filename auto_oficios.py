@@ -18,7 +18,7 @@ from typing import Any, cast
 # =============================================================================
 # Identificação do produto
 APP_NAME    = "ZWave OfficeLetters"
-APP_VERSION = "1.9.0-beta1"
+APP_VERSION = "2.0.0-alpha1"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
