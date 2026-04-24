@@ -1,5 +1,5 @@
 """
-ui.py — Interface gráfica para o ZWave OfficeLetters.
+ui.py — Interface gráfica para o Z7 OfficeLetters.
 Execute:  python ui.py
 Requer:   customtkinter  (pip install customtkinter)
 """
@@ -52,7 +52,7 @@ _RE_MOCAO_SPLIT = re.compile(r'(?=MOCÃO Nº)')
 class AutoOficiosApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
-        self.title(f"ZWave OfficeLetters v{_ao.APP_VERSION} — Gerador Legislativo")
+        self.title(f"Z7 OfficeLetters v{_ao.APP_VERSION} — Gerador Legislativo")
         self.geometry("1140x680")
         self.minsize(920, 580)
         self.configure(fg_color=_C["bg"])
@@ -101,7 +101,7 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkLabel(
             title_frame,
-            text="ZWAVE OFFICELETTERS",
+            text="Z7 OFFICELETTERS",
             font=ctk.CTkFont(size=22, weight="bold"),
             text_color=_C["text"],
         ).pack(side="left")
@@ -416,7 +416,7 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkLabel(
             footer,
-            text=f"ZWave OfficeLetters v{_ao.APP_VERSION}  •  Câmara Municipal de Santa Bárbara d'Oeste/SP  •  Licenced under GPLv3 •  Powered by Gemini AI",
+            text=f"Z7 OfficeLetters v{_ao.APP_VERSION}  •  Câmara Municipal de Santa Bárbara d'Oeste/SP  •  Licenced under GPLv3 •  Powered by Gemini AI",
             font=ctk.CTkFont(size=10),
             text_color=_C["dim"],
         ).grid(row=0, column=0, sticky="w", padx=16, pady=6)
@@ -431,7 +431,7 @@ class AutoOficiosApp(ctk.CTk):
             border_color=_C["border"],
             text_color=_C["dim"],
             hover_color=_C["bg"],
-            command=lambda: webbrowser.open("https://github.com/chrmsantos/auto_oficios"),
+            command=lambda: webbrowser.open("https://github.com/chrmsantos/Z7_OfficeLetters"),
         ).grid(row=0, column=1, sticky="e", padx=(0, 8), pady=6)
 
         ctk.CTkLabel(

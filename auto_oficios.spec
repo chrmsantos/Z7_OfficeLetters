@@ -1,5 +1,5 @@
 # auto_oficios.spec
-# PyInstaller spec para empacotar AutoOficios como executável Windows (.exe)
+# PyInstaller spec para empacotar Z7_OfficeLetters como executável Windows (.exe)
 # Uso:  pyinstaller auto_oficios.spec
 
 import sys
@@ -89,7 +89,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="ZWaveOfficeLetters",
+    name="Z7_OfficeLetters",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

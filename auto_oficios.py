@@ -17,12 +17,12 @@ from typing import Any, cast
 # CONFIGURAÇÕES GERAIS
 # =============================================================================
 # Identificação do produto
-APP_NAME    = "ZWave OfficeLetters"
+APP_NAME    = "Z7 OfficeLetters"
 APP_VERSION = "2.0.0-alpha3"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
-_BASE_DIR           = Path(os.environ.get("USERPROFILE", Path.home())) / "AppData" / "Local" / "ZWave" / "Tmp" / "OfficeLetters"
+_BASE_DIR           = Path(os.environ.get("USERPROFILE", Path.home())) / "AppData" / "Local" / "Z7" / "Tmp" / "OfficeLetters"
 PASTA_SAIDA         = str(_BASE_DIR / "oficios_gerados")
 PASTA_LOGS          = str(_BASE_DIR / "logs")
 PASTA_PROPOSITURAS  = str(_BASE_DIR / "proposituras")

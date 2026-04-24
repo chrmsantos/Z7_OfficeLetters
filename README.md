@@ -1,4 +1,4 @@
-# ZWave OfficeLetters
+# Z7 OfficeLetters
 
 Ferramenta de automação para geração de ofícios legislativos da Câmara Municipal de Santa Bárbara d'Oeste/SP.
 
@@ -25,8 +25,8 @@ Utiliza a API **Google Gemini** para extrair dados estruturados a partir do text
 
 ```bash
 # Clone o repositório
-git clone https://github.com/chrmsantos/auto_oficios.git
-cd auto_oficios
+git clone https://github.com/chrmsantos/Z7_OfficeLetters.git
+cd Z7_OfficeLetters
 
 # Crie e ative o ambiente virtual
 python -m venv .venv
@@ -70,10 +70,11 @@ CONTROLE_OFICIOS_FINAL.xlsx  # Planilha de controle consolidada
 ## Estrutura do projeto
 
 ```text
-auto_oficios/
+Z7_OfficeLetters/
 ├── auto_oficios.py           # Código principal
-├── modelo_oficio.docx        # Template de ofício (não versionado)
-├── mocoes.txt                # Entrada de moções (não versionado)
+├── ui.py                     # Interface gráfica
+├── config.json               # Configuração (autores, prefeito)
+├── auto_oficios.spec         # Spec PyInstaller
 ├── tests/
 │   └── test_auto_oficios.py  # Testes unitários
 └── README.md

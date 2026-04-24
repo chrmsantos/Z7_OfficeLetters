@@ -1,4 +1,4 @@
-# AI Context — ZWave OfficeLetters
+# AI Context — Z7 OfficeLetters
 
 > This file is the single source of truth for any AI assistant or developer working on this project.
 > Keep it updated whenever the architecture, business rules, or conventions change.
@@ -7,7 +7,7 @@
 
 ## 1. Project Purpose
 
-**ZWave OfficeLetters** is a Windows desktop app that automates the generation of legislative letters ("ofícios") for the Câmara Municipal de Santa Bárbara d'Oeste/SP.
+**Z7 OfficeLetters** is a Windows desktop app that automates the generation of legislative letters ("ofícios") for the Câmara Municipal de Santa Bárbara d'Oeste/SP.
 
 Workflow:
 
@@ -22,7 +22,7 @@ Workflow:
 
 ## 2. Repository
 
-- **GitHub:** `chrmsantos/auto_oficios` — branch `master` (default)
+- **GitHub:** `chrmsantos/Z7_OfficeLetters` — branch `master` (default)
 - **Local workspace:** `C:\Users\csantos\AppData\Local\ZWave\Apps\officeletters`
 - **License:** GNU GPL v3.0
 
@@ -35,7 +35,7 @@ Workflow:
 | OS | Windows 10+ (required — uses `winreg`, `win32com`, `os.startfile`) |
 | Python | 3.14.4 (in-workspace venv at `.venv`) |
 | Virtual env | `.venv\Scripts\activate` |
-| Executable | `dist\AutoOficios.exe` (single-file, built with PyInstaller 6.19.0) |
+| Executable | `dist\Z7_OfficeLetters.exe` (single-file, built with PyInstaller 6.20.0) |
 
 ---
 
@@ -62,7 +62,7 @@ Workflow:
 ## 5. Project Structure
 
 ```text
-officeletters/
+officelatters/
 ├── auto_oficios.py          # Core business logic — the only module with unit tests
 ├── ui.py                    # Full customtkinter GUI — sole entry point for users
 ├── config.json              # Editable config: prefeito name/address + MAPA_AUTORES
@@ -82,12 +82,10 @@ officeletters/
 ├── logs/                    # Log files (rotating, per-session)
 │
 ├── tests/
-│   └── test_auto_oficios.py # 112 unit tests, all passing
+│   └── test_auto_oficios.py # 122 unit tests
 │
 ├── dist/
-│   ├── AutoOficios.exe      # Compiled standalone executable (46 MB)
-│   └── templates/
-│       └── modelo_oficio.docx   # Must be distributed alongside the .exe
+│   └── Z7_OfficeLetters.exe # Compiled standalone executable
 │
 └── .venv/                   # Python 3.14.4 virtual environment
 ```
@@ -319,12 +317,12 @@ def _make_ai_response(payload: dict) -> MagicMock  # fake Gemini response
 & ".venv\Scripts\python.exe" -m PyInstaller auto_oficios.spec --clean
 ```
 
-Output: `dist\AutoOficios.exe` (~46 MB, single file, no console window).
+Output: `dist\Z7_OfficeLetters.exe` (~50 MB, single file, no console window).
 
 **To distribute**, give users a folder with:
 
 ```text
-AutoOficios.exe
+Z7_OfficeLetters.exe
 config.json
 templates/
     modelo_oficio.docx
