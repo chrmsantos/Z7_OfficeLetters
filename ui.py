@@ -5,6 +5,7 @@ Requer:   customtkinter  (pip install customtkinter)
 """
 from __future__ import annotations
 
+import json
 import os
 import queue
 import re
@@ -65,6 +66,8 @@ class AutoOficiosApp(ctk.CTk):
         self._processing = False
         self._cancel_event = threading.Event()
         self._prop_paths: list[str] = []
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._build_ui()
         self._run_init_sync()
@@ -145,12 +148,39 @@ class AutoOficiosApp(ctk.CTk):
         ).grid(row=0, column=2, sticky="w", padx=(8, 0), pady=(0, 4))
 
         self._num_var = ctk.StringVar(value="1")
+        num_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        num_frame.grid(row=1, column=0, sticky="ew")
+        num_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkButton(
+            num_frame, text="−", width=36, height=42,
+            font=ctk.CTkFont(size=18),
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["text"], border_width=1, border_color=_C["border"],
+            corner_radius=8,
+            command=lambda: self._num_var.set(
+                str(max(1, int(self._num_var.get() or 1) - 1))
+            ),
+        ).grid(row=0, column=0)
+
         self._num_entry = ctk.CTkEntry(
-            top_frame, textvariable=self._num_var,
+            num_frame, textvariable=self._num_var,
             placeholder_text="Ex: 300",
             font=ctk.CTkFont(size=15), height=42,
+            justify="center",
         )
-        self._num_entry.grid(row=1, column=0, sticky="ew")
+        self._num_entry.grid(row=0, column=1, sticky="ew", padx=4)
+
+        ctk.CTkButton(
+            num_frame, text="+", width=36, height=42,
+            font=ctk.CTkFont(size=18),
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["text"], border_width=1, border_color=_C["border"],
+            corner_radius=8,
+            command=lambda: self._num_var.set(
+                str(int(self._num_var.get() or 0) + 1)
+            ),
+        ).grid(row=0, column=2)
 
         self._sigla_var = ctk.StringVar()
         _redator_values = [
@@ -202,15 +232,6 @@ class AutoOficiosApp(ctk.CTk):
         prop_btn_frame.grid(row=11, column=0, sticky="ew", padx=20, pady=(0, 12))
         prop_btn_frame.grid_columnconfigure(0, weight=1)
         prop_btn_frame.grid_columnconfigure(1, weight=1)
-        prop_btn_frame.grid_columnconfigure(2, weight=1)
-
-        ctk.CTkButton(
-            prop_btn_frame, text="↺  Pasta", height=34,
-            font=ctk.CTkFont(size=12), corner_radius=8,
-            fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["accent"], border_width=1, border_color=_C["border"],
-            command=self._refresh_proposituras,
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
         ctk.CTkButton(
             prop_btn_frame, text="📂  Adicionar", height=34,
@@ -218,7 +239,7 @@ class AutoOficiosApp(ctk.CTk):
             fg_color=_C["panel"], hover_color=_C["border"],
             text_color=_C["text"], border_width=1, border_color=_C["border"],
             command=self._browse_file,
-        ).grid(row=0, column=1, sticky="ew", padx=3)
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
         ctk.CTkButton(
             prop_btn_frame, text="✕  Remover", height=34,
@@ -226,7 +247,7 @@ class AutoOficiosApp(ctk.CTk):
             fg_color=_C["panel"], hover_color=_C["border"],
             text_color=_C["error"], border_width=1, border_color=_C["border"],
             command=self._remove_propositura,
-        ).grid(row=0, column=2, sticky="ew", padx=(3, 0))
+        ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
 
         # ── Chave API — apenas variável ──────────────────────────────────
         self._apikey_var = ctk.StringVar(value="")
@@ -376,7 +397,7 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkButton(
             summary,
-            text="📊  Planilha",
+            text="📊  Planilha Gerada",
             font=ctk.CTkFont(size=12),
             height=36, width=110, corner_radius=8,
             fg_color=_C["border"], hover_color=_C["accent2"],
@@ -506,15 +527,59 @@ class AutoOficiosApp(ctk.CTk):
         except Exception:
             pass
 
-        self._on_splash_ready(loaded_key, prop_files_list)
+        # Step 3 — last session state
+        session_state: dict = {}
+        try:
+            _session_path = Path(_ao._BASE_DIR) / "last_session.json"
+            if _session_path.exists():
+                session_state = json.loads(_session_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
 
-    def _on_splash_ready(self, loaded_key: str, prop_files_list: list) -> None:
+        self._on_splash_ready(loaded_key, prop_files_list, session_state)
+
+    def _on_splash_ready(self, loaded_key: str, prop_files_list: list, session_state: dict) -> None:
         """Populates UI after init steps complete."""
         self._apply_stored_key(loaded_key)
-        self._prop_paths = [str(p) for p in prop_files_list]
-        self._prop_listbox.delete(0, tk.END)
-        for p in prop_files_list:
-            self._prop_listbox.insert(tk.END, p.name)
+
+        if "numero_oficio" in session_state:
+            self._num_var.set(session_state["numero_oficio"])
+        if "redator" in session_state:
+            self._sigla_var.set(session_state["redator"])
+        if "data" in session_state:
+            self._data_var.set(session_state["data"])
+
+        saved_props = [p for p in session_state.get("proposituras", []) if Path(p).exists()]
+        if saved_props:
+            self._prop_paths = saved_props
+            self._prop_listbox.delete(0, tk.END)
+            for p in saved_props:
+                self._prop_listbox.insert(tk.END, Path(p).name)
+        else:
+            self._prop_paths = [str(p) for p in prop_files_list]
+            self._prop_listbox.delete(0, tk.END)
+            for p in prop_files_list:
+                self._prop_listbox.insert(tk.END, p.name)
+
+    def _save_session_state(self) -> None:
+        """Persists current field values to last_session.json."""
+        state = {
+            "numero_oficio": self._num_var.get(),
+            "redator": self._sigla_var.get(),
+            "data": self._data_var.get(),
+            "proposituras": [p for p in self._prop_paths if Path(p).exists()],
+        }
+        try:
+            _session_path = Path(_ao._BASE_DIR) / "last_session.json"
+            _session_path.write_text(
+                json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception:
+            pass
+
+    def _on_close(self) -> None:
+        self._save_session_state()
+        self.destroy()
 
     def _open_date_picker(self) -> None:
         from tkcalendar import Calendar  # lazy import
