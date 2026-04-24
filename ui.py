@@ -97,7 +97,7 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkLabel(
             title_frame,
-            text="🏙  ZWAVE OFFICELETTERS",
+            text="ZWAVE OFFICELETTERS",
             font=ctk.CTkFont(size=22, weight="bold"),
             text_color=_C["text"],
         ).pack(side="left")
