@@ -207,31 +207,11 @@ class AutoOficiosApp(ctk.CTk):
             command=self._browse_file,
         ).grid(row=0, column=2, padx=(4, 0))
 
-        # ── Chave Gemini API ──────────────────────────────────────────────────
-        self._field_label(self._left, 11, "Chave Gemini API")
-
-        api_frame = ctk.CTkFrame(self._left, fg_color="transparent")
-        api_frame.grid(row=12, column=0, sticky="ew", padx=20, pady=(0, 4))
-        api_frame.grid_columnconfigure(0, weight=1)
-
-        env_key = ""  # populated asynchronously after window renders; see _load_api_key_async
-        self._apikey_var = ctk.StringVar(value=env_key)
+        # ── Chave API — apenas variável e badge de status ──────────────────
+        self._apikey_var = ctk.StringVar(value="")
         self._apikey_visible = False
-        self._apikey_entry = ctk.CTkEntry(
-            api_frame, textvariable=self._apikey_var,
-            placeholder_text="Cole sua chave aqui…",
-            font=ctk.CTkFont(size=13), height=42, show="•",
-        )
-        self._apikey_entry.grid(row=0, column=0, sticky="ew")
+        self._apikey_entry = None  # criado dentro do diálogo Avançado
         self._apikey_var.trace_add("write", self._on_apikey_changed)
-
-        ctk.CTkButton(
-            api_frame, text="👁", width=42, height=42,
-            font=ctk.CTkFont(size=16),
-            fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["text"],
-            command=self._toggle_key_visibility,
-        ).grid(row=0, column=1, padx=(6, 0))
 
         self._key_status = ctk.CTkLabel(
             self._left,
@@ -240,7 +220,7 @@ class AutoOficiosApp(ctk.CTk):
             text_color=_C["warn"],
             anchor="w",
         )
-        self._key_status.grid(row=13, column=0, sticky="w", padx=22, pady=(0, 6))
+        self._key_status.grid(row=11, column=0, sticky="w", padx=22, pady=(2, 8))
 
         # ── Spacer + Botões ────────────────────────────────────────────────────
         self._action_frame = ctk.CTkFrame(self._left, fg_color="transparent")
@@ -285,21 +265,17 @@ class AutoOficiosApp(ctk.CTk):
             border_width=1, border_color=_C["border"],
         )
         ctk.CTkButton(
-            modelos_frame, text="📝  Ofício",
+            modelos_frame, text="📝  Template de Ofício",
             command=self._open_modelo_oficio, **_btn_kw,
         ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
         ctk.CTkButton(
-            modelos_frame, text="📈  Planilha",
+            modelos_frame, text="📈  Template de Planilha",
             command=self._open_modelo_planilha, **_btn_kw,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
         ctk.CTkButton(
-            modelos_frame, text="⚙  Configurações",
-            command=self._open_config_editor, **_btn_kw,
+            modelos_frame, text="🔧  Avançado",
+            command=self._open_avancado, **_btn_kw,
         ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-        ctk.CTkButton(
-            modelos_frame, text="🤖  Prompt IA",
-            command=self._open_prompt_editor, **_btn_kw,
-        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
 
     # ── Right Panel (log + results) ───────────────────────────────────────────
     def _build_right_panel(self) -> None:
@@ -387,7 +363,7 @@ class AutoOficiosApp(ctk.CTk):
 
         ctk.CTkButton(
             summary,
-            text="📁  Ofícios",
+            text="📁  Ofícios Gerados",
             font=ctk.CTkFont(size=12),
             height=36, width=110, corner_radius=8,
             fg_color=_C["border"], hover_color=_C["accent2"],
@@ -601,9 +577,107 @@ class AutoOficiosApp(ctk.CTk):
         y = self.winfo_y() + (self.winfo_height() - popup.winfo_height()) // 2
         popup.geometry(f"+{x}+{y}")
 
+    def _open_avancado(self) -> None:
+        """Opens the Advanced dialog: Gemini API key, Configurações and Prompt IA."""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Avançado")
+        dlg.geometry("460x260")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.configure(fg_color=_C["bg"])
+
+        dlg.update_idletasks()
+        px, py = self.winfo_x(), self.winfo_y()
+        pw, ph = self.winfo_width(), self.winfo_height()
+        dlg.geometry(f"460x260+{px + (pw - 460) // 2}+{py + (ph - 260) // 2}")
+
+        # ── Chave Gemini API ──────────────────────────────────────────────────
+        ctk.CTkLabel(
+            dlg, text="CHAVE GEMINI API",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=_C["accent"], anchor="w",
+        ).pack(fill="x", padx=20, pady=(18, 2))
+        ctk.CTkFrame(dlg, height=1, fg_color=_C["border"]).pack(
+            fill="x", padx=20, pady=(0, 10))
+
+        api_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        api_frame.pack(fill="x", padx=20)
+        api_frame.grid_columnconfigure(0, weight=1)
+
+        self._apikey_entry = ctk.CTkEntry(
+            api_frame, textvariable=self._apikey_var,
+            placeholder_text="Cole sua chave aqui…",
+            font=ctk.CTkFont(size=13), height=42,
+            show="" if self._apikey_visible else "•",
+        )
+        self._apikey_entry.grid(row=0, column=0, sticky="ew")
+
+        ctk.CTkButton(
+            api_frame, text="👁", width=42, height=42,
+            font=ctk.CTkFont(size=16),
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["text"],
+            command=self._toggle_key_visibility,
+        ).grid(row=0, column=1, padx=(6, 0))
+
+        has_key = bool(self._apikey_var.get().strip()) or bool(getattr(self, "_stored_key", ""))
+        _dlg_status = ctk.CTkLabel(
+            dlg,
+            text="✔  Chave configurada" if has_key else "⚠  Chave não configurada",
+            font=ctk.CTkFont(size=11),
+            text_color=_C["success"] if has_key else _C["warn"],
+            anchor="w",
+        )
+        _dlg_status.pack(fill="x", padx=22, pady=(4, 0))
+
+        # Keep the dialog status label in sync with key changes
+        def _update_dlg_status(*_: Any) -> None:
+            hk = bool(self._apikey_var.get().strip()) or bool(getattr(self, "_stored_key", ""))
+            try:
+                _dlg_status.configure(
+                    text="✔  Chave configurada" if hk else "⚠  Chave não configurada",
+                    text_color=_C["success"] if hk else _C["warn"],
+                )
+            except Exception:
+                pass
+
+        _trace_id = self._apikey_var.trace_add("write", _update_dlg_status)
+
+        # ── Botões ────────────────────────────────────────────────────────────
+        ctk.CTkFrame(dlg, height=1, fg_color=_C["border"]).pack(
+            fill="x", padx=20, pady=(12, 10))
+
+        _btn_kw: dict[str, Any] = dict(
+            font=ctk.CTkFont(size=12),
+            height=34, corner_radius=10,
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["dim"],
+            border_width=1, border_color=_C["border"],
+        )
+        btn_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=(0, 20))
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)
+        ctk.CTkButton(
+            btn_frame, text="⚙  Configurações",
+            command=self._open_config_editor, **_btn_kw,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
+        ctk.CTkButton(
+            btn_frame, text="🤖  Prompt IA",
+            command=self._open_prompt_editor, **_btn_kw,
+        ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
+
+        def _on_close() -> None:
+            self._apikey_entry = None
+            self._apikey_var.trace_remove("write", _trace_id)
+            dlg.destroy()
+
+        dlg.protocol("WM_DELETE_WINDOW", _on_close)
+
     def _toggle_key_visibility(self) -> None:
         self._apikey_visible = not self._apikey_visible
-        self._apikey_entry.configure(show="" if self._apikey_visible else "•")
+        if self._apikey_entry is not None:
+            self._apikey_entry.configure(show="" if self._apikey_visible else "•")
 
     def _on_redator_selected(self, choice: str) -> None:
         """Called when the user picks a redator from the dropdown.
