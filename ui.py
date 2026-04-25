@@ -40,7 +40,20 @@ _DARK: dict[str, str] = {
     "text":    "#cdd6f4",
     "dim":     "#6c7086",
 }
-_C = _DARK
+_LIGHT: dict[str, str] = {
+    "bg":      "#f0f2f8",
+    "card":    "#ffffff",
+    "panel":   "#e8ecf6",
+    "border":  "#c8cedf",
+    "accent":  "#2563eb",
+    "accent2": "#1d4ed8",
+    "success": "#16a34a",
+    "error":   "#dc2626",
+    "warn":    "#d97706",
+    "text":    "#1e2030",
+    "dim":     "#6b7280",
+}
+_C: dict[str, str] = dict(_DARK)
 
 # Pre-compiled regex — avoids recompiling on every processed batch
 _RE_MOCAO_SPLIT = re.compile(r'(?=MOCÃO Nº)')
@@ -52,6 +65,7 @@ _RE_MOCAO_SPLIT = re.compile(r'(?=MOCÃO Nº)')
 class AutoOficiosApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
+        self._theme: str = "dark"
         self.title(f"Z7 OfficeLetters v{_ao.APP_VERSION} — Gerador Legislativo")
         self.geometry("1140x680")
         self.minsize(920, 580)
@@ -112,6 +126,19 @@ class AutoOficiosApp(ctk.CTk):
             font=ctk.CTkFont(size=13),
             text_color=_C["dim"],
         ).pack(side="left", pady=4)
+
+        _theme_icon = "☀" if self._theme == "dark" else "🌙"
+        _theme_tip  = "Tema Claro" if self._theme == "dark" else "Tema Escuro"
+        ctk.CTkButton(
+            hdr,
+            text=f"{_theme_icon}  {_theme_tip}",
+            font=ctk.CTkFont(size=12),
+            width=120, height=32, corner_radius=8,
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["dim"],
+            border_width=1, border_color=_C["border"],
+            command=self._toggle_theme,
+        ).grid(row=0, column=1, sticky="e", padx=20, pady=(22, 0))
 
 
     # ── Left Panel (inputs) ───────────────────────────────────────────────────
@@ -444,6 +471,52 @@ class AutoOficiosApp(ctk.CTk):
     # =========================================================================
     # Widget helpers
     # =========================================================================
+    def _toggle_theme(self) -> None:
+        """Switches between dark and light colour palettes and rebuilds the UI."""
+        if self._processing:
+            return
+
+        # Save log content before destroying widgets
+        try:
+            tb = self._log_box._textbox  # type: ignore[reportPrivateUsage]
+            log_text = tb.get("1.0", "end-1c")
+        except Exception:
+            log_text = ""
+
+        # Swap palette
+        if self._theme == "dark":
+            self._theme = "light"
+            ctk.set_appearance_mode("light")
+            _C.clear()
+            _C.update(_LIGHT)
+        else:
+            self._theme = "dark"
+            ctk.set_appearance_mode("dark")
+            _C.clear()
+            _C.update(_DARK)
+
+        self.configure(fg_color=_C["bg"])
+
+        # Destroy all main-grid children (header, panels, footer)
+        for widget in self.grid_slaves():
+            widget.destroy()
+
+        # Rebuild all UI panels with the new palette
+        self._build_ui()
+
+        # Restore proposituras listbox from preserved list
+        self._prop_listbox.delete(0, tk.END)
+        for p in self._prop_paths:
+            self._prop_listbox.insert(tk.END, Path(p).name)
+
+        # Restore log content
+        if log_text:
+            tb2 = self._log_box._textbox  # type: ignore[reportPrivateUsage]
+            tb2.configure(state="normal")
+            tb2.insert("1.0", log_text)
+            tb2.see("end")
+            tb2.configure(state="disabled")
+
     def _section_title(self, parent: ctk.CTkFrame, row: int, text: str) -> None:
         ctk.CTkLabel(
             parent, text=text,
