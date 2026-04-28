@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
+import send2trash
 from typing import Any
 
 import customtkinter as ctk
@@ -56,7 +57,8 @@ _LIGHT: dict[str, str] = {
 _C: dict[str, str] = dict(_DARK)
 
 # Pre-compiled regex — avoids recompiling on every processed batch
-_RE_MOCAO_SPLIT = re.compile(r'(?=MOCÃO Nº)')
+# Uses IGNORECASE + flexible whitespace to handle formatting variations in source files.
+_RE_MOCAO_SPLIT = re.compile(r'(?=MOÇÃO\s+N[º°])', re.IGNORECASE)
 
 
 # =============================================================================
@@ -66,6 +68,7 @@ class AutoOficiosApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
         self._theme: str = "dark"
+        self._load_saved_theme()
         self.title(f"Z7 OfficeLetters v{_ao.APP_VERSION} — Gerador Legislativo")
         self.geometry("1140x680")
         self.minsize(920, 580)
@@ -664,6 +667,21 @@ class AutoOficiosApp(ctk.CTk):
             for p in prop_files_list:
                 self._prop_listbox.insert(tk.END, p.name)
 
+    def _load_saved_theme(self) -> None:
+        """Applies the theme saved in the last session before the UI is built."""
+        try:
+            _session_path = Path(_ao._BASE_DIR) / "last_session.json"
+            if _session_path.exists():
+                saved = json.loads(_session_path.read_text(encoding="utf-8"))
+                saved_theme = saved.get("theme", "dark")
+                if saved_theme != self._theme:
+                    self._theme = saved_theme
+                    ctk.set_appearance_mode(saved_theme)
+                    _C.clear()
+                    _C.update(_LIGHT if saved_theme == "light" else _DARK)
+        except Exception:
+            pass
+
     def _save_session_state(self) -> None:
         """Persists current field values to last_session.json."""
         state = {
@@ -671,6 +689,7 @@ class AutoOficiosApp(ctk.CTk):
             "redator": self._sigla_var.get(),
             "data": self._data_var.get(),
             "proposituras": [p for p in self._prop_paths if Path(p).exists()],
+            "theme": self._theme,
         }
         try:
             _session_path = Path(_ao._BASE_DIR) / "last_session.json"
@@ -679,6 +698,93 @@ class AutoOficiosApp(ctk.CTk):
             )
         except Exception:
             pass
+
+    def _limpar_pastas_saida(self) -> None:
+        """Moves all files in PASTA_SAIDA and PASTA_PLANILHA to the Recycle Bin."""
+        for pasta in (Path(_ao.PASTA_SAIDA), Path(_ao.PASTA_PLANILHA)):
+            if pasta.exists():
+                for arq in pasta.iterdir():
+                    if arq.is_file():
+                        try:
+                            send2trash.send2trash(str(arq))
+                        except Exception:
+                            pass
+
+    def _confirmar_limpeza(self) -> bool:
+        """Shows a modal confirmation dialog. Returns True if the user confirms."""
+        pastas = [Path(_ao.PASTA_SAIDA), Path(_ao.PASTA_PLANILHA)]
+        total = sum(
+            sum(1 for f in p.iterdir() if f.is_file())
+            for p in pastas if p.exists()
+        )
+
+        confirmado: list[bool] = [False]
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Confirmar execução")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.configure(fg_color=_C["bg"])
+        dlg.update_idletasks()
+        pw, ph = self.winfo_width(), self.winfo_height()
+        px, py = self.winfo_x(), self.winfo_y()
+        W, H = 460, 210
+        dlg.geometry(f"{W}x{H}+{px + (pw - W) // 2}+{py + (ph - H) // 2}")
+
+        # Warning icon + title
+        ctk.CTkLabel(
+            dlg, text="⚠  Atenção",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=_C["text"],
+        ).pack(padx=24, pady=(20, 6), anchor="w")
+
+        ctk.CTkFrame(dlg, height=1, fg_color=_C["border"]).pack(fill="x", padx=20, pady=(0, 10))
+
+        _nomes = ["  • " + Path(_ao.PASTA_SAIDA).name, "  • " + Path(_ao.PASTA_PLANILHA).name]
+        _desc = (
+            f"Os {total} arquivo(s) nas pastas abaixo serão enviados para a Lixeira "
+            f"antes da geração:\n\n" + "\n".join(_nomes)
+        ) if total > 0 else (
+            "As pastas de saída estão vazias. Deseja prosseguir com a geração?"
+        )
+        ctk.CTkLabel(
+            dlg, text=_desc,
+            font=ctk.CTkFont(size=12),
+            text_color=_C["dim"],
+            justify="left", wraplength=420,
+        ).pack(padx=24, pady=(0, 16), anchor="w")
+
+        btn_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=(0, 18))
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)
+
+        def _confirmar() -> None:
+            confirmado[0] = True
+            dlg.destroy()
+
+        def _cancelar() -> None:
+            dlg.destroy()
+
+        ctk.CTkButton(
+            btn_frame, text="Prosseguir",
+            font=ctk.CTkFont(size=12), height=34, corner_radius=10,
+            fg_color=_C["accent"], hover_color=_C["accent2"],
+            text_color="#ffffff",
+            command=_confirmar,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
+        ctk.CTkButton(
+            btn_frame, text="Cancelar",
+            font=ctk.CTkFont(size=12), height=34, corner_radius=10,
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["dim"],
+            border_width=1, border_color=_C["border"],
+            command=_cancelar,
+        ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
+
+        dlg.protocol("WM_DELETE_WINDOW", _cancelar)
+        dlg.wait_window()
+        return confirmado[0]
 
     def _on_close(self) -> None:
         self._save_session_state()
@@ -1449,6 +1555,11 @@ class AutoOficiosApp(ctk.CTk):
 
         from auto_oficios import MESES_PT
         data_extenso = f"{data_dt.day} de {MESES_PT[data_dt.month]} de {data_dt.year}"
+
+        # Confirm cleanup of output folders before proceeding
+        if not self._confirmar_limpeza():
+            return
+        self._limpar_pastas_saida()
 
         # Reset UI for new run
         self._processing = True

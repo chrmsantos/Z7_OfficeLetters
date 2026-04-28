@@ -18,7 +18,7 @@ from typing import Any, cast
 # =============================================================================
 # Identificação do produto
 APP_NAME    = "Z7 OfficeLetters"
-APP_VERSION = "2.0.0-beta1"
+APP_VERSION = "2.0.0-beta2"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
@@ -43,8 +43,20 @@ MESES_PT = {
 # PROMPT DA IA (configurável)
 # =============================================================================
 _PROMPT_TEMPLATE_PADRAO: str = (
-    "    Atue como um assistente legislativo. Leia o texto da moção abaixo e extraia os dados estritamente no formato JSON.\n"
-    "    Se houver múltiplos destinatários exigidos na moção, retorne todos na lista 'destinatarios'.\n"
+    "    Atue como um assistente legislativo. Leia o texto da(s) moção(ões) abaixo e extraia os dados estritamente no formato JSON.\n"
+    "    Se houver múltiplos destinatários exigidos em uma moção, retorne todos na lista 'destinatarios'.\n"
+    "    Se o texto da moção não contiver um campo específico (ex: email ou endereço do destinatário), deixe o valor correspondente vazio no JSON.\n"
+    "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true. Se mencionar uma instituição, marque 'is_instituicao' como true.\n"
+    "    O campo 'numero_mocao' deve conter apenas o número sequencial da moção, sem sufixos de ano ou outros caracteres. Ex: '432' em vez de '432/2026'.\n"
+    "    O campo 'tipo_mocao' deve ser classificado como 'Aplauso', 'Apelo', 'Apoio' ou 'Protesto' com base no conteúdo da moção.\n"
+    "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores da moção, conforme mencionados no texto. Se o texto mencionar apenas o cargo (ex: 'os vereadores'), use 'Vereador(a) Indefinido(a)'.\n"
+    "    O campo 'destinatarios' deve ser uma lista de objetos, cada um contendo:\n" \
+    "      - 'nome': nome completo do destinatário (pessoa ou instituição),\n" \
+    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário,\n" \
+    "      - 'endereco': endereço completo do destinatário,\n" \
+    "      - 'email': email do destinatário,\n" \
+    "      - 'is_prefeito': true se o destinatário for o prefeito, caso contrário false,\n" \
+    "      - 'is_instituicao': true se o destinatário for uma instituição, caso contrário false\n" \
     "    \n"
     "    Formato JSON esperado:\n"
     "    {\n"

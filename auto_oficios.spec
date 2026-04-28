@@ -62,6 +62,9 @@ a = Analysis(
         "keyring",
         "keyring.backends",
         "keyring.backends.Windows",
+        # Recycle Bin
+        "send2trash",
+        "send2trash.plat_win",
         # Core app
         "auto_oficios",
         # Misc
