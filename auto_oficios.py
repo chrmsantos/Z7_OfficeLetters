@@ -18,7 +18,7 @@ from typing import Any, cast
 # =============================================================================
 # Identificação do produto
 APP_NAME    = "Z7 OfficeLetters"
-APP_VERSION = "2.0.0-beta2"
+APP_VERSION = "2.0.0-beta3"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
@@ -60,7 +60,7 @@ _PROMPT_TEMPLATE_PADRAO: str = (
     "    \n"
     "    Formato JSON esperado:\n"
     "    {\n"
-    '        "tipo_mocao": "Apelo", "Aplauso", "Apoio" ou "Protesto",\n'
+    '        "tipo_mocao": "Aplauso",\n'
     '        "numero_mocao": "Ex: 432",\n'
     '        "autores": ["Nome do Vereador 1", "Nome do Vereador 2"],\n'
     '        "destinatarios": [\n'
@@ -399,7 +399,7 @@ def validar_dados_mocao(dados: dict[str, Any]) -> None:
     for campo in ("tipo_mocao", "numero_mocao", "autores", "destinatarios"):
         if campo not in dados or not dados[campo]:
             raise ValueError(f"Campo obrigatório ausente ou vazio na resposta da IA: '{campo}'")
-    if dados["tipo_mocao"] not in ("Aplauso", "Apelo"):
+    if dados["tipo_mocao"] not in ("Aplauso", "Apelo", "Apoio", "Protesto"):
         raise ValueError(f"tipo_mocao inválido recebido da IA: '{dados['tipo_mocao']}'")
     if not isinstance(dados["autores"], list):
         raise ValueError("'autores' deve ser uma lista.")

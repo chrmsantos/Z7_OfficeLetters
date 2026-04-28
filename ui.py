@@ -1607,7 +1607,10 @@ class AutoOficiosApp(ctk.CTk):
                 Q.put(("log", f"📂  Lendo: {Path(arq).name}", "accent"))
                 conteudo = _ao.ler_arquivo_mocoes(arq)
                 textos_arq = _RE_MOCAO_SPLIT.split(conteudo)
-                todos_textos.extend(t.strip() for t in textos_arq if t.strip())
+                todos_textos.extend(
+                    t.strip() for t in textos_arq
+                    if t.strip() and _RE_MOCAO_SPLIT.match(t.strip())
+                )
 
             textos = todos_textos
             total = len(textos)
