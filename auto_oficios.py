@@ -18,7 +18,7 @@ from typing import Any, cast
 # =============================================================================
 # Identificação do produto
 APP_NAME    = "Z7 OfficeLetters"
-APP_VERSION = "2.0.0-beta3"
+APP_VERSION = "2.0.0-beta4"
 APP_AUTHOR  = "Christian Martin dos Santos"
 
 # Configurações de Negócio
@@ -44,6 +44,7 @@ MESES_PT = {
 # =============================================================================
 _PROMPT_TEMPLATE_PADRAO: str = (
     "    Atue como um assistente legislativo. Leia o texto da(s) moção(ões) abaixo e extraia os dados estritamente no formato JSON.\n"
+    "    Cada moção pode conter um ou mais destinatários. Para cada destinatário, extraia nome, cargo ou tratamento, endereço e email (se houver), e classifique se é o prefeito/prefeitura ou uma instituição.\n"
     "    Se houver múltiplos destinatários exigidos em uma moção, retorne todos na lista 'destinatarios'.\n"
     "    Se o texto da moção não contiver um campo específico (ex: email ou endereço do destinatário), deixe o valor correspondente vazio no JSON.\n"
     "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true. Se mencionar uma instituição, marque 'is_instituicao' como true.\n"
