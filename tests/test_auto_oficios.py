@@ -220,7 +220,7 @@ class TestConstruirNomeArquivo:
         assert "redator" in self._nome(sigla_servidor="redator")
 
     def test_sigla_autores_refletida(self):
-        assert "ad-aa" in self._nome(sigla_autores="ad-aa")
+        assert "ad e outros" in self._nome(sigla_autores="ad e outros")
 
     def test_remove_caracteres_invalidos_windows(self):
         nome = construir_nome_arquivo(
@@ -257,11 +257,11 @@ class TestFormatarAutores:
 
     def test_dois_autores_sigla(self):
         _, sigla = formatar_autores(["Alex Dantas", "Arnaldo Alves"])
-        assert sigla == "ad-aa"
+        assert sigla == "ad e outros"
 
     def test_tres_autores_sigla(self):
         _, sigla = formatar_autores(["Alex Dantas", "Arnaldo Alves", "Cabo Dorigon"])
-        assert sigla == "ad-aa-cd"
+        assert sigla == "ad e outros"
 
     def test_tres_autores_usa_e_no_final(self):
         texto, _ = formatar_autores(["Alex Dantas", "Arnaldo Alves", "Cabo Dorigon"])
@@ -277,7 +277,7 @@ class TestFormatarAutores:
 
     def test_mistura_conhecido_desconhecido(self):
         _, sigla = formatar_autores(["Alex Dantas", "Vereador X"])
-        assert sigla == "ad-indef"
+        assert sigla == "ad e outros"
 
     def test_vereadora_unica_texto(self):
         texto, _ = formatar_autores(["Esther Moraes"])

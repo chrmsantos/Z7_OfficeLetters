@@ -1668,6 +1668,17 @@ class AutoOficiosApp(ctk.CTk):
                         "tratamento_rodape":    info["tratamento_rodape"],
                         "destinatario_nome":    info["destinatario_nome"],
                         "destinatario_endereco": info["destinatario_endereco"],
+                        # Uppercase aliases — matches {{UPPER_CASE}} placeholders in the Word template
+                        "NUM_OFICIO":           num_str,
+                        "DATA_EXTENSO":         inputs["data_extenso"],
+                        "TIPO_MOCAO":           str(dados["tipo_mocao"]),
+                        "NUM_MOCAO":            str(dados["numero_mocao"]),
+                        "VOCATIVO":             info["vocativo"],
+                        "PRONOME_CORPO":        info["pronome_corpo"],
+                        "TEXTO_AUTORIA":        texto_autoria,
+                        "TRATAMENTO_RODAPE":    info["tratamento_rodape"],
+                        "DESTINATARIO_NOME":    info["destinatario_nome"],
+                        "DESTINATARIO_ENDERECO": info["destinatario_endereco"],
                     }
 
                     doc = DocxTemplate(str(_modelo_oficio))

@@ -480,7 +480,7 @@ def formatar_autores(lista_autores: list[str]) -> tuple[str, str]:
         nomes_limpos.append(autor)
         femininos.append(any(nome_f in autor_lower for nome_f in _VEREADORES_FEMININO_LOWER))
 
-    sigla_final = "-".join(siglas)
+    sigla_final = f"{siglas[0]} e outros" if len(siglas) > 1 else siglas[0]
     todas_femininas = all(femininos)
 
     if len(nomes_limpos) == 1:
