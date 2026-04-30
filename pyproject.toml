@@ -1,0 +1,87 @@
+[project]
+name = "z7-officeletters"
+version = "2.1.6-beta3"
+requires-python = ">=3.12"
+description = "Z7 OfficeLetters — Gerador de Ofícios Legislativos"
+authors = [{ name = "Christian Martin dos Santos" }]
+license = { text = "GPL-3.0-or-later" }
+readme = "README.md"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# =============================================================================
+# Ruff — linting and formatting
+# =============================================================================
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "ANN", # flake8-annotations
+    "D",   # pydocstyle
+    "RUF", # ruff-specific
+    "N",   # pep8-naming
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+]
+ignore = [
+    "D203",   # one-blank-line-before-class — conflicts with D211
+    "D213",   # multi-line-summary-second-line — conflicts with D212
+    "ANN401", # Dynamically typed expressions (Any) — unavoidable for AI responses
+    "D401",   # first line should be in imperative mood — too strict for Brazilian Portuguese
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN", "D", "S"]
+"scripts/**/*.py" = ["ANN"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+
+# =============================================================================
+# Pyright — static type checking (strict mode)
+# =============================================================================
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+# Suppress noise from untyped third-party libraries (customtkinter, docxtpl, etc.)
+reportMissingTypeStubs = "none"
+reportMissingModuleSource = "none"
+# CTk widgets expose dynamic attributes; suppress unknown-member errors for gui/
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownParameterType = "none"
+reportUnknownArgumentType = "none"
+exclude = ["build/", "dist/"]
+
+# =============================================================================
+# pytest
+# =============================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+pythonpath = ["src"]
+
+# =============================================================================
+# Coverage
+# =============================================================================
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "scripts/*"]
