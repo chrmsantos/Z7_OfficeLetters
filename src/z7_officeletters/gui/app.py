@@ -41,7 +41,7 @@ from z7_officeletters.constants import (
 from z7_officeletters.core import config as _config
 from z7_officeletters.core.documents import criar_modelo_planilha
 from z7_officeletters.core.files import listar_proposituras
-from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro
+from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia, salvar_modelo_ia
 from z7_officeletters.gui.constants import _C, _DARK, _LIGHT
 from z7_officeletters.gui.workers.processor import run_processing_worker
 
@@ -111,9 +111,11 @@ class AutoOficiosApp(ctk.CTk):
             pass
 
         loaded_key = ""
+        loaded_model = ""
         try:
             migrar_chave_do_registro()
             loaded_key = carregar_api_key()
+            loaded_model = carregar_modelo_ia()
         except Exception:  # noqa: BLE001
             pass
 
@@ -131,15 +133,20 @@ class AutoOficiosApp(ctk.CTk):
         except Exception:  # noqa: BLE001
             pass
 
-        self._on_init_ready(loaded_key, prop_files, session_state)
+        self._on_init_ready(loaded_key, loaded_model, prop_files, session_state)
 
     def _on_init_ready(
         self,
         loaded_key: str,
+        loaded_model: str,
         prop_files: list[Path],
         session_state: dict[str, Any],
     ) -> None:
         self._stored_key = loaded_key
+        if loaded_model:
+            self._modelo_ia_var.set(loaded_model)
+            import z7_officeletters.core.ai as _ai  # noqa: PLC0415
+            _ai.MODELO_IA = loaded_model
 
         if "numero_oficio" in session_state:
             self._num_var.set(session_state["numero_oficio"])
@@ -354,7 +361,7 @@ class AutoOficiosApp(ctk.CTk):
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
 
         self._apikey_var = ctk.StringVar(value="")
-
+        self._modelo_ia_var = ctk.StringVar(value="")
         self._action_frame = ctk.CTkFrame(self._left, fg_color="transparent")
         self._action_frame.grid(row=15, column=0, columnspan=1, sticky="ew", padx=20, pady=(0, 10))
         self._action_frame.grid_columnconfigure(0, weight=3)
@@ -677,7 +684,7 @@ class AutoOficiosApp(ctk.CTk):
 
         dlg = ctk.CTkToplevel(self)
         dlg.title("Avançado")
-        dlg.geometry("460x310")
+        dlg.geometry("460x390")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.configure(fg_color=_C["bg"])
@@ -685,7 +692,7 @@ class AutoOficiosApp(ctk.CTk):
         dlg.update_idletasks()
         px, py = self.winfo_x(), self.winfo_y()
         pw, ph = self.winfo_width(), self.winfo_height()
-        dlg.geometry(f"460x310+{px + (pw - 460) // 2}+{py + (ph - 310) // 2}")
+        dlg.geometry(f"460x390+{px + (pw - 460) // 2}+{py + (ph - 390) // 2}")
 
         ctk.CTkLabel(
             dlg, text="CHAVE GEMINI API",
@@ -725,6 +732,46 @@ class AutoOficiosApp(ctk.CTk):
                 lambda k: setattr(self, "_stored_key", k),
             ),
         ).pack(fill="x", padx=20, pady=(10, 0))
+
+        ctk.CTkLabel(
+            dlg, text="MODELO IA",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=_C["accent"], anchor="w",
+        ).pack(fill="x", padx=20, pady=(14, 2))
+        ctk.CTkFrame(dlg, height=1, fg_color=_C["border"]).pack(fill="x", padx=20, pady=(0, 6))
+
+        model_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        model_frame.pack(fill="x", padx=20, pady=(0, 0))
+        model_frame.grid_columnconfigure(0, weight=1)
+
+        model_entry = ctk.CTkEntry(
+            model_frame, textvariable=self._modelo_ia_var,
+            placeholder_text="Ex: gemini-2.0-flash",
+            font=ctk.CTkFont(size=13), height=36,
+        )
+        model_entry.grid(row=0, column=0, sticky="ew")
+
+        def _save_model() -> None:
+            import z7_officeletters.core.ai as _ai  # noqa: PLC0415
+            modelo = self._modelo_ia_var.get().strip()
+            if not modelo:
+                from tkinter import messagebox as _mb  # noqa: PLC0415
+                _mb.showwarning("Modelo IA", "Informe um nome de modelo.", parent=dlg)
+                return
+            try:
+                salvar_modelo_ia(modelo)
+                _ai.MODELO_IA = modelo
+            except Exception as exc:  # noqa: BLE001
+                from tkinter import messagebox as _mb  # noqa: PLC0415
+                _mb.showerror("Modelo IA", f"Não foi possível salvar.\n\n{exc}", parent=dlg)
+
+        ctk.CTkButton(
+            model_frame, text="💾", width=36, height=36,
+            font=ctk.CTkFont(size=15),
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["text"],
+            command=_save_model,
+        ).grid(row=0, column=1, padx=(6, 0))
 
         ctk.CTkFrame(dlg, height=1, fg_color=_C["border"]).pack(fill="x", padx=20, pady=(12, 10))
 

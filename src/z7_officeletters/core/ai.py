@@ -31,6 +31,7 @@ from z7_officeletters.core.logging_setup import logger
 __all__ = [
     "PROMPT_TEMPLATE_PADRAO",
     "PROMPT_TEMPLATE",
+    "MODELO_IA",
     "carregar_prompt_template",
     "limpar_json_da_resposta",
     "validar_dados_mocao",
@@ -112,6 +113,18 @@ def carregar_prompt_template() -> str:
 # Active template (can be replaced at runtime via the GUI prompt editor).
 PROMPT_TEMPLATE: str = carregar_prompt_template()
 
+# Active AI model name (can be replaced at runtime via the GUI advanced dialog).
+def _load_modelo_ia() -> str:
+    try:
+        from z7_officeletters.core.api_key import carregar_modelo_ia  # noqa: PLC0415
+        return carregar_modelo_ia()
+    except Exception:  # noqa: BLE001
+        from z7_officeletters.core.api_key import DEFAULT_MODELO_IA  # noqa: PLC0415
+        return DEFAULT_MODELO_IA
+
+
+MODELO_IA: str = _load_modelo_ia()
+
 
 def limpar_json_da_resposta(texto: str) -> str:
     """Strip Markdown code fences from an AI text response.
@@ -182,7 +195,7 @@ def extrair_dados_com_ia(texto_mocao: str, cliente_genai: Any) -> dict[str, Any]
     for tentativa in range(MAX_TENTATIVAS_IA):
         try:
             response = cliente_genai.models.generate_content(
-                model="gemini-2.0-flash",
+                model=MODELO_IA,
                 contents=prompt,
             )
             logger.debug("Resposta recebida (tentativa %d).", tentativa + 1)

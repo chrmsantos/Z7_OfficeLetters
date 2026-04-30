@@ -7,8 +7,12 @@ The key is stored encrypted in the Windows Credential Manager via the
 Public exports:
     KEYRING_SERVICE: Service name used as the Credential Manager namespace.
     KEYRING_USERNAME: Username key within the service.
+    KEYRING_MODEL_USERNAME: Username key for the AI model name.
+    DEFAULT_MODELO_IA: Default Gemini model name.
     salvar_api_key: Persist an API key to the Credential Manager.
     carregar_api_key: Retrieve the stored API key.
+    salvar_modelo_ia: Persist the AI model name to the Credential Manager.
+    carregar_modelo_ia: Retrieve the stored AI model name.
     migrar_chave_do_registro: One-time migration from the legacy Registry entry.
 """
 
@@ -19,13 +23,19 @@ from z7_officeletters.core.logging_setup import logger
 __all__ = [
     "KEYRING_SERVICE",
     "KEYRING_USERNAME",
+    "KEYRING_MODEL_USERNAME",
+    "DEFAULT_MODELO_IA",
     "salvar_api_key",
     "carregar_api_key",
+    "salvar_modelo_ia",
+    "carregar_modelo_ia",
     "migrar_chave_do_registro",
 ]
 
 KEYRING_SERVICE: str = "z7_officeletters"
 KEYRING_USERNAME: str = "gemini_api_key"
+KEYRING_MODEL_USERNAME: str = "gemini_model"
+DEFAULT_MODELO_IA: str = "gemini-2.0-flash"
 
 
 def salvar_api_key(chave: str) -> None:
@@ -54,6 +64,29 @@ def carregar_api_key() -> str:
     import keyring  # noqa: PLC0415
 
     return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME) or ""
+
+
+def salvar_modelo_ia(modelo: str) -> None:
+    """Persist the AI model name in the Windows Credential Manager.
+
+    Args:
+        modelo: The Gemini model name string to store (e.g. ``"gemini-2.0-flash"``).
+    """
+    import keyring  # noqa: PLC0415
+
+    keyring.set_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME, modelo)
+    logger.info("Modelo IA '%s' persistido no Credential Manager do Windows.", modelo)
+
+
+def carregar_modelo_ia() -> str:
+    """Retrieve the stored AI model name from the Windows Credential Manager.
+
+    Returns:
+        The stored model name, or :data:`DEFAULT_MODELO_IA` if none is found.
+    """
+    import keyring  # noqa: PLC0415
+
+    return keyring.get_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME) or DEFAULT_MODELO_IA
 
 
 def migrar_chave_do_registro() -> None:

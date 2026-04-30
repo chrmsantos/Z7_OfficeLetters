@@ -1,6 +1,6 @@
 [project]
 name = "z7-officeletters"
-version = "2.1.6-beta3"
+version = "2.1.6-beta4"
 requires-python = ">=3.12"
 description = "Z7 OfficeLetters — Gerador de Ofícios Legislativos"
 authors = [{ name = "Christian Martin dos Santos" }]
