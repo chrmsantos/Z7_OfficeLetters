@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["_DARK", "_LIGHT", "_C", "_RE_PROPOSITURA_SPLIT", "_RE_TIPO_PROPOSITURA", "detectar_tipo_propositura"]
+__all__ = ["_DARK", "_LIGHT", "_C", "_RE_PROPOSITURA_SPLIT", "_RE_TIPO_PROPOSITURA", "detectar_tipo_propositura", "numero_propositura"]
 
 _DARK: dict[str, str] = {
     "bg":      "#0f111a",
@@ -59,6 +59,24 @@ _RE_PROPOSITURA_SPLIT: re.Pattern[str] = re.compile(
 _RE_TIPO_PROPOSITURA: re.Pattern[str] = re.compile(
     r'^(?P<tipo>MOÇÃO|REQUERIMENTO(?:\s+DE\s+PESAR)?)\s+N[º°]', re.IGNORECASE
 )
+
+# Extracts the sequential number from a propositura header line.
+_RE_NUMERO_PROPOSITURA: re.Pattern[str] = re.compile(
+    r'(?:MOÇÃO|REQUERIMENTO(?:\s+DE\s+PESAR)?)\s+N[º°]\s*(\d+)', re.IGNORECASE
+)
+
+
+def numero_propositura(texto: str) -> int:
+    """Extract the sequential number from a propositura header for sorting.
+
+    Args:
+        texto: Raw text of a single propositura block.
+
+    Returns:
+        The integer number found in the header, or 0 if not matched.
+    """
+    m = _RE_NUMERO_PROPOSITURA.search(texto.lstrip())
+    return int(m.group(1)) if m else 0
 
 
 def detectar_tipo_propositura(texto: str) -> str:

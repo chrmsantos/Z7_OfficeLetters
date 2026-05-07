@@ -39,17 +39,63 @@ import time
 from pathlib import Path
 from typing import Any
 
-from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, PASTA_SAIDA, PASTA_PLANILHA
+from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA
 from z7_officeletters.core import ai as _ai
+from z7_officeletters.core import address_db as _addr_db
 from z7_officeletters.core import authors as _authors
 from z7_officeletters.core import documents as _docs
 from z7_officeletters.core import files as _files
 from z7_officeletters.core import recipients as _recipients
 from z7_officeletters.core.api_key import salvar_api_key
 from z7_officeletters.core.logging_setup import configurar_logging
-from z7_officeletters.gui.constants import _RE_PROPOSITURA_SPLIT, detectar_tipo_propositura
+from z7_officeletters.gui.constants import _RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
 
 __all__ = ["run_processing_worker"]
+
+
+def _normalizar_dest(nome: str) -> str:
+    """Normalize a recipient name to a stable grouping key (uppercase, collapsed whitespace)."""
+    return " ".join(nome.upper().split())
+
+
+def _formatar_lista_pt(items: list[str]) -> str:
+    """Format a list of strings in Portuguese style, deduplicating while preserving order.
+
+    Examples:
+        ``["a"]`` → ``"a"``
+        ``["a", "b"]`` → ``"a e b"``
+        ``["a", "b", "c"]`` → ``"a, b e c"``
+    """
+    unique: list[str] = list(dict.fromkeys(items))
+    if len(unique) == 1:
+        return unique[0]
+    return ", ".join(unique[:-1]) + " e " + unique[-1]
+
+
+def _aplicar_tratamento_db(info: dict, tratamento: str) -> None:
+    """Override tratamento_rodape and honorifics in *info* from a DB tratamento line.
+
+    Called after ``processar_destinatario`` when the address database
+    provides a more authoritative tratamento string.
+
+    Args:
+        info: ``DestinatarioProcessado`` dict (mutated in place).
+        tratamento: Raw tratamento line from the address database.
+    """
+    t = tratamento.strip()
+    t_lower = t.lower()
+    if "excelê" in t_lower or "excelencia" in t_lower.encode("ascii", "ignore").decode():
+        info["tratamento_rodape"] = t
+        info["pronome_corpo"] = "Vossa Excelência"
+        info["vocativo"] = (
+            "Excelentíssima Senhora" if "senhora" in t_lower else "Excelentíssimo Senhor"
+        )
+    elif "cuidados" in t_lower:
+        info["tratamento_rodape"] = t
+        info["vocativo"] = "Ilustríssimos Senhores(as)"
+        info["pronome_corpo"] = "Vossas Senhorias"
+    else:
+        info["tratamento_rodape"] = t
 
 
 def _worker_main(
@@ -80,7 +126,10 @@ def _worker_main(
                 if t and _RE_PROPOSITURA_SPLIT.match(t):
                     todos_textos.append((t, detectar_tipo_propositura(t)))
 
-        proposituras = todos_textos
+        proposituras = sorted(
+            todos_textos,
+            key=lambda item: (0 if item[1] == "requerimento_pesar" else 1, numero_propositura(item[0])),
+        )
         total = len(proposituras)
         n_mocoes = sum(1 for _, tp in proposituras if tp == "mocao")
         n_pesar = sum(1 for _, tp in proposituras if tp == "requerimento_pesar")
@@ -111,6 +160,15 @@ def _worker_main(
         modelo_oficio = _resolve_template(MODELO_OFICIO)
         modelo_requerimento_pesar = _resolve_template(MODELO_REQUERIMENTO_PESAR)
 
+        # Address DB — optional; the app degrades gracefully when absent.
+        _db_path = _resolve_template(ENDERECAMENTO_PADRAO)
+        if _db_path.exists():
+            q.put(("log", f"📒  Base de endereçamentos: {_db_path.name}", "dim"))
+            _addr_db.buscar_endereco("__warmup__", db_path=_db_path)  # prime cache
+        else:
+            _db_path = None  # type: ignore[assignment]
+            q.put(("log", "  ⚠  enderecam_padrao.docx não encontrado — usando apenas dados da IA.", "warn"))
+
         if not modelo_oficio.exists():
             q.put(("error", f"Arquivo 'modelo_mocao.docx' não encontrado.\n{modelo_oficio}"))
             return
@@ -123,6 +181,10 @@ def _worker_main(
         total_prompt_tokens = 0
         total_candidates_tokens = 0
         total_tokens = 0
+
+        # ── Phase 1: AI extraction ────────────────────────────────────────────
+        # Process each propositura individually; collect validated data dicts.
+        extracted: list[tuple[str, dict]] = []  # (tipo_propositura, dados)
 
         for i, (texto, tipo_propositura) in enumerate(proposituras, 1):
             if cancel_event.is_set():
@@ -152,97 +214,180 @@ def _worker_main(
             # Normalise motion/requerimento number to just the numeric part.
             num_raw = dados.get("numero_requerimento") or dados.get("numero_mocao", "")
             dados["numero_mocao"] = _docs.normalizar_numero_mocao(str(num_raw))
-            tipo_mocao_str = str(dados.get("tipo_mocao", ""))
-            falecido_str = str(dados.get("falecido", ""))
-            texto_autoria, sigla_autores = _authors.formatar_autores(dados["autores"])
+            extracted.append((tipo_propositura, dados))
 
+        # ── Phase 2: group by (tipo_propositura, recipient) ───────────────────
+        # When multiple propositions share the same recipient, they are merged
+        # into a single office letter so that one ofício covers all of them.
+        #
+        # Key:   (tipo_propositura, normalized_dest_name)
+        # Value: list of (dados, raw_dest_dict, processed_info) triples
+        grupos: dict[tuple[str, str], list[tuple[dict, dict, dict]]] = {}
+
+        for tipo_propositura, dados in extracted:
             for dest in dados["destinatarios"]:
-                info = _recipients.processar_destinatario(dest)
-                num_str = f"{numero_atual:03d}"
+                # Enrich recipient data: DB (priority 1) > propositura (priority 2)
+                dest_proc = dict(dest)  # shallow copy to avoid mutating AI data
+                db_entry = _addr_db.buscar_endereco(dest["nome"], db_path=_db_path)
+                if db_entry:
+                    if db_entry.cargo:
+                        dest_proc["cargo_ou_tratamento"] = db_entry.cargo
+                    if db_entry.endereco:
+                        dest_proc["endereco"] = db_entry.endereco
+                    if db_entry.email:
+                        dest_proc["email"] = db_entry.email
 
-                sigla_redator = inputs["sigla"]
+                info = _recipients.processar_destinatario(dest_proc)
 
-                ctx: dict[str, str] = {
-                    "num_oficio":            num_str,
-                    "data_extenso":          inputs["data_extenso"],
-                    "tipo_mocao":            tipo_mocao_str,
-                    "num_mocao":             str(dados["numero_mocao"]),
-                    "falecido":              falecido_str,
-                    "tipo_propositura":      tipo_propositura,
-                    "sigla_redator":         sigla_redator,
-                    "vocativo":              info["vocativo"],
-                    "pronome_corpo":         info["pronome_corpo"],
-                    "texto_autoria":         texto_autoria,
-                    "tratamento_rodape":     info["tratamento_rodape"],
-                    "destinatario_nome":     info["destinatario_nome"],
-                    "destinatario_endereco": info["destinatario_endereco"],
-                    # Uppercase aliases for Word template placeholders
-                    "NUM_OFICIO":            num_str,
-                    "DATA_EXTENSO":          inputs["data_extenso"],
-                    "TIPO_MOCAO":            tipo_mocao_str,
-                    "NUM_MOCAO":             str(dados["numero_mocao"]),
-                    "FALECIDO":              falecido_str,
-                    "TIPO_PROPOSITURA":      tipo_propositura,
-                    "SIGLA_REDATOR":         sigla_redator,
-                    "VOCATIVO":              info["vocativo"],
-                    "PRONOME_CORPO":         info["pronome_corpo"],
-                    "TEXTO_AUTORIA":         texto_autoria,
-                    "TRATAMENTO_RODAPE":     info["tratamento_rodape"],
-                    "DESTINATARIO_NOME":     info["destinatario_nome"],
-                    "DESTINATARIO_ENDERECO": info["destinatario_endereco"],
-                }
+                # Override honorifics when DB supplies a richer tratamento string.
+                if db_entry:
+                    _aplicar_tratamento_db(info, db_entry.tratamento)
 
-                if tipo_propositura == "requerimento_pesar":
-                    ctx["vocativo"]           = "Ilustríssimos Senhores(as)"
-                    ctx["VOCATIVO"]           = "Ilustríssimos Senhores(as)"
-                    ctx["tratamento_rodape"]  = "Aos familiares do Sr.(ª),"
-                    ctx["TRATAMENTO_RODAPE"]  = "Aos familiares do Sr.(ª),"
-                    ctx["destinatario_nome"]  = falecido_str.upper()
-                    ctx["DESTINATARIO_NOME"]  = falecido_str.upper()
+                dest_key = (tipo_propositura, _normalizar_dest(dest["nome"]))
+                if dest_key not in grupos:
+                    grupos[dest_key] = []
+                grupos[dest_key].append((dados, dest, info))
 
-                    _tmpl = modelo_requerimento_pesar
-                    if not _tmpl.exists():
-                        q.put(("log",
-                            f"  ⚠  Template 'modelo_requer_pesar.docx' não encontrado — "
-                            f"usando modelo_mocao.docx como fallback.",
-                            "warn"))
-                        _tmpl = modelo_oficio
-                else:
+        n_grupos = len(grupos)
+        q.put(("progress", total, total))
+        if n_grupos:
+            q.put(("log", f"\n📬  {n_grupos} ofício(s) a gerar após agrupamento...\n", "bold"))
+
+        # ── Phase 3: generate one letter per group ────────────────────────────
+        for dest_key, grupo in grupos.items():
+            if cancel_event.is_set():
+                q.put(("cancelled", len(dados_planilha), n_grupos))
+                return
+
+            tipo_propositura = dest_key[0]
+            n_props = len(grupo)
+
+            # Merge proposition data from every item in the group.
+            all_autores: list[str] = []
+            for d_item, _dest_raw, _info_item in grupo:
+                for a in d_item["autores"]:
+                    if a not in all_autores:
+                        all_autores.append(a)
+            texto_autoria, sigla_autores = _authors.formatar_autores(all_autores)
+
+            nums_mocao = [d_item["numero_mocao"] for d_item, _, __ in grupo]
+            num_mocao_merged = _formatar_lista_pt(nums_mocao)
+
+            tipos_mocao = [
+                str(d_item.get("tipo_mocao", ""))
+                for d_item, _, __ in grupo
+                if d_item.get("tipo_mocao")
+            ]
+            tipo_mocao_merged = _formatar_lista_pt(tipos_mocao) if tipos_mocao else ""
+
+            falecidos = [
+                str(d_item.get("falecido", ""))
+                for d_item, _, __ in grupo
+                if d_item.get("falecido")
+            ]
+            falecido_merged = _formatar_lista_pt(falecidos) if falecidos else ""
+
+            # Recipient info is identical for all items in the group
+            # (they share the same destination); use the first entry.
+            _dados0, dest0, info = grupo[0]
+
+            if n_props > 1:
+                q.put(("log",
+                    f"─── Ofício nº {numero_atual:03d} — {dest_key[1]} "
+                    f"({n_props} proposituras agrupadas) ───",
+                    "dim"))
+            else:
+                q.put(("log",
+                    f"─── Ofício nº {numero_atual:03d} — {dest_key[1]} ─────────────────────────────",
+                    "dim"))
+
+            num_str = f"{numero_atual:03d}"
+            sigla_redator = inputs["sigla"]
+
+            ctx: dict[str, str] = {
+                "num_oficio":            num_str,
+                "data_extenso":          inputs["data_extenso"],
+                "tipo_mocao":            tipo_mocao_merged,
+                "num_mocao":             num_mocao_merged,
+                "falecido":              falecido_merged,
+                "tipo_propositura":      tipo_propositura,
+                "sigla_redator":         sigla_redator,
+                "vocativo":              info["vocativo"],
+                "pronome_corpo":         info["pronome_corpo"],
+                "texto_autoria":         texto_autoria,
+                "tratamento_rodape":     info["tratamento_rodape"],
+                "destinatario_nome":     info["destinatario_nome"],
+                "destinatario_endereco": info["destinatario_endereco"],
+                # Uppercase aliases for Word template placeholders
+                "NUM_OFICIO":            num_str,
+                "DATA_EXTENSO":          inputs["data_extenso"],
+                "TIPO_MOCAO":            tipo_mocao_merged,
+                "NUM_MOCAO":             num_mocao_merged,
+                "FALECIDO":              falecido_merged,
+                "TIPO_PROPOSITURA":      tipo_propositura,
+                "SIGLA_REDATOR":         sigla_redator,
+                "VOCATIVO":              info["vocativo"],
+                "PRONOME_CORPO":         info["pronome_corpo"],
+                "TEXTO_AUTORIA":         texto_autoria,
+                "TRATAMENTO_RODAPE":     info["tratamento_rodape"],
+                "DESTINATARIO_NOME":     info["destinatario_nome"],
+                "DESTINATARIO_ENDERECO": info["destinatario_endereco"],
+            }
+
+            if tipo_propositura == "requerimento_pesar":
+                ctx["vocativo"]           = "Ilustríssimos Senhores(as)"
+                ctx["VOCATIVO"]           = "Ilustríssimos Senhores(as)"
+                ctx["tratamento_rodape"]  = "Aos familiares do Sr.(ª),"
+                ctx["TRATAMENTO_RODAPE"]  = "Aos familiares do Sr.(ª),"
+                ctx["destinatario_nome"]  = falecido_merged.upper()
+                ctx["DESTINATARIO_NOME"]  = falecido_merged.upper()
+
+                _tmpl = modelo_requerimento_pesar
+                if not _tmpl.exists():
+                    q.put(("log",
+                        f"  ⚠  Template 'modelo_requer_pesar.docx' não encontrado — "
+                        f"usando modelo_mocao.docx como fallback.",
+                        "warn"))
                     _tmpl = modelo_oficio
+            else:
+                _tmpl = modelo_oficio
 
-                doc = DocxTemplate(str(_tmpl))
-                doc.render(ctx)
+            doc = DocxTemplate(str(_tmpl))
+            doc.render(ctx)
 
-                nome = _docs.construir_nome_arquivo(
-                    num_str,
-                    inputs["sigla"],
-                    tipo_mocao_str,
-                    dados["numero_mocao"],
-                    info["envio"],
-                    dest["nome"],
-                    sigla_autores,
-                    ano=year,
-                    tipo_propositura=tipo_propositura,
-                )
-                doc.save(os.path.join(PASTA_SAIDA, nome))
-                q.put(("log", f"  ✔  {nome}", "success"))
+            nome = _docs.construir_nome_arquivo(
+                num_str,
+                inputs["sigla"],
+                tipo_mocao_merged,
+                num_mocao_merged,
+                info["envio"],
+                dest0["nome"],
+                sigla_autores,
+                ano=year,
+                tipo_propositura=tipo_propositura,
+            )
+            doc.save(os.path.join(PASTA_SAIDA, nome))
+            q.put(("log", f"  ✔  {nome}", "success"))
 
-                if tipo_propositura == "requerimento_pesar":
-                    assunto = f"Encaminha Requerimento de Pesar nº {dados['numero_mocao']}/{year}"
-                else:
-                    assunto = f"Encaminha Moção de {tipo_mocao_str} nº {dados['numero_mocao']}/{year}"
-                dados_planilha.append([
-                    num_str,
-                    inputs["data_iso"],
-                    f"{info['tratamento_rodape']} {info['destinatario_nome']}".strip(),
-                    assunto,
-                    ", ".join(
-                        f"{a} ({_authors.sigla_autor(a)})" for a in dados["autores"]
-                    ),
-                    info["envio"],
-                    inputs["sigla"],
-                ])
-                numero_atual += 1
+            if tipo_propositura == "requerimento_pesar":
+                plural_s = "s" if n_props > 1 else ""
+                assunto = f"Encaminha Requerimento{plural_s} de Pesar nº {num_mocao_merged}/{year}"
+            else:
+                plural_oes = "ões" if n_props > 1 else "ão"
+                assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao_merged} nº {num_mocao_merged}/{year}"
+
+            dados_planilha.append([
+                num_str,
+                inputs["data_iso"],
+                f"{info['tratamento_rodape']} {info['destinatario_nome']}".strip(),
+                assunto,
+                ", ".join(
+                    f"{a} ({_authors.sigla_autor(a)})" for a in all_autores
+                ),
+                info["envio"],
+                inputs["sigla"],
+            ])
+            numero_atual += 1
 
         # ── Excel spreadsheet ─────────────────────────────────────────────────
         q.put(("log", "\n📊  Gerando planilha Excel…", "accent"))

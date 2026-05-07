@@ -31,6 +31,7 @@ __all__ = [
     "MODELO_OFICIO",
     "MODELO_REQUERIMENTO_PESAR",
     "MODELO_PLANILHA",
+    "ENDERECAMENTO_PADRAO",
     "BASE_DIR",
     "PASTA_SAIDA",
     "PASTA_LOGS",
@@ -65,6 +66,9 @@ FORMATOS_SUPORTADOS: frozenset[str] = frozenset(ORDEM_PREFERENCIA)
 MODELO_OFICIO: str = "templates/modelo_mocao.docx"
 MODELO_REQUERIMENTO_PESAR: str = "templates/modelo_requer_pesar.docx"
 MODELO_PLANILHA: str = "templates/modelo_planilha.xlsx"
+
+# ── Address database (optional — app degrades gracefully if missing) ──────────
+ENDERECAMENTO_PADRAO: str = "ender/enderecam_padrao.docx"
 
 # ── User-data directories ─────────────────────────────────────────────────────
 BASE_DIR: Path = (

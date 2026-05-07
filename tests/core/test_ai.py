@@ -16,7 +16,7 @@ from z7_officeletters.core.ai import (
     validar_dados_mocao,
     validar_dados_requerimento_pesar,
 )
-from z7_officeletters.gui.constants import detectar_tipo_propositura
+from z7_officeletters.gui.constants import detectar_tipo_propositura, numero_propositura
 from z7_officeletters.core.documents import construir_nome_arquivo
 
 
@@ -248,6 +248,30 @@ class TestDetectarTipoPropositura:
 
     def test_texto_sem_cabecalho_retorna_mocao(self) -> None:
         assert detectar_tipo_propositura("Texto sem cabeçalho.") == "mocao"
+
+
+# =============================================================================
+# numero_propositura
+# =============================================================================
+class TestNumeroPropositura:
+
+    def test_mocao_numero_extraido(self) -> None:
+        assert numero_propositura("MOÇÃO Nº 124\nTexto da moção.") == 124
+
+    def test_mocao_acento_grau(self) -> None:
+        assert numero_propositura("MOÇÃO N° 50 texto") == 50
+
+    def test_requerimento_numero_extraido(self) -> None:
+        assert numero_propositura("REQUERIMENTO Nº 45\nTexto.") == 45
+
+    def test_requerimento_de_pesar_numero_extraido(self) -> None:
+        assert numero_propositura("REQUERIMENTO DE PESAR Nº 12\nTexto.") == 12
+
+    def test_sem_numero_retorna_zero(self) -> None:
+        assert numero_propositura("Texto sem cabeçalho.") == 0
+
+    def test_texto_vazio_retorna_zero(self) -> None:
+        assert numero_propositura("") == 0
 
 
 # =============================================================================
