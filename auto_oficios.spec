@@ -26,8 +26,10 @@ a = Analysis(
         (str(Path(babel_dir) / "locale-data"), "babel/locale-data"),
         (str(Path(babel_dir) / "global.dat"),  "babel"),
         # Arquivos de dados da aplicação (copiados para o mesmo diretório do exe)
-        ("config.json",                   "."),
-        ("templates/modelo_mocao.docx",  "templates"),
+        ("config.json",                            "."),
+        ("templates/modelo_mocao.docx",            "templates"),
+        ("templates/modelo_requer_pesar.docx",     "templates"),
+        ("templates/modelo_planilha.xlsx",         "templates"),
     ],
     hiddenimports=[
         # GUI

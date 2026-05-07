@@ -19,6 +19,9 @@ proposituras/
 oficios_gerados/
 logs/
 
+# Template files (binary Word/Excel — kept in dist, not tracked)
+templates/
+
 # PyInstaller build artifacts
 build/
 dist/
