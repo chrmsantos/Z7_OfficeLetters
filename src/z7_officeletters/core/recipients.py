@@ -84,7 +84,8 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
         ``DestinatarioProcessado`` with all template variables populated.
     """
     # ── Mayor fast-path ───────────────────────────────────────────────────────
-    if dest.get("is_prefeito") or "prefeito" in dest.get("nome", "").lower():
+    nome: str = dest.get("nome") or ""
+    if dest.get("is_prefeito") or "prefeito" in nome.lower():
         return DestinatarioProcessado(
             tratamento_rodape="A Sua Excelência, o Senhor",
             destinatario_nome=_config.PREFEITO["nome"],
@@ -94,12 +95,12 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
             envio="Protocolo",
         )
 
-    is_inst: bool = bool(dest.get("is_instituicao", False))
-    genero: str = dest.get("genero", "M")  # "M" or "F"; default masculine
+    is_inst: bool = bool(dest.get("is_instituicao") or False)
+    genero: str = dest.get("genero") or "M"  # "M" or "F"; default masculine
 
     # ── Tratamento no rodapé ──────────────────────────────────────────────────
     if is_inst:
-        nome_lower = dest.get("nome", "").lower()
+        nome_lower = nome.lower()
         tratamento_rodape = "À" if nome_lower.startswith("a") else "Ao"
     else:
         tratamento_rodape = (
@@ -107,7 +108,7 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
         )
 
     # ── Cargo / tratamento — strip generic honorifics ─────────────────────────
-    cargo: str = dest.get("cargo_ou_tratamento", "")
+    cargo: str = dest.get("cargo_ou_tratamento") or ""
     if not is_inst:
         # Pattern: "Sr. / Real Title" → keep only "Real Title"
         if "/" in cargo:
@@ -119,16 +120,18 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
             cargo = ""
 
     # ── Address block ─────────────────────────────────────────────────────────
+    endereco: str = dest.get("endereco") or ""
+    email: str = dest.get("email") or ""
     endereco_final = cargo
-    if dest.get("endereco"):
-        endereco_final += f"\n{dest['endereco']}"
-    if dest.get("email"):
-        endereco_final += f"\n{dest['email']}"
+    if endereco:
+        endereco_final += f"\n{endereco}"
+    if email:
+        endereco_final += f"\n{email}"
 
     # ── Delivery method ───────────────────────────────────────────────────────
-    if dest.get("email"):
+    if email:
         envio = "E-mail"
-    elif dest.get("endereco"):
+    elif endereco:
         envio = "Carta"
     else:
         envio = "Em Mãos"
@@ -143,7 +146,7 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
 
     return DestinatarioProcessado(
         tratamento_rodape=tratamento_rodape,
-        destinatario_nome=dest.get("nome", "").upper(),
+        destinatario_nome=nome.upper(),
         destinatario_endereco=endereco_final.strip(),
         vocativo=vocativo,
         pronome_corpo=pronome_corpo,

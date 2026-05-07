@@ -21,6 +21,7 @@ Public exports:
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 __all__ = [
@@ -76,7 +77,11 @@ BASE_DIR: Path = (
 )
 
 PASTA_SAIDA: str = str(BASE_DIR / "oficios_gerados")
-PASTA_LOGS: str = str(BASE_DIR / "logs")
+# Logs live inside the project tree (dev) or next to the exe (frozen).
+if getattr(sys, "frozen", False):
+    PASTA_LOGS: str = str(Path(sys.executable).parent / "logs")
+else:
+    PASTA_LOGS: str = str(Path(__file__).parent.parent.parent / "logs")
 PASTA_PROPOSITURAS: str = str(BASE_DIR / "proposituras")
 PASTA_PLANILHA: str = str(BASE_DIR / "planilha_gerada")
 
