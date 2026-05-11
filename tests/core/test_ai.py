@@ -174,7 +174,8 @@ class TestExtrairDadosComIA:
         )
         with patch("time.sleep") as mock_sleep:
             r = extrair_dados_com_ia("MOÇÃO", client)
-        mock_sleep.assert_called_once()
+        assert mock_sleep.call_count >= 1
+        assert all(args == (1,) for args, _ in mock_sleep.call_args_list)
         assert r["tipo_mocao"] == "Aplauso"
 
     def test_extrai_espera_do_retry_delay(self) -> None:
@@ -185,7 +186,8 @@ class TestExtrairDadosComIA:
         )
         with patch("time.sleep") as mock_sleep:
             extrair_dados_com_ia("MOÇÃO", client)
-        mock_sleep.assert_called_once_with(12)
+        total_slept = sum(args[0] for args, _ in mock_sleep.call_args_list)
+        assert total_slept == 12
 
     def test_erro_nao_429_relancado_imediatamente(self) -> None:
         client = self._client(ConnectionError("falha de rede"))

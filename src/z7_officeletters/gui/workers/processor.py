@@ -39,7 +39,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA
+from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA, RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
 from z7_officeletters.core import ai as _ai
 from z7_officeletters.core import address_db as _addr_db
 from z7_officeletters.core import authors as _authors
@@ -48,7 +48,6 @@ from z7_officeletters.core import files as _files
 from z7_officeletters.core import recipients as _recipients
 from z7_officeletters.core.api_key import salvar_api_key
 from z7_officeletters.core.logging_setup import configurar_logging
-from z7_officeletters.gui.constants import _RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
 
 __all__ = ["run_processing_worker"]
 
@@ -70,6 +69,39 @@ def _formatar_lista_pt(items: list[str]) -> str:
     if len(unique) == 1:
         return unique[0]
     return ", ".join(unique[:-1]) + " e " + unique[-1]
+
+
+def _frases_propositura(
+    tipo_propositura: str,
+    tipo_mocao_merged: str,
+    n_props: int,
+) -> tuple[str, str, str]:
+    """Return plural-aware phrase fragments for the letter template.
+
+    Args:
+        tipo_propositura: ``"mocao"`` or ``"requerimento_pesar"``.
+        tipo_mocao_merged: Merged motion type string (e.g. ``"Aplauso"``).
+            Ignored when *tipo_propositura* is ``"requerimento_pesar"``.
+        n_props: Number of propositions grouped in this letter.
+
+    Returns:
+        A three-tuple ``(designacao_propositura, copia_art, aprovada_s)``
+        where:
+        - *designacao_propositura* — full noun phrase, e.g. ``"Moção de Aplauso"``
+          or ``"Moções de Aplauso"``.
+        - *copia_art* — contracted article phrase, e.g. ``"cópia da"`` or
+          ``"cópias das"``.
+        - *aprovada_s* — past-participle agreement, ``"aprovada"`` /
+          ``"aprovadas"`` / ``"aprovado"`` / ``"aprovados"``.
+    """
+    if tipo_propositura == "requerimento_pesar":
+        if n_props > 1:
+            return "Requerimentos de Pesar", "cópias dos", "aprovados"
+        return "Requerimento de Pesar", "cópia do", "aprovado"
+    # moção
+    if n_props > 1:
+        return f"Moções de {tipo_mocao_merged}", "cópias das", "aprovadas"
+    return f"Moção de {tipo_mocao_merged}", "cópia da", "aprovada"
 
 
 def _aplicar_tratamento_db(info: dict, tratamento: str) -> None:
@@ -96,6 +128,22 @@ def _aplicar_tratamento_db(info: dict, tratamento: str) -> None:
         info["pronome_corpo"] = "Vossas Senhorias"
     else:
         info["tratamento_rodape"] = t
+        # When the DB tratamento encodes a gendered honorific (e.g. "À Ilustríssima
+        # Senhora" or "Ao Ilustríssimo Senhor"), sync vocativo/pronome_corpo so that
+        # a wrong gender from the AI does not bleed through into the final letter.
+        t_ascii = t_lower.encode("ascii", "ignore").decode()
+        if "ilustrissima" in t_ascii or (
+            "senhora" in t_lower and "senhori" not in t_lower
+        ):
+            info["vocativo"] = "Ilustríssima Senhora"
+            info["pronome_corpo"] = "Vossa Senhoria"
+        elif "ilustrissimo" in t_ascii or (
+            "senhor" in t_lower
+            and "senhora" not in t_lower
+            and "senhori" not in t_lower
+        ):
+            info["vocativo"] = "Ilustríssimo Senhor"
+            info["pronome_corpo"] = "Vossa Senhoria"
 
 
 def _worker_main(
@@ -115,15 +163,22 @@ def _worker_main(
         salvar_api_key(inputs["api_key"])
         cliente = genai.Client(api_key=inputs["api_key"])
 
+        model_input_limit = 0
+        try:
+            _model_info = cliente.models.get(model=_ai.MODELO_IA)
+            model_input_limit = int(_model_info.input_token_limit or 0)
+        except Exception:  # noqa: BLE001
+            pass
+
         arquivos_proc: list[str] = inputs["arquivos"]
         todos_textos: list[tuple[str, str]] = []
         for arq in arquivos_proc:
             q.put(("log", f"📂  Lendo: {Path(arq).name}", "accent"))
             conteudo = _files.ler_arquivo_mocoes(arq)
-            textos_arq = _RE_PROPOSITURA_SPLIT.split(conteudo)
+            textos_arq = RE_PROPOSITURA_SPLIT.split(conteudo)
             for t in textos_arq:
                 t = t.strip()
-                if t and _RE_PROPOSITURA_SPLIT.match(t):
+                if t and RE_PROPOSITURA_SPLIT.match(t):
                     todos_textos.append((t, detectar_tipo_propositura(t)))
 
         proposituras = sorted(
@@ -188,14 +243,25 @@ def _worker_main(
 
         for i, (texto, tipo_propositura) in enumerate(proposituras, 1):
             if cancel_event.is_set():
-                q.put(("cancelled", i - 1, total))
+                q.put(("cancelled", i - 1, total, "proposituras"))
                 return
 
             q.put(("log", f"─── Propositura {i}/{total} ─────────────────────────────", "dim"))
             q.put(("progress", i - 1, total))
 
             try:
-                dados = _ai.extrair_dados_com_ia(texto, cliente, tipo_propositura=tipo_propositura)
+                dados = _ai.extrair_dados_com_ia(
+                    texto, cliente,
+                    tipo_propositura=tipo_propositura,
+                    cancel_event=cancel_event,
+                )
+            except RuntimeError as exc:
+                if cancel_event.is_set():
+                    q.put(("cancelled", i - 1, total, "proposituras"))
+                    return
+                q.put(("log", f"  ✖  Erro: {exc}", "error"))
+                erros += 1
+                continue
             except Exception as exc:  # noqa: BLE001
                 q.put(("log", f"  ✖  Erro: {exc}", "error"))
                 erros += 1
@@ -206,9 +272,13 @@ def _worker_main(
             total_candidates_tokens += usage["candidates_tokens"]
             total_tokens += usage["total_tokens"]
             if usage["total_tokens"]:
+                _saldo_str = (
+                    f"  |  saldo: {(model_input_limit - usage['prompt_tokens']):,}"
+                    if model_input_limit else ""
+                )
                 q.put(("log",
                     f"  🔢  Tokens: {usage['total_tokens']:,} "
-                    f"(entrada: {usage['prompt_tokens']:,} | saída: {usage['candidates_tokens']:,})",
+                    f"(entrada: {usage['prompt_tokens']:,} | saída: {usage['candidates_tokens']:,}){_saldo_str}",
                     "dim"))
 
             # Normalise motion/requerimento number to just the numeric part.
@@ -256,7 +326,7 @@ def _worker_main(
         # ── Phase 3: generate one letter per group ────────────────────────────
         for dest_key, grupo in grupos.items():
             if cancel_event.is_set():
-                q.put(("cancelled", len(dados_planilha), n_grupos))
+                q.put(("cancelled", len(dados_planilha), n_grupos, "ofícios"))
                 return
 
             tipo_propositura = dest_key[0]
@@ -304,6 +374,13 @@ def _worker_main(
             num_str = f"{numero_atual:03d}"
             sigla_redator = inputs["sigla"]
 
+            # Plural-aware phrase fragments used by both templates.
+            # These allow the assunto line and body paragraph to read correctly
+            # regardless of whether one or many propositions are grouped.
+            _designacao_prop, _copia_art, _aprovada_s = _frases_propositura(
+                tipo_propositura, tipo_mocao_merged, n_props
+            )
+
             ctx: dict[str, str] = {
                 "num_oficio":            num_str,
                 "data_extenso":          inputs["data_extenso"],
@@ -318,6 +395,9 @@ def _worker_main(
                 "tratamento_rodape":     info["tratamento_rodape"],
                 "destinatario_nome":     info["destinatario_nome"],
                 "destinatario_endereco": info["destinatario_endereco"],
+                "designacao_propositura": _designacao_prop,
+                "copia_art":             _copia_art,
+                "aprovada_s":            _aprovada_s,
                 # Uppercase aliases for Word template placeholders
                 "NUM_OFICIO":            num_str,
                 "DATA_EXTENSO":          inputs["data_extenso"],
@@ -332,6 +412,9 @@ def _worker_main(
                 "TRATAMENTO_RODAPE":     info["tratamento_rodape"],
                 "DESTINATARIO_NOME":     info["destinatario_nome"],
                 "DESTINATARIO_ENDERECO": info["destinatario_endereco"],
+                "DESIGNACAO_PROPOSITURA": _designacao_prop,
+                "COPIA_ART":             _copia_art,
+                "APROVADA_S":            _aprovada_s,
             }
 
             if tipo_propositura == "requerimento_pesar":
@@ -419,7 +502,7 @@ def _worker_main(
                 f"\n🔢  Tokens consumidos: {total_tokens:,} total "
                 f"(entrada: {total_prompt_tokens:,} | saída: {total_candidates_tokens:,})",
                 "accent"))
-        q.put(("done", len(dados_planilha), erros, elapsed))
+        q.put(("done", len(dados_planilha), erros, elapsed, total_tokens))
 
     except Exception as exc:  # noqa: BLE001
         q.put(("error", str(exc)))

@@ -4,18 +4,28 @@ All GUI modules import ``_C`` from here and mutate it in-place when the user
 switches themes so every widget creation call picks up the new colours
 without needing to be notified explicitly.
 
+Text-parsing symbols (``RE_PROPOSITURA_SPLIT``, ``detectar_tipo_propositura``,
+``numero_propositura``) live canonically in ``z7_officeletters.constants`` and
+are re-exported here for backward compatibility.
+
 Public exports:
     _DARK: Dark-theme colour map.
     _LIGHT: Light-theme colour map.
     _C: Mutable active palette (initialised to ``_DARK``).
-    _RE_PROPOSITURA_SPLIT: Pre-compiled regex that splits multi-propositura text files.
-    _RE_TIPO_PROPOSITURA: Pre-compiled regex that identifies the type of each block.
+    _RE_PROPOSITURA_SPLIT: Alias for ``RE_PROPOSITURA_SPLIT`` (backward compat).
+    _RE_TIPO_PROPOSITURA: Alias for ``RE_TIPO_PROPOSITURA`` (backward compat).
     detectar_tipo_propositura: Return the detected type of a propositura text block.
+    numero_propositura: Extract the sequential number from a propositura block.
 """
 
 from __future__ import annotations
 
-import re
+from z7_officeletters.constants import (
+    RE_PROPOSITURA_SPLIT as _RE_PROPOSITURA_SPLIT,
+    RE_TIPO_PROPOSITURA as _RE_TIPO_PROPOSITURA,
+    detectar_tipo_propositura,
+    numero_propositura,
+)
 
 __all__ = ["_DARK", "_LIGHT", "_C", "_RE_PROPOSITURA_SPLIT", "_RE_TIPO_PROPOSITURA", "detectar_tipo_propositura", "numero_propositura"]
 
@@ -49,47 +59,3 @@ _LIGHT: dict[str, str] = {
 
 # Mutable active palette — updated in-place by _toggle_theme.
 _C: dict[str, str] = dict(_DARK)
-
-# Splits a multi-propositura text file at each "MOÇÃO Nº" or "REQUERIMENTO Nº" header.
-_RE_PROPOSITURA_SPLIT: re.Pattern[str] = re.compile(
-    r'(?=(?:MOÇÃO|REQUERIMENTO)\s+N[º°])', re.IGNORECASE
-)
-
-# Identifies the type of a propositura block from its opening header.
-_RE_TIPO_PROPOSITURA: re.Pattern[str] = re.compile(
-    r'^(?P<tipo>MOÇÃO|REQUERIMENTO(?:\s+DE\s+PESAR)?)\s+N[º°]', re.IGNORECASE
-)
-
-# Extracts the sequential number from a propositura header line.
-_RE_NUMERO_PROPOSITURA: re.Pattern[str] = re.compile(
-    r'(?:MOÇÃO|REQUERIMENTO(?:\s+DE\s+PESAR)?)\s+N[º°]\s*(\d+)', re.IGNORECASE
-)
-
-
-def numero_propositura(texto: str) -> int:
-    """Extract the sequential number from a propositura header for sorting.
-
-    Args:
-        texto: Raw text of a single propositura block.
-
-    Returns:
-        The integer number found in the header, or 0 if not matched.
-    """
-    m = _RE_NUMERO_PROPOSITURA.search(texto.lstrip())
-    return int(m.group(1)) if m else 0
-
-
-def detectar_tipo_propositura(texto: str) -> str:
-    """Return the propositura type detected from the block's opening header.
-
-    Args:
-        texto: Raw text of a single propositura block.
-
-    Returns:
-        ``"requerimento_pesar"`` if the block starts with a *requerimento*
-        header; ``"mocao"`` otherwise (including when no header is matched).
-    """
-    m = _RE_TIPO_PROPOSITURA.match(texto.lstrip())
-    if m and m.group("tipo").upper().startswith("REQUERIMENTO"):
-        return "requerimento_pesar"
-    return "mocao"

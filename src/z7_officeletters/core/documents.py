@@ -88,18 +88,22 @@ def construir_nome_arquivo(
     Returns:
         Sanitised filename string ending in ``.docx``.
     """
+    # Trim long recipient names so the full path stays under 240 chars on Windows.
+    _MAX_DEST = 60
+    nome_dest_trim = nome_dest[:_MAX_DEST].rstrip() if len(nome_dest) > _MAX_DEST else nome_dest
+
     ano_2d = f"{ano % 100:02d}"
     if tipo_propositura == "requerimento_pesar":
         nome = (
             f"Of. {num_oficio_str} - {sigla_servidor} - "
             f"Req. de Pesar nº {num_mocao}-{ano_2d} - "
-            f"{envio.lower()} - {nome_dest} - {sigla_autores}.docx"
+            f"{envio.lower()} - {nome_dest_trim} - {sigla_autores}.docx"
         )
     else:
         nome = (
             f"Of. {num_oficio_str} - {sigla_servidor} - "
             f"Moção de {tipo_mocao} nº {num_mocao}-{ano_2d} - "
-            f"{envio.lower()} - {nome_dest} - {sigla_autores}.docx"
+            f"{envio.lower()} - {nome_dest_trim} - {sigla_autores}.docx"
         )
     return _RE_NOME_INVALIDO.sub("", nome)
 

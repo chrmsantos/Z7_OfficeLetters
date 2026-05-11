@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any, cast
@@ -274,6 +275,7 @@ def extrair_dados_com_ia(
     texto_mocao: str,
     cliente_genai: Any,
     tipo_propositura: str = "mocao",
+    cancel_event: "threading.Event | None" = None,
 ) -> dict[str, Any]:
     """Send a propositura text to Gemini and return validated structured data.
 
@@ -320,7 +322,10 @@ def extrair_dados_com_ia(
                     tentativa + 1,
                     MAX_TENTATIVAS_IA,
                 )
-                time.sleep(espera)
+                for _ in range(espera):
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise RuntimeError("Processamento cancelado.")
+                    time.sleep(1)
                 continue
             logger.error("Erro na API Gemini: %s", exc, exc_info=True)
             raise

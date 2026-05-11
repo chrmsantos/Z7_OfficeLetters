@@ -19,6 +19,7 @@ Public exports:
 from __future__ import annotations
 
 import re
+import threading
 import unicodedata
 from pathlib import Path
 from typing import NamedTuple
@@ -56,6 +57,7 @@ _RE_TRATAMENTO_START: re.Pattern[str] = re.compile(
 
 # ── Module-level cache ────────────────────────────────────────────────────────
 
+_cache_lock: threading.Lock = threading.Lock()
 _cached_db: list[EntradaEndereco] = []
 _cached_path: Path | None = None
 
@@ -155,8 +157,9 @@ def resetar_cache() -> None:
     Useful in tests that swap the db file between calls.
     """
     global _cached_db, _cached_path  # noqa: PLW0603
-    _cached_db = []
-    _cached_path = None
+    with _cache_lock:
+        _cached_db = []
+        _cached_path = None
 
 
 def buscar_endereco(nome: str, db_path: Path | None = None) -> EntradaEndereco | None:
@@ -182,18 +185,20 @@ def buscar_endereco(nome: str, db_path: Path | None = None) -> EntradaEndereco |
     """
     global _cached_db, _cached_path  # noqa: PLW0603
 
-    if db_path is not None and db_path != _cached_path:
-        _cached_db = carregar_db(db_path)
-        _cached_path = db_path
+    with _cache_lock:
+        if db_path is not None and db_path != _cached_path:
+            _cached_db = carregar_db(db_path)
+            _cached_path = db_path
+        db_snapshot = list(_cached_db)
 
-    if not _cached_db:
+    if not db_snapshot:
         return None
 
     nome_norm = _norm(nome.strip())
     if len(nome_norm) < 4:  # avoid spurious matches on very short strings
         return None
 
-    for entry in _cached_db:
+    for entry in db_snapshot:
         searchable = _norm(f"{entry.nome} {entry.cargo}")
         entry_nome_norm = _norm(entry.nome)
         if nome_norm in searchable or entry_nome_norm in nome_norm:

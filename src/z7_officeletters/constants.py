@@ -21,6 +21,7 @@ Public exports:
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -39,6 +40,10 @@ __all__ = [
     "PASTA_PLANILHA",
     "MAX_TENTATIVAS_IA",
     "RETRY_DELAY_PADRAO_S",
+    "RE_PROPOSITURA_SPLIT",
+    "RE_TIPO_PROPOSITURA",
+    "detectar_tipo_propositura",
+    "numero_propositura",
 ]
 
 # ── Locale ────────────────────────────────────────────────────────────────────
@@ -92,3 +97,42 @@ PASTA_PLANILHA: str = str(BASE_DIR / "planilha_gerada")
 # ── AI retry policy ───────────────────────────────────────────────────────────
 MAX_TENTATIVAS_IA: int = 5
 RETRY_DELAY_PADRAO_S: int = 60
+# ── Propositura text-parsing patterns ───────────────────────────────────────
+
+# Splits a multi-propositura text at each “MOÇÃO Nº” / “REQUERIMENTO Nº” header.
+RE_PROPOSITURA_SPLIT: re.Pattern[str] = re.compile(
+    r'(?=(?:MOÇÃO|REQUERIMENTO)\s+N[\u00ba\u00b0])', re.IGNORECASE
+)
+
+# Identifies the type of a propositura block from its opening header.
+RE_TIPO_PROPOSITURA: re.Pattern[str] = re.compile(
+    r'^(?P<tipo>MOÇÃO|REQUERIMENTO(?:\s+DE\s+PESAR)?)\s+N[\u00ba\u00b0]', re.IGNORECASE
+)
+
+# Extracts the sequential number from a propositura header line.
+_RE_NUMERO_PROPOSITURA: re.Pattern[str] = re.compile(
+    r'(?:MOÇÃO|REQUERIMENTO(?:\s+DE\s+PESAR)?)\s+N[\u00ba\u00b0]\s*(\d+)', re.IGNORECASE
+)
+
+
+def numero_propositura(texto: str) -> int:
+    """Extract the sequential number from a propositura header for sorting.
+
+    Returns:
+        The integer number found in the header, or 0 if not matched.
+    """
+    m = _RE_NUMERO_PROPOSITURA.search(texto.lstrip())
+    return int(m.group(1)) if m else 0
+
+
+def detectar_tipo_propositura(texto: str) -> str:
+    """Return the propositura type detected from the block's opening header.
+
+    Returns:
+        ``"requerimento_pesar"`` if the block starts with a *requerimento*
+        header; ``"mocao"`` otherwise.
+    """
+    m = RE_TIPO_PROPOSITURA.match(texto.lstrip())
+    if m and m.group("tipo").upper().startswith("REQUERIMENTO"):
+        return "requerimento_pesar"
+    return "mocao"

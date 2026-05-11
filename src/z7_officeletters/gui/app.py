@@ -61,7 +61,6 @@ class AutoOficiosApp(ctk.CTk):
         self.minsize(920, 580)
         self.configure(fg_color=_C["bg"])
         self._maximize_on_startup()
-        self.after(0, self._maximize_on_startup)
 
         _icon = Path(__file__).parent.parent.parent.parent / "icon.ico"
         if _icon.exists():
@@ -72,11 +71,12 @@ class AutoOficiosApp(ctk.CTk):
         self._cancel_event = threading.Event()
         self._prop_paths: list[str] = []
         self._stored_key: str = ""
+        self._log_entries: list[tuple[str, str]] = []  # (text, tag) for theme rebuild
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._build_ui()
-        self._run_init_sync()
+        threading.Thread(target=self._run_init_bg, daemon=True).start()
         self._poll_queue()
 
     # =========================================================================
@@ -98,6 +98,10 @@ class AutoOficiosApp(ctk.CTk):
         self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     def _run_init_sync(self) -> None:
+        """Legacy name kept for compat — delegates to the background worker."""
+        pass
+
+    def _run_init_bg(self) -> None:
         for p in (PASTA_LOGS, PASTA_PROPOSITURAS, PASTA_SAIDA, PASTA_PLANILHA):
             Path(p).mkdir(parents=True, exist_ok=True)
         try:
@@ -133,7 +137,7 @@ class AutoOficiosApp(ctk.CTk):
         except Exception:  # noqa: BLE001
             pass
 
-        self._on_init_ready(loaded_key, loaded_model, prop_files, session_state)
+        self.after(0, lambda: self._on_init_ready(loaded_key, loaded_model, prop_files, session_state))
 
     def _on_init_ready(
         self,
@@ -281,7 +285,7 @@ class AutoOficiosApp(ctk.CTk):
             fg_color=_C["panel"], hover_color=_C["border"],
             text_color=_C["text"], border_width=1, border_color=_C["border"],
             corner_radius=8,
-            command=lambda: self._num_var.set(str(max(1, int(self._num_var.get() or 1) - 1))),
+            command=lambda: self._decrement_num(),
         ).grid(row=0, column=0)
 
         self._num_entry = ctk.CTkEntry(
@@ -297,7 +301,7 @@ class AutoOficiosApp(ctk.CTk):
             fg_color=_C["panel"], hover_color=_C["border"],
             text_color=_C["text"], border_width=1, border_color=_C["border"],
             corner_radius=8,
-            command=lambda: self._num_var.set(str(int(self._num_var.get() or 0) + 1)),
+            command=lambda: self._increment_num(),
         ).grid(row=0, column=2)
 
         self._sigla_var = ctk.StringVar()
@@ -548,11 +552,14 @@ class AutoOficiosApp(ctk.CTk):
         saved_num = self._num_var.get()
         saved_sigla = self._sigla_var.get()
         saved_data = self._data_var.get()
+        saved_modelo = self._modelo_ia_var.get()
+        saved_key = self._apikey_var.get()
+        saved_log_entries = list(self._log_entries)  # snapshot for tag-aware restore
         try:
-            tb = self._log_box._textbox  # type: ignore[attr-defined]
-            log_text: str = tb.get("1.0", "end-1c")
+            tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
+            _ = tb.get("1.0", "end-1c")  # ensure textbox is initialised
         except Exception:  # noqa: BLE001
-            log_text = ""
+            pass
 
         if self._theme == "dark":
             self._theme = "light"
@@ -574,15 +581,23 @@ class AutoOficiosApp(ctk.CTk):
         self._num_var.set(saved_num)
         self._sigla_var.set(saved_sigla)
         self._data_var.set(saved_data)
+        self._modelo_ia_var.set(saved_modelo)
+        self._apikey_var.set(saved_key)
+        self._log_entries = saved_log_entries
 
         self._prop_listbox.delete(0, tk.END)
         for p in self._prop_paths:
             self._prop_listbox.insert(tk.END, Path(p).name)
 
-        if log_text:
-            tb2 = self._log_box._textbox  # type: ignore[attr-defined]
+        # Restore log with colour tags
+        if saved_log_entries:
+            tb2 = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
             tb2.configure(state="normal")
-            tb2.insert("1.0", log_text)
+            for entry_text, entry_tag in saved_log_entries:
+                if entry_tag:
+                    tb2.insert("end", entry_text + "\n", entry_tag)
+                else:
+                    tb2.insert("end", entry_text + "\n")
             tb2.see("end")
             tb2.configure(state="disabled")
 
@@ -591,6 +606,18 @@ class AutoOficiosApp(ctk.CTk):
     # =========================================================================
     def _has_api_key(self) -> bool:
         return bool(self._apikey_var.get().strip()) or bool(self._stored_key)
+
+    def _decrement_num(self) -> None:
+        try:
+            self._num_var.set(str(max(1, int(self._num_var.get()) - 1)))
+        except ValueError:
+            self._num_var.set("1")
+
+    def _increment_num(self) -> None:
+        try:
+            self._num_var.set(str(int(self._num_var.get()) + 1))
+        except ValueError:
+            self._num_var.set("1")
 
     def _on_redator_selected(self, choice: str) -> None:
         m = re.search(r'\(([^)]+)\)$', choice)
@@ -731,7 +758,8 @@ class AutoOficiosApp(ctk.CTk):
     # Log helpers (main thread only)
     # =========================================================================
     def _log(self, text: str, tag: str = "") -> None:
-        tb = self._log_box._textbox  # type: ignore[attr-defined]
+        self._log_entries.append((text, tag))
+        tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
         tb.configure(state="normal")
         if tag:
             tb.insert("end", text + "\n", tag)
@@ -741,7 +769,8 @@ class AutoOficiosApp(ctk.CTk):
         tb.configure(state="disabled")
 
     def _clear_log(self) -> None:
-        tb = self._log_box._textbox  # type: ignore[attr-defined]
+        self._log_entries.clear()
+        tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
         tb.configure(state="normal")
         tb.delete("1.0", "end")
         tb.configure(state="disabled")
@@ -780,7 +809,7 @@ class AutoOficiosApp(ctk.CTk):
         try:
             data_dt = datetime.strptime(data_str, "%d/%m/%Y")
         except ValueError:
-            messagebox.showerror("Erro de Validação", "Data inválida. Use dd-mm-aaaa.")
+            messagebox.showerror("Erro de Validação", "Data inválida. Use dd/mm/aaaa.")
             return
 
         arquivos = [a for a in self._prop_paths if Path(a).exists()]
@@ -862,7 +891,7 @@ class AutoOficiosApp(ctk.CTk):
             self._prog_pct.configure(text=f"{int(pct * 100)} %")
 
         elif kind == "done":
-            generated, errors, elapsed = msg[1], msg[2], msg[3]
+            generated, errors, elapsed, total_tokens = msg[1], msg[2], msg[3], msg[4]
             self._processing = False
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
@@ -875,30 +904,32 @@ class AutoOficiosApp(ctk.CTk):
             self._prog_pct.configure(text="100 %", text_color=color)
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
             tag = "success" if not errors else "warn"
+            tokens_str = f"  •  🔢 {total_tokens:,} tokens" if total_tokens > 0 else ""
             self._log(
                 f"\n{'─' * 52}\n"
-                f"  ✨  {generated} ofício(s) gerado(s)  •  {errors} erro(s)  •  ⏱ {tempo}\n"
+                f"  ✨  {generated} ofício(s) gerado(s)  •  {errors} erro(s)  •  ⏱ {tempo}{tokens_str}\n"
                 f"{'─' * 52}",
                 tag,
             )
+            summary_tokens = f"   •   🔢 {total_tokens:,} tokens" if total_tokens > 0 else ""
             self._summary_label.configure(
-                text=f"✔  {generated} ofício(s) gerado(s)   •   {errors} erro(s)   •   ⏱ {tempo}",
+                text=f"✔  {generated} ofício(s) gerado(s)   •   {errors} erro(s)   •   ⏱ {tempo}{summary_tokens}",
                 text_color=color,
             )
             self._save_session_state()
 
         elif kind == "cancelled":
-            done_so_far, total = msg[1], msg[2]
+            done_so_far, total, label = msg[1], msg[2], msg[3]
             self._processing = False
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
             self._progress.configure(progress_color=_C["warn"])
             self._prog_label.configure(
-                text=f"Cancelado após {done_so_far} de {total} moções.",
+                text=f"Cancelado após {done_so_far} de {total} {label}.",
                 text_color=_C["warn"],
             )
-            self._log(f"\n⏹  Processamento cancelado após {done_so_far}/{total} moções.", "warn")
+            self._log(f"\n⏹  Processamento cancelado após {done_so_far}/{total} {label}.", "warn")
             self._save_session_state()
 
         elif kind == "error":

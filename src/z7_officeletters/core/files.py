@@ -126,8 +126,12 @@ def ler_arquivo_mocoes(caminho: str) -> str:
     sufixo = Path(caminho).suffix.lower()
 
     if sufixo == ".txt":
-        with Path(caminho).open("r", encoding="utf-8") as fh:
-            return fh.read()
+        try:
+            with Path(caminho).open("r", encoding="utf-8") as fh:
+                return fh.read()
+        except UnicodeDecodeError:
+            with Path(caminho).open("r", encoding="latin-1") as fh:
+                return fh.read()
 
     if sufixo == ".docx":
         import docx as _docx  # noqa: PLC0415
