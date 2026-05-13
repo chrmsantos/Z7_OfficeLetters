@@ -7,26 +7,34 @@ in every log record.
 Public exports:
     SESSAO_ID: Short random hex string that identifies the current process run.
     logger: Module-level logger (name ``z7_officeletters``).
+    ia_log_path: Absolute path of the per-session AI JSONL log file (empty
+        string until ``configurar_logging`` is called).
     configurar_logging: Configures all handlers and returns the log file path.
+    registrar_chamada_ia: Append one structured AI-call record to the AI log.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 import types
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Any
 
-from z7_officeletters.constants import PASTA_LOGS
+from z7_officeletters.constants import PASTA_LOG_IA, PASTA_LOGS
 
-__all__ = ["SESSAO_ID", "logger", "configurar_logging"]
+__all__ = ["SESSAO_ID", "logger", "ia_log_path", "configurar_logging", "registrar_chamada_ia"]
 
 # Unique identifier for the current process run, embedded in every log line.
 SESSAO_ID: str = uuid.uuid4().hex[:8]
 
 logger: logging.Logger = logging.getLogger("z7_officeletters")
+
+# Absolute path of the per-session AI JSONL log. Set by configurar_logging().
+ia_log_path: str = ""
 
 
 def configurar_logging(verbose: bool = False) -> str:
@@ -47,6 +55,7 @@ def configurar_logging(verbose: bool = False) -> str:
     Returns:
         Absolute path of the log file created in this session.
     """
+    global ia_log_path
     # Prevent handler accumulation on repeated calls (e.g., during testing).
     logger.handlers.clear()
 
@@ -56,6 +65,10 @@ def configurar_logging(verbose: bool = False) -> str:
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = str(Path(PASTA_LOGS) / f"z7_officeletters_{timestamp}_{SESSAO_ID}.log")
+
+    # Initialise the AI JSONL log path for this session.
+    Path(PASTA_LOG_IA).mkdir(parents=True, exist_ok=True)
+    ia_log_path = str(Path(PASTA_LOG_IA) / f"ia_{timestamp}_{SESSAO_ID}.jsonl")
 
     fmt = logging.Formatter(
         f"%(asctime)s [{SESSAO_ID}] [%(levelname)-8s] %(message)s",
@@ -96,3 +109,29 @@ def configurar_logging(verbose: bool = False) -> str:
     sys.excepthook = _excepthook  # type: ignore[assignment]
     logger.debug("Sessão de log iniciada. ID=%s", SESSAO_ID)
     return log_path
+
+
+def registrar_chamada_ia(record: dict[str, Any]) -> None:
+    """Append one AI-call record as a JSON line to the per-session AI log.
+
+    The file is located at ``ia_log_path`` (set by :func:`configurar_logging`).
+    Each line is a self-contained JSON object describing a single call to the
+    Gemini API, including the full prompt, every raw response received (across
+    all retry attempts), the final parsed data, token usage, and a list of
+    soft-warning alerts about missing or unexpected fields.
+
+    Silently does nothing if :func:`configurar_logging` has not yet been called
+    (e.g. during unit tests that do not initialise logging).
+
+    Args:
+        record: Dict with at minimum the keys produced by
+            :func:`~z7_officeletters.core.ai.extrair_dados_com_ia`.
+    """
+    if not ia_log_path:
+        return
+    try:
+        with open(ia_log_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False, default=str))
+            fh.write("\n")
+    except Exception:  # noqa: BLE001
+        pass

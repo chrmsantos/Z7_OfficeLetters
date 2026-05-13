@@ -300,6 +300,8 @@ def _worker_main(
                 dest_proc = dict(dest)  # shallow copy to avoid mutating AI data
                 db_entry = _addr_db.buscar_endereco(dest["nome"], db_path=_db_path)
                 if db_entry:
+                    # DB is the most authoritative source — override all fields it supplies.
+                    dest_proc["nome"] = db_entry.nome
                     if db_entry.cargo:
                         dest_proc["cargo_ou_tratamento"] = db_entry.cargo
                     if db_entry.endereco:

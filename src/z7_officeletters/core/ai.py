@@ -23,11 +23,12 @@ import re
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
 from z7_officeletters.constants import MAX_TENTATIVAS_IA, RETRY_DELAY_PADRAO_S
-from z7_officeletters.core.logging_setup import logger
+from z7_officeletters.core.logging_setup import SESSAO_ID, logger, registrar_chamada_ia
 
 __all__ = [
     "PROMPT_TEMPLATE_PADRAO",
@@ -128,6 +129,39 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
 
 # Pre-compiled patterns used in retry logic.
 _RE_RETRY_DELAY: re.Pattern[str] = re.compile(r"retry_delay\s*\{\s*seconds:\s*(\d+)")
+
+# Thread-safe counter so each AI call gets a unique sequential number in the log.
+_chamada_lock: threading.Lock = threading.Lock()
+_chamada_n: list[int] = [0]
+
+
+def _gerar_alertas(
+    tipo_propositura: str,
+    resultado: dict[str, Any] | None,
+    tentativas: list[dict[str, Any]],
+) -> list[str]:
+    """Return soft-warning strings about the AI extraction result."""
+    alertas: list[str] = []
+
+    n_invalidas = sum(1 for t in tentativas if t.get("status") != "sucesso")
+    if n_invalidas:
+        alertas.append(
+            f"{n_invalidas} tentativa(s) inválida(s)/rate-limit antes do resultado final"
+        )
+
+    if resultado is None:
+        return alertas
+
+    if tipo_propositura == "requerimento_pesar" and not resultado.get("falecido"):
+        alertas.append("Campo 'falecido' vazio no requerimento de pesar")
+
+    for i, dest in enumerate(resultado.get("destinatarios") or [], start=1):
+        if not dest.get("cargo_ou_tratamento"):
+            alertas.append(f"Destinatário {i} sem cargo/tratamento")
+        if not dest.get("endereco") and not dest.get("email"):
+            alertas.append(f"Destinatário {i} sem endereço nem e-mail")
+
+    return alertas
 
 
 def _prompt_file_path() -> Path:
@@ -304,80 +338,126 @@ def extrair_dados_com_ia(
     prompt = _template.replace("{texto_mocao}", texto_mocao)
     logger.debug("Enviando %s à API Gemini.", tipo_propositura)
 
-    for tentativa in range(MAX_TENTATIVAS_IA):
-        try:
-            response = cliente_genai.models.generate_content(
-                model=MODELO_IA,
-                contents=prompt,
-            )
-            logger.debug("Resposta recebida (tentativa %d).", tentativa + 1)
-        except Exception as exc:  # noqa: BLE001
-            msg = str(exc)
-            match = _RE_RETRY_DELAY.search(msg)
-            espera = int(match.group(1)) + 2 if match else RETRY_DELAY_PADRAO_S
-            if "429" in msg:
+    with _chamada_lock:
+        _chamada_n[0] += 1
+        _n = _chamada_n[0]
+
+    _tentativas_log: list[dict[str, Any]] = []
+    _resultado_final: dict[str, Any] | None = None
+    _erro_final: str | None = None
+
+    try:
+        for tentativa in range(MAX_TENTATIVAS_IA):
+            _tentativa_info: dict[str, Any] = {"tentativa": tentativa + 1}
+            try:
+                response = cliente_genai.models.generate_content(
+                    model=MODELO_IA,
+                    contents=prompt,
+                )
+                logger.debug("Resposta recebida (tentativa %d).", tentativa + 1)
+            except Exception as exc:  # noqa: BLE001
+                msg = str(exc)
+                match = _RE_RETRY_DELAY.search(msg)
+                espera = int(match.group(1)) + 2 if match else RETRY_DELAY_PADRAO_S
+                if "429" in msg:
+                    _tentativa_info.update(
+                        {"status": "rate_limit", "erro": msg, "espera_s": espera}
+                    )
+                    _tentativas_log.append(_tentativa_info)
+                    logger.warning(
+                        "Rate limit atingido. Aguardando %ds (tentativa %d/%d).",
+                        espera,
+                        tentativa + 1,
+                        MAX_TENTATIVAS_IA,
+                    )
+                    for _ in range(espera):
+                        if cancel_event is not None and cancel_event.is_set():
+                            raise RuntimeError("Processamento cancelado.")
+                        time.sleep(1)
+                    continue
+                _tentativa_info.update({"status": "erro_api", "erro": msg})
+                _tentativas_log.append(_tentativa_info)
+                logger.error("Erro na API Gemini: %s", exc, exc_info=True)
+                _erro_final = msg
+                raise
+
+            raw_text: str = response.text  # type: ignore[union-attr]
+            _tentativa_info["resposta_bruta"] = raw_text
+            _preview = raw_text[:500] + ("…" if len(raw_text) > 500 else "")
+            logger.debug("Resposta bruta da IA (tentativa %d): %r", tentativa + 1, _preview)
+
+            try:
+                json_str = limpar_json_da_resposta(raw_text)
+                data: Any = json.loads(json_str)
+                resultado: dict[str, Any] = cast(
+                    dict[str, Any], data[0] if isinstance(data, list) else data
+                )
+                _validar(resultado)
+            except (ValueError, json.JSONDecodeError) as exc:
+                _tentativa_info.update({"status": "resposta_invalida", "erro": str(exc)})
+                _tentativas_log.append(_tentativa_info)
                 logger.warning(
-                    "Rate limit atingido. Aguardando %ds (tentativa %d/%d).",
-                    espera,
+                    "Resposta inválida da IA (tentativa %d/%d): %s. Bruta: %r",
                     tentativa + 1,
                     MAX_TENTATIVAS_IA,
+                    exc,
+                    _preview,
                 )
-                for _ in range(espera):
-                    if cancel_event is not None and cancel_event.is_set():
-                        raise RuntimeError("Processamento cancelado.")
-                    time.sleep(1)
-                continue
-            logger.error("Erro na API Gemini: %s", exc, exc_info=True)
-            raise
+                if tentativa < MAX_TENTATIVAS_IA - 1:
+                    continue
+                _erro_final = str(exc)
+                raise
 
-        raw_text: str = response.text  # type: ignore[union-attr]
-        _preview = raw_text[:500] + ("…" if len(raw_text) > 500 else "")
-        logger.debug("Resposta bruta da IA (tentativa %d): %r", tentativa + 1, _preview)
+            _tentativa_info["status"] = "sucesso"
+            _tentativas_log.append(_tentativa_info)
 
-        try:
-            json_str = limpar_json_da_resposta(raw_text)
-            data: Any = json.loads(json_str)
-            resultado: dict[str, Any] = cast(
-                dict[str, Any], data[0] if isinstance(data, list) else data
-            )
-            _validar(resultado)
-        except (ValueError, json.JSONDecodeError) as exc:
-            logger.warning(
-                "Resposta inválida da IA (tentativa %d/%d): %s. Bruta: %r",
-                tentativa + 1,
-                MAX_TENTATIVAS_IA,
-                exc,
-                _preview,
-            )
-            if tentativa < MAX_TENTATIVAS_IA - 1:
-                continue
-            raise
+            if _is_pesar:
+                logger.debug(
+                    "Dados extraídos — requerimento de pesar nº %s, falecido: %s.",
+                    resultado.get("numero_requerimento"),
+                    resultado.get("falecido"),
+                )
+            else:
+                logger.debug(
+                    "Dados extraídos — moção nº %s, tipo: %s.",
+                    resultado.get("numero_mocao"),
+                    resultado.get("tipo_mocao"),
+                )
 
-        if _is_pesar:
-            logger.debug(
-                "Dados extraídos — requerimento de pesar nº %s, falecido: %s.",
-                resultado.get("numero_requerimento"),
-                resultado.get("falecido"),
-            )
-        else:
-            logger.debug(
-                "Dados extraídos — moção nº %s, tipo: %s.",
-                resultado.get("numero_mocao"),
-                resultado.get("tipo_mocao"),
-            )
+            try:
+                um = response.usage_metadata
+                resultado["_usage"] = {
+                    "prompt_tokens":     int(um.prompt_token_count),
+                    "candidates_tokens": int(um.candidates_token_count),
+                    "total_tokens":      int(um.total_token_count),
+                }
+            except Exception:  # noqa: BLE001
+                resultado["_usage"] = {
+                    "prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0
+                }
 
-        try:
-            um = response.usage_metadata
-            resultado["_usage"] = {
-                "prompt_tokens":     int(um.prompt_token_count),
-                "candidates_tokens": int(um.candidates_token_count),
-                "total_tokens":      int(um.total_token_count),
-            }
-        except Exception:  # noqa: BLE001
-            resultado["_usage"] = {
-                "prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0
-            }
+            _resultado_final = resultado
+            return resultado
 
-        return resultado
+        _erro_final = "Número máximo de tentativas excedido."
+        raise RuntimeError(_erro_final)
 
-    raise RuntimeError("Número máximo de tentativas excedido.")
+    finally:
+        _uso = _resultado_final.get("_usage") if _resultado_final is not None else None
+        _dados_log = (
+            {k: v for k, v in _resultado_final.items() if k != "_usage"}
+            if _resultado_final is not None
+            else None
+        )
+        registrar_chamada_ia({
+            "timestamp":      datetime.now().isoformat(timespec="milliseconds"),
+            "sessao_id":      SESSAO_ID,
+            "chamada":        _n,
+            "tipo_propositura": tipo_propositura,
+            "prompt":         prompt,
+            "tentativas":     _tentativas_log,
+            "dados_extraidos": _dados_log,
+            "usage":          _uso,
+            "alertas":        _gerar_alertas(tipo_propositura, _resultado_final, _tentativas_log),
+            "erro":           _erro_final,
+        })

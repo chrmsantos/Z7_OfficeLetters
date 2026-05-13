@@ -36,6 +36,7 @@ __all__ = [
     "BASE_DIR",
     "PASTA_SAIDA",
     "PASTA_LOGS",
+    "PASTA_LOG_IA",
     "PASTA_PROPOSITURAS",
     "PASTA_PLANILHA",
     "MAX_TENTATIVAS_IA",
@@ -73,7 +74,7 @@ MODELO_REQUERIMENTO_PESAR: str = "templates/modelo_requer_pesar.docx"
 MODELO_PLANILHA: str = "templates/modelo_planilha.xlsx"
 
 # ── Address database (optional — app degrades gracefully if missing) ──────────
-ENDERECAMENTO_PADRAO: str = "ender/enderecam_padrao.docx"
+ENDERECAMENTO_PADRAO: str = "ender/enderecamentos_padrao.docx"
 
 # ── User-data directories ─────────────────────────────────────────────────────
 BASE_DIR: Path = (
@@ -91,6 +92,7 @@ if getattr(sys, "frozen", False):
     PASTA_LOGS: str = str(Path(sys.executable).parent / "logs")
 else:
     PASTA_LOGS: str = str(Path(__file__).parent.parent.parent / "logs")
+PASTA_LOG_IA: str = str(Path(PASTA_LOGS) / "ia")
 PASTA_PROPOSITURAS: str = str(BASE_DIR / "proposituras")
 PASTA_PLANILHA: str = str(BASE_DIR / "planilha_gerada")
 
