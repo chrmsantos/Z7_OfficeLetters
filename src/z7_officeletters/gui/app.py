@@ -399,7 +399,6 @@ class AutoOficiosApp(ctk.CTk):
         modelos_frame = ctk.CTkFrame(self._left, fg_color="transparent")
         modelos_frame.grid(row=17, column=0, sticky="ew", padx=20, pady=(0, 18))
         modelos_frame.grid_columnconfigure(0, weight=1)
-        modelos_frame.grid_columnconfigure(1, weight=1)
 
         _btn_kw: dict[str, Any] = dict(
             font=ctk.CTkFont(size=12), height=34, corner_radius=10,
@@ -409,12 +408,7 @@ class AutoOficiosApp(ctk.CTk):
         ctk.CTkButton(
             modelos_frame, text="🔧  Avançado",
             command=self._open_avancado, **_btn_kw,
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 4))
-
-        ctk.CTkButton(
-            modelos_frame, text="📋  Destinatários Padrão",
-            command=self._open_destinatarios_padrao, **_btn_kw,
-        ).grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        ).grid(row=0, column=0, sticky="ew")
 
     def _build_right_panel(self) -> None:
         self._right = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
@@ -711,7 +705,7 @@ class AutoOficiosApp(ctk.CTk):
 
         dlg = ctk.CTkToplevel(self)
         dlg.title("Avançado")
-        dlg.geometry("460x224")
+        dlg.geometry("460x262")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.configure(fg_color=_C["bg"])
@@ -719,7 +713,7 @@ class AutoOficiosApp(ctk.CTk):
         dlg.update_idletasks()
         px, py = self.winfo_x(), self.winfo_y()
         pw, ph = self.winfo_width(), self.winfo_height()
-        dlg.geometry(f"460x224+{px + (pw - 460) // 2}+{py + (ph - 224) // 2}")
+        dlg.geometry(f"460x262+{px + (pw - 460) // 2}+{py + (ph - 262) // 2}")
 
         _btn_kw: dict[str, Any] = dict(
             font=ctk.CTkFont(size=12), height=34, corner_radius=10,
@@ -772,7 +766,10 @@ class AutoOficiosApp(ctk.CTk):
             btn_frame, text="�  Modelos",
             command=self._open_pasta_templates, **_btn_kw,
         ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-
+        ctk.CTkButton(
+            btn_frame, text="📋  Destinatários Padrão",
+            command=self._open_destinatarios_padrao, **_btn_kw,
+        ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
         dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
 
     # =========================================================================
