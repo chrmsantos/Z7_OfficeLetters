@@ -37,6 +37,7 @@ from z7_officeletters.constants import (
     PASTA_PROPOSITURAS,
     PASTA_SAIDA,
     BASE_DIR,
+    ENDERECAMENTO_PADRAO,
 )
 from z7_officeletters.core import config as _config
 from z7_officeletters.core.documents import criar_modelo_planilha
@@ -398,6 +399,7 @@ class AutoOficiosApp(ctk.CTk):
         modelos_frame = ctk.CTkFrame(self._left, fg_color="transparent")
         modelos_frame.grid(row=17, column=0, sticky="ew", padx=20, pady=(0, 18))
         modelos_frame.grid_columnconfigure(0, weight=1)
+        modelos_frame.grid_columnconfigure(1, weight=1)
 
         _btn_kw: dict[str, Any] = dict(
             font=ctk.CTkFont(size=12), height=34, corner_radius=10,
@@ -407,7 +409,12 @@ class AutoOficiosApp(ctk.CTk):
         ctk.CTkButton(
             modelos_frame, text="🔧  Avançado",
             command=self._open_avancado, **_btn_kw,
-        ).grid(row=0, column=0, sticky="ew")
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 4))
+
+        ctk.CTkButton(
+            modelos_frame, text="📋  Destinatários Padrão",
+            command=self._open_destinatarios_padrao, **_btn_kw,
+        ).grid(row=0, column=1, sticky="ew", padx=(4, 0))
 
     def _build_right_panel(self) -> None:
         self._right = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
@@ -660,6 +667,20 @@ class AutoOficiosApp(ctk.CTk):
         idx = sel[0]
         self._prop_listbox.delete(idx)
         self._prop_paths.pop(idx)
+
+    def _open_destinatarios_padrao(self) -> None:
+        if getattr(sys, "frozen", False):
+            _app_root = Path(sys.executable).parent
+        else:
+            _app_root = Path(__file__).parent.parent.parent.parent
+        arquivo = _app_root / ENDERECAMENTO_PADRAO
+        if not arquivo.exists():
+            messagebox.showwarning(
+                "Arquivo não encontrado",
+                f"O arquivo de destinatários padrão não foi encontrado:\n{arquivo}",
+            )
+            return
+        os.startfile(str(arquivo))
 
     def _open_output_folder(self) -> None:
         folder = Path(PASTA_SAIDA).resolve()

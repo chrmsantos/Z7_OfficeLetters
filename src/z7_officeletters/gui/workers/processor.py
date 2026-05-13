@@ -268,6 +268,7 @@ def _worker_main(
                 continue
 
             usage = dados.pop("_usage", {"prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0})
+            alertas_ia = dados.pop("_alertas", [])
             total_prompt_tokens += usage["prompt_tokens"]
             total_candidates_tokens += usage["candidates_tokens"]
             total_tokens += usage["total_tokens"]
@@ -280,6 +281,8 @@ def _worker_main(
                     f"  🔢  Tokens: {usage['total_tokens']:,} "
                     f"(entrada: {usage['prompt_tokens']:,} | saída: {usage['candidates_tokens']:,}){_saldo_str}",
                     "dim"))
+            for alerta in alertas_ia:
+                q.put(("log", f"  ⚠  {alerta}", "warn"))
 
             # Normalise motion/requerimento number to just the numeric part.
             num_raw = dados.get("numero_requerimento") or dados.get("numero_mocao", "")

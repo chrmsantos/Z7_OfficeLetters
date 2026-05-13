@@ -50,17 +50,17 @@ PROMPT_TEMPLATE_PADRAO: str = (
     "    Cada propositura pode conter um ou mais destinatários. Para cada destinatário, extraia nome, cargo ou tratamento, endereço e email (se houver), e classifique se é o prefeito/prefeitura ou uma instituição.\n"
     "    Se houver múltiplos destinatários exigidos em uma propositura, retorne todos na lista 'destinatarios'.\n"
     "    Se o texto da propositura não contiver um campo específico (ex: email ou endereço do destinatário), deixe o valor correspondente vazio no JSON.\n"
-    "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true. Se mencionar uma instituição, marque 'is_instituicao' como true.\n"
+    "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true. Se mencionar uma instituição formal (empresa, órgão público, associação), marque 'is_instituicao' como true. Famílias e grupos informais de pessoas físicas têm is_instituicao: false.\n"
     "    O campo 'numero_mocao' deve conter apenas o número sequencial da moção, sem sufixos de ano ou outros caracteres. Ex: '432' em vez de '432/2026'.\n"
     "    O campo 'tipo_mocao' deve ser classificado como 'Aplauso', 'Apelo', 'Apoio' ou 'Protesto' com base no conteúdo da moção.\n"
     "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores da moção, conforme mencionados no texto. Se o texto mencionar apenas o cargo (ex: 'os vereadores'), use 'Vereador(a) Indefinido(a)'.\n"
-    "    O campo 'destinatarios' deve ser uma lista de objetos, cada um contendo:\n"
+    "    O campo 'destinatarios' deve ser uma lista de objetos identificados a partir do trecho de encaminhamento da cópia (ex: 'Solicito... que seja encaminhada cópia...') ou do cabeçalho/título da propositura, cada um contendo:\n"
     "      - 'nome': nome completo do destinatário (pessoa ou instituição),\n"
-    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário,\n"
-    "      - 'endereco': endereço completo do destinatário,\n"
+    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário. Para empresas, concessionárias e órgãos públicos, use o setor ou departamento específico mencionado no texto; se nenhum departamento for mencionado, deixe vazio.\n"
+    "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente no corpo do texto.\n"
     "      - 'email': email do destinatário,\n"
     "      - 'is_prefeito': true se o destinatário for o prefeito, caso contrário false,\n"
-    "      - 'is_instituicao': true se o destinatário for uma instituição, caso contrário false,\n"
+    "      - 'is_instituicao': true somente se o destinatário for uma instituição formal (empresa, órgão público, associação). Famílias e grupos informais de pessoas físicas têm is_instituicao: false.\n"
     '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento do destinatário; use "M" quando indeterminado\n'
     "    \n"
     "    Formato JSON esperado (deixe vazio se não aplicável):\n"
@@ -74,8 +74,8 @@ PROMPT_TEMPLATE_PADRAO: str = (
     '        "destinatarios": [\n'
     "            {\n"
     '                "nome": "NOME DA PESSOA OU INSTITUIÇÃO",\n'
-    '                "cargo_ou_tratamento": "Ex: Presidente da CDHU / Aos cuidados de...",\n'
-    '                "endereco": "Endereço completo se houver no texto, senão vazio",\n'
+    '                "cargo_ou_tratamento": "Setor/departamento específico ou vazio",\n'
+    '                "endereco": "Endereço de correspondência extraído do texto, senão vazio",\n'
     '                "email": "Email se houver, senão vazio",\n'
     '                "is_prefeito": true ou false,\n'
     '                "is_instituicao": true ou false,\n'
@@ -96,13 +96,13 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
     "    O campo 'numero_requerimento' deve conter apenas o número sequencial do requerimento, sem sufixos de ano. Ex: '45' em vez de '45/2026'.\n"
     "    O campo 'falecido' deve conter o nome completo da pessoa homenageada/falecida mencionada no requerimento. Se não houver nome explícito, deixe vazio.\n"
     "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores do requerimento.\n"
-    "    O campo 'destinatarios' deve ser uma lista de objetos, cada um contendo:\n"
-    "      - 'nome': nome completo do destinatário (pessoa ou instituição),\n"
-    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário,\n"
-    "      - 'endereco': endereço completo do destinatário,\n"
+    "    O campo 'destinatarios' deve ser uma lista de objetos identificados a partir do trecho de encaminhamento da cópia (ex: 'Solicito... que seja encaminhada cópia...'), cada um contendo:\n"
+    "      - 'nome': nome completo do destinatário (pessoa ou família). Se o texto mencionar apenas um endereço de entrega sem nomear o destinatário, use 'Familiares de [nome do falecido]' como nome.\n"
+    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário. Para membros de família sem cargo específico, deixe vazio.\n"
+    "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente no corpo do texto.\n"
     "      - 'email': email do destinatário,\n"
-    "      - 'is_prefeito': true se o destinatário for o prefeito, caso contrário false,\n"
-    "      - 'is_instituicao': true se o destinatário for uma instituição, caso contrário false,\n"
+    "      - 'is_prefeito': true se o destinatário for o prefeito ou a prefeitura, caso contrário false,\n"
+    "      - 'is_instituicao': true somente se o destinatário for uma instituição formal (empresa, órgão público, associação). Familiares e grupos informais de pessoas físicas têm is_instituicao: false.\n"
     '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento; use "M" quando indeterminado\n'
     "    \n"
     "    Formato JSON esperado:\n"
@@ -112,9 +112,9 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
     '        "autores": ["Nome do Vereador 1"],\n'
     '        "destinatarios": [\n'
     "            {\n"
-    '                "nome": "NOME DA PESSOA OU INSTITUIÇÃO",\n'
-    '                "cargo_ou_tratamento": "Cargo",\n'
-    '                "endereco": "Endereço completo se houver, senão vazio",\n'
+    '                "nome": "NOME DA PESSOA OU FAMILIARES DE [FALECIDO]",\n'
+    '                "cargo_ou_tratamento": "Cargo ou vazio",\n'
+    '                "endereco": "Endereço de correspondência extraído do texto, senão vazio",\n'
     '                "email": "Email se houver, senão vazio",\n'
     '                "is_prefeito": true ou false,\n'
     '                "is_instituicao": true ou false,\n'
@@ -155,11 +155,19 @@ def _gerar_alertas(
     if tipo_propositura == "requerimento_pesar" and not resultado.get("falecido"):
         alertas.append("Campo 'falecido' vazio no requerimento de pesar")
 
+    _PALAVRAS_FAMILIA = ("família", "familiares", "familia", "herdeiro", "viúva", "viuvo")
+
     for i, dest in enumerate(resultado.get("destinatarios") or [], start=1):
         if not dest.get("cargo_ou_tratamento"):
             alertas.append(f"Destinatário {i} sem cargo/tratamento")
         if not dest.get("endereco") and not dest.get("email"):
             alertas.append(f"Destinatário {i} sem endereço nem e-mail")
+        nome_lower = (dest.get("nome") or "").lower()
+        if dest.get("is_instituicao") and any(p in nome_lower for p in _PALAVRAS_FAMILIA):
+            alertas.append(
+                f"Destinatário {i}: possível classificação incorreta — "
+                f"'{dest.get('nome')}' parece ser família, não instituição (is_instituicao=true)"
+            )
 
     return alertas
 
@@ -436,6 +444,8 @@ def extrair_dados_com_ia(
                     "prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0
                 }
 
+            _alertas = _gerar_alertas(tipo_propositura, resultado, _tentativas_log)
+            resultado["_alertas"] = _alertas
             _resultado_final = resultado
             return resultado
 
@@ -444,8 +454,13 @@ def extrair_dados_com_ia(
 
     finally:
         _uso = _resultado_final.get("_usage") if _resultado_final is not None else None
+        _alertas_log = (
+            _resultado_final.get("_alertas", [])
+            if _resultado_final is not None
+            else _gerar_alertas(tipo_propositura, None, _tentativas_log)
+        )
         _dados_log = (
-            {k: v for k, v in _resultado_final.items() if k != "_usage"}
+            {k: v for k, v in _resultado_final.items() if k not in ("_usage", "_alertas")}
             if _resultado_final is not None
             else None
         )
@@ -458,6 +473,6 @@ def extrair_dados_com_ia(
             "tentativas":     _tentativas_log,
             "dados_extraidos": _dados_log,
             "usage":          _uso,
-            "alertas":        _gerar_alertas(tipo_propositura, _resultado_final, _tentativas_log),
+            "alertas":        _alertas_log,
             "erro":           _erro_final,
         })
