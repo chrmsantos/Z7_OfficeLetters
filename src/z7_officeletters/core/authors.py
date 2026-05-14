@@ -187,7 +187,4 @@ def sigla_autor(nome: str) -> str:
         Lowercase sigla from ``config.MAPA_AUTORES``, or ``"indef"`` if the
         name is not recognised.
     """
-    nome_lower = nome.lower()
-    return next(
-        (s for k, s in _MAPA_AUTORES_ITENS if k in nome_lower), "indef"
-    ).lower()
+    return _resolve_sigla(nome.lower(), norm(nome))

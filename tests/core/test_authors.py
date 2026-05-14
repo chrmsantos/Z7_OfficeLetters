@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from z7_officeletters.core.authors import formatar_autores
+from z7_officeletters.core.authors import formatar_autores, sigla_autor
 
 
 # =============================================================================
@@ -87,3 +87,29 @@ class TestFormatarAutores:
     def test_vereadora_case_insensitive(self) -> None:
         texto, _ = formatar_autores(["esther moraes"])
         assert texto == "da vereadora Esther Moraes"
+
+
+# =============================================================================
+# sigla_autor
+# =============================================================================
+class TestSiglaAutor:
+
+    def test_nome_canonico_resolve(self) -> None:
+        assert sigla_autor("Alex Dantas") == "ad"
+
+    def test_nome_minusculo_resolve(self) -> None:
+        assert sigla_autor("alex dantas") == "ad"
+
+    def test_desconhecido_retorna_indef(self) -> None:
+        assert sigla_autor("Vereador Fantasma") == "indef"
+
+    def test_fornasari_sem_acento_no_luis(self) -> None:
+        # AI às vezes retorna sem o acento em "é": "Jose Luis Fornasari"
+        assert sigla_autor("Jose Luis Fornasari") == "jlf"
+
+    def test_fornasari_com_acento_em_luis(self) -> None:
+        # AI pode retornar com acento em "í": "José Luís Fornasari"
+        assert sigla_autor("José Luís Fornasari") == "jlf"
+
+    def test_fornasari_apelido_joi(self) -> None:
+        assert sigla_autor("JOI FORNASARI") == "jlf"
