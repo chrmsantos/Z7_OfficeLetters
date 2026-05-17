@@ -37,12 +37,39 @@ def make_dados_mocao_validos(**overrides: Any) -> dict[str, Any]:
 
 
 def make_dest_simples(**overrides: Any) -> dict[str, Any]:
-    """Return a minimal valid recipient dict."""
+    """Return a minimal valid PF recipient dict."""
     base: dict[str, Any] = {
+        "tipo": "PF",
         "nome": "João Silva",
         "is_prefeito": False,
         "is_instituicao": False,
         "cargo_ou_tratamento": "",
+        "endereco": "",
+        "email": "",
+        "genero": "M",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_dest_pj(**overrides: Any) -> dict[str, Any]:
+    """Return a minimal valid PJ recipient dict."""
+    base: dict[str, Any] = {
+        "tipo": "PJ",
+        "nome": "Empresa Exemplo S.A.",
+        "endereco": "",
+        "email": "",
+        "genero": "M",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_dest_coletivo(**overrides: Any) -> dict[str, Any]:
+    """Return a minimal valid Coletivo recipient dict."""
+    base: dict[str, Any] = {
+        "tipo": "Coletivo",
+        "nome": "Associação dos Moradores",
         "endereco": "",
         "email": "",
         "genero": "M",

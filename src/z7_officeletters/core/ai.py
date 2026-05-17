@@ -47,39 +47,81 @@ __all__ = [
 # ── Built-in prompt (shipped with the application) ───────────────────────────
 PROMPT_TEMPLATE_PADRAO: str = (
     "    Atue como um assistente legislativo. Leia o texto da(s) propositura(s) (moção(ões) e/ou requerimento(s) de pesar) abaixo e extraia os dados estritamente no formato JSON.\n"
-    "    Cada propositura pode conter um ou mais destinatários. Para cada destinatário, extraia nome, cargo ou tratamento, endereço e email (se houver), e classifique se é o prefeito/prefeitura ou uma instituição.\n"
+    "    Cada propositura pode conter um ou mais destinatários. Para cada destinatário, classifique o tipo e extraia apenas os campos efetivamente presentes no texto.\n"
+    "    REGRA FUNDAMENTAL: Omita do JSON qualquer campo que não esteja presente no texto da propositura. Não inclua campos vazios, não deixe valores em branco e não mencione ausência de dados.\n"
     "    Se houver múltiplos destinatários exigidos em uma propositura, retorne todos na lista 'destinatarios'.\n"
-    "    Se o texto da propositura não contiver um campo específico (ex: email ou endereço do destinatário), deixe o valor correspondente vazio no JSON.\n"
-    "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true. Se mencionar uma instituição formal (empresa, órgão público, associação), marque 'is_instituicao' como true. Famílias e grupos informais de pessoas físicas têm is_instituicao: false.\n"
+    "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true.\n"
     "    O campo 'numero_mocao' deve conter apenas o número sequencial da moção, sem sufixos de ano ou outros caracteres. Ex: '432' em vez de '432/2026'.\n"
     "    O campo 'tipo_mocao' deve ser classificado como 'Aplauso', 'Apelo', 'Apoio' ou 'Protesto' com base no conteúdo da moção.\n"
     "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores da moção, conforme mencionados no texto. Se o texto mencionar apenas o cargo (ex: 'os vereadores'), use 'Vereador(a) Indefinido(a)'.\n"
-    "    O campo 'destinatarios' deve ser uma lista de objetos identificados a partir do trecho de encaminhamento da cópia (ex: 'Solicito... que seja encaminhada cópia...') ou do cabeçalho/título da propositura, cada um contendo:\n"
-    "      - 'nome': nome completo do destinatário (pessoa ou instituição),\n"
-    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário. Para empresas, concessionárias e órgãos públicos, use o setor ou departamento específico mencionado no texto; se nenhum departamento for mencionado, deixe vazio.\n"
-    "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente no corpo do texto.\n"
-    "      - 'email': email do destinatário,\n"
-    "      - 'is_prefeito': true se o destinatário for o prefeito, caso contrário false,\n"
-    "      - 'is_instituicao': true somente se o destinatário for uma instituição formal (empresa, órgão público, associação). Famílias e grupos informais de pessoas físicas têm is_instituicao: false.\n"
-    '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento do destinatário; use "M" quando indeterminado\n'
+    "    O campo 'destinatarios' deve ser uma lista de objetos identificados a partir do trecho de encaminhamento da cópia (ex: 'Solicito... que seja encaminhada cópia...') ou do cabeçalho/título da propositura.\n"
+    "    Classifique cada destinatário pelo campo 'tipo':\n"
+    "      - 'PF': pessoa física individual.\n"
+    "      - 'PJ': pessoa jurídica (empresa, órgão público, fundação etc.).\n"
+    "      - 'Coletivo': agrupamento de PFs e/ou PJs (comissão, associação, torcida etc.).\n"
+    "    Campos comuns a todos os tipos (incluir apenas se presentes no texto):\n"
+    "      - 'nome': nome completo do destinatário (pessoa, instituição ou coletivo).\n"
+    "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente.\n"
+    "      - 'email': endereço de e-mail do destinatário.\n"
+    "      - 'is_prefeito': true se o destinatário for o prefeito ou a prefeitura; omita o campo nos demais casos.\n"
+    '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento; use "M" quando indeterminado. Sempre inclua este campo.\n'
+    "    Campos exclusivos de PF (incluir apenas se presentes no texto):\n"
+    "      - 'funcao_profissao': função ou profissão da pessoa física.\n"
+    "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora').\n"
+    "    Campos exclusivos de PJ e Coletivo (incluir apenas se presentes no texto):\n"
+    "      - 'objeto_atividade': objeto social ou atividade da PJ/Coletivo.\n"
+    "      - 'representante': nome do representante da PJ/Coletivo.\n"
+    "      - 'funcao_representante': função ou cargo do representante.\n"
     "    \n"
-    "    Formato JSON esperado (deixe vazio se não aplicável):\n"
+    "    Formato JSON esperado:\n"
     "    {\n"
     '        "propositura": "moção" ou "requerimento_pesar",\n'
     '        "tipo_mocao": "Ex.: Aplauso",\n'
     '        "numero_mocao": "Ex: 432",\n'
-    '        "numero_requerimento": "Ex: 45",\n'
-    '        "falecido": "Nome da pessoa homenageada/falecida",\n'
     '        "autores": ["Nome do Vereador 1", "Nome do Vereador 2"],\n'
     '        "destinatarios": [\n'
     "            {\n"
-    '                "nome": "NOME DA PESSOA OU INSTITUIÇÃO",\n'
-    '                "cargo_ou_tratamento": "Setor/departamento específico ou vazio",\n'
-    '                "endereco": "Endereço de correspondência extraído do texto, senão vazio",\n'
-    '                "email": "Email se houver, senão vazio",\n'
-    '                "is_prefeito": true ou false,\n'
-    '                "is_instituicao": true ou false,\n'
-    '                "genero": "M" ou "F"\n'
+    '                "tipo": "PF",\n'
+    '                "nome": "LUIZ INÁCIO LULA DA SILVA",\n'
+    '                "nivel_protocolo": "VE",\n'
+    '                "funcao_profissao": "Presidente da República Federativa do Brasil",\n'
+    '                "endereco": "Endereço literal (omitir se ausente)",\n'
+    '                "email": "Email (omitir se ausente)",\n'
+    '                "genero": "M"\n'
+    "            },\n"
+    "            {\n"
+    '                "tipo": "PF",\n'
+    '                "nome": "RAFAEL PIOVEZAN",\n'
+    '                "nivel_protocolo": "VE_M",\n'
+    '                "funcao_profissao": "Prefeito Municipal",\n'
+    '                "is_prefeito": true,\n'
+    '                "genero": "M"\n'
+    "            },\n"
+    "            {\n"
+    '                "tipo": "PF",\n'
+    '                "nome": "MARCUS PENSUTI",\n'
+    '                "funcao_profissao": "Secretário Municipal de Saúde",\n'
+    '                "genero": "M"\n'
+    "            },\n"
+    "            {\n"
+    '                "tipo": "PJ",\n'
+    '                "nome": "NOME DA INSTITUIÇÃO",\n'
+    '                "objeto_atividade": "Atividade/objeto (omitir se ausente)",\n'
+    '                "representante": "Nome do representante (omitir se ausente)",\n'
+    '                "funcao_representante": "Cargo do representante (omitir se ausente)",\n'
+    '                "endereco": "Endereço literal (omitir se ausente)",\n'
+    '                "email": "Email (omitir se ausente)",\n'
+    '                "genero": "M"\n'
+    "            },\n"
+    "            {\n"
+    '                "tipo": "Coletivo",\n'
+    '                "nome": "NOME DO COLETIVO",\n'
+    '                "objeto_atividade": "Atividade/objeto (omitir se ausente)",\n'
+    '                "representante": "Nome do representante (omitir se ausente)",\n'
+    '                "funcao_representante": "Cargo do representante (omitir se ausente)",\n'
+    '                "endereco": "Endereço literal (omitir se ausente)",\n'
+    '                "email": "Email (omitir se ausente)",\n'
+    '                "genero": "M"\n'
     "            }\n"
     "        ]\n"
     "    }\n"
@@ -91,34 +133,53 @@ PROMPT_TEMPLATE_PADRAO: str = (
 # ── Built-in prompt for requerimentos de pesar ───────────────────────────────
 PROMPT_TEMPLATE_PESAR_PADRAO: str = (
     "    Atue como um assistente legislativo. Leia o texto do(s) requerimento(s) de pesar abaixo e extraia os dados estritamente no formato JSON.\n"
-    "    Cada requerimento pode conter um ou mais destinatários. Para cada destinatário, extraia nome, cargo ou tratamento, endereço e email (se houver), e classifique se é o prefeito/prefeitura ou uma instituição.\n"
-    "    Se o texto não contiver um campo específico (ex: email ou endereço), deixe o valor correspondente vazio no JSON.\n"
+    "    Cada requerimento pode conter um ou mais destinatários. Para cada destinatário, classifique o tipo e extraia apenas os campos efetivamente presentes no texto.\n"
+    "    REGRA FUNDAMENTAL: Omita do JSON qualquer campo que não esteja presente no texto do requerimento. Não inclua campos vazios, não deixe valores em branco e não mencione ausência de dados.\n"
     "    O campo 'numero_requerimento' deve conter apenas o número sequencial do requerimento, sem sufixos de ano. Ex: '45' em vez de '45/2026'.\n"
-    "    O campo 'falecido' deve conter o nome completo da pessoa homenageada/falecida mencionada no requerimento. Se não houver nome explícito, deixe vazio.\n"
+    "    O campo 'falecido' deve conter o nome completo da pessoa homenageada/falecida mencionada no requerimento. Se não houver nome explícito, omita o campo.\n"
     "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores do requerimento.\n"
-    "    O campo 'destinatarios' deve ser uma lista de objetos identificados a partir do trecho de encaminhamento da cópia (ex: 'Solicito... que seja encaminhada cópia...'), cada um contendo:\n"
-    "      - 'nome': nome completo do destinatário (pessoa ou família). Se o texto mencionar apenas um endereço de entrega sem nomear o destinatário, use 'Familiares de [nome do falecido]' como nome.\n"
-    "      - 'cargo_ou_tratamento': cargo ou tratamento do destinatário. Para membros de família sem cargo específico, deixe vazio.\n"
-    "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente no corpo do texto.\n"
-    "      - 'email': email do destinatário,\n"
-    "      - 'is_prefeito': true se o destinatário for o prefeito ou a prefeitura, caso contrário false,\n"
-    "      - 'is_instituicao': true somente se o destinatário for uma instituição formal (empresa, órgão público, associação). Familiares e grupos informais de pessoas físicas têm is_instituicao: false.\n"
-    '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento; use "M" quando indeterminado\n'
+    "    O campo 'destinatarios' deve ser uma lista de objetos identificados a partir do trecho de encaminhamento da cópia (ex: 'Solicito... que seja encaminhada cópia...').\n"
+    "    Classifique cada destinatário pelo campo 'tipo':\n"
+    "      - 'PF': pessoa física individual (incluindo familiares do falecido).\n"
+    "      - 'PJ': pessoa jurídica (empresa, órgão público, fundação etc.).\n"
+    "      - 'Coletivo': agrupamento de PFs e/ou PJs (comissão, associação etc.).\n"
+    "    Campos comuns a todos os tipos (incluir apenas se presentes no texto):\n"
+    "      - 'nome': nome completo do destinatário. Se o texto mencionar apenas um endereço de entrega sem nomear o destinatário, use 'Familiares de [nome do falecido]' como nome.\n"
+    "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente.\n"
+    "      - 'email': endereço de e-mail do destinatário.\n"
+    "      - 'is_prefeito': true se o destinatário for o prefeito ou a prefeitura; omita o campo nos demais casos.\n"
+    '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento; use "M" quando indeterminado. Sempre inclua este campo.\n'
+    "    Campos exclusivos de PF (incluir apenas se presentes no texto):\n"
+    "      - 'funcao_profissao': função ou profissão da pessoa física.\n"
+    "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora').\n"
+    "    Campos exclusivos de PJ e Coletivo (incluir apenas se presentes no texto):\n"
+    "      - 'objeto_atividade': objeto social ou atividade da PJ/Coletivo.\n"
+    "      - 'representante': nome do representante da PJ/Coletivo.\n"
+    "      - 'funcao_representante': função ou cargo do representante.\n"
     "    \n"
     "    Formato JSON esperado:\n"
     "    {\n"
     '        "numero_requerimento": "Ex: 45",\n'
-    '        "falecido": "Nome completo do falecido ou vazio",\n'
+    '        "falecido": "Nome completo do falecido (omitir se ausente)",\n'
     '        "autores": ["Nome do Vereador 1"],\n'
     '        "destinatarios": [\n'
     "            {\n"
+    '                "tipo": "PF",\n'
     '                "nome": "NOME DA PESSOA OU FAMILIARES DE [FALECIDO]",\n'
-    '                "cargo_ou_tratamento": "Cargo ou vazio",\n'
-    '                "endereco": "Endereço de correspondência extraído do texto, senão vazio",\n'
-    '                "email": "Email se houver, senão vazio",\n'
-    '                "is_prefeito": true ou false,\n'
-    '                "is_instituicao": true ou false,\n'
-    '                "genero": "M" ou "F"\n'
+    '                "funcao_profissao": "Função ou profissão (omitir se ausente)",\n'
+    '                "endereco": "Endereço literal (omitir se ausente)",\n'
+    '                "email": "Email (omitir se ausente)",\n'
+    '                "genero": "M"\n'
+    "            },\n"
+    "            {\n"
+    '                "tipo": "PJ",\n'
+    '                "nome": "NOME DA INSTITUIÇÃO",\n'
+    '                "objeto_atividade": "Atividade/objeto (omitir se ausente)",\n'
+    '                "representante": "Nome do representante (omitir se ausente)",\n'
+    '                "funcao_representante": "Cargo do representante (omitir se ausente)",\n'
+    '                "endereco": "Endereço literal (omitir se ausente)",\n'
+    '                "email": "Email (omitir se ausente)",\n'
+    '                "genero": "M"\n'
     "            }\n"
     "        ]\n"
     "    }\n"
@@ -158,15 +219,22 @@ def _gerar_alertas(
     _PALAVRAS_FAMILIA = ("família", "familiares", "familia", "herdeiro", "viúva", "viuvo")
 
     for i, dest in enumerate(resultado.get("destinatarios") or [], start=1):
-        if not dest.get("cargo_ou_tratamento"):
-            alertas.append(f"Destinatário {i} sem cargo/tratamento")
+        tipo_dest = dest.get("tipo") or ""
+        is_inst = tipo_dest in ("PJ", "Coletivo") or dest.get("is_instituicao", False)
+        tem_cargo = bool(
+            dest.get("funcao_profissao")
+            or dest.get("objeto_atividade")
+            or dest.get("cargo_ou_tratamento")
+        )
+        if not tem_cargo:
+            alertas.append(f"Destinatário {i} sem função/profissão ou objeto/atividade")
         if not dest.get("endereco") and not dest.get("email"):
             alertas.append(f"Destinatário {i} sem endereço nem e-mail")
         nome_lower = (dest.get("nome") or "").lower()
-        if dest.get("is_instituicao") and any(p in nome_lower for p in _PALAVRAS_FAMILIA):
+        if is_inst and any(p in nome_lower for p in _PALAVRAS_FAMILIA):
             alertas.append(
                 f"Destinatário {i}: possível classificação incorreta — "
-                f"'{dest.get('nome')}' parece ser família, não instituição (is_instituicao=true)"
+                f"'{dest.get('nome')}' parece ser família, não instituição (tipo={tipo_dest!r})"
             )
 
     return alertas

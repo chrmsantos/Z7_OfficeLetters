@@ -221,3 +221,54 @@ class TestFrazesPropositura:
         _, __, aprov = _frases_propositura("requerimento_pesar", "", 3)
         assert aprov == "aprovados"
 
+
+# =============================================================================
+# DB-override pronome consistency (nivel_protocolo forms)
+# =============================================================================
+class TestAplicarTratamentoDB_Consistencia:
+    """Verify that all three pronome fields are always in sync after DB override."""
+
+    def test_ve_m_crase_masculino_consistente(self) -> None:
+        """DB with 'À Sua Excelência o Senhor' (VE_M) must sync all three fields."""
+        info = _info_base_masculino()
+        _aplicar_tratamento_db(info, "À Sua Excelência o Senhor")
+        assert info["tratamento_rodape"] == "À Sua Excelência o Senhor"
+        assert info["vocativo"] == "Excelentíssimo Senhor"
+        assert info["pronome_corpo"] == "Vossa Excelência"
+
+    def test_ve_m_crase_feminino_consistente(self) -> None:
+        """DB with 'À Sua Excelência a Senhora' must sync gender-aware fields."""
+        info = _info_base_feminino()
+        _aplicar_tratamento_db(info, "À Sua Excelência a Senhora")
+        assert info["tratamento_rodape"] == "À Sua Excelência a Senhora"
+        assert info["vocativo"] == "Excelentíssima Senhora"
+        assert info["pronome_corpo"] == "Vossa Excelência"
+
+    def test_ve_sem_crase_masculino_consistente(self) -> None:
+        """DB with 'A Sua Excelência o Senhor' (VE, federal) must sync all three fields."""
+        info = _info_base_masculino()
+        _aplicar_tratamento_db(info, "A Sua Excelência o Senhor")
+        assert info["vocativo"] == "Excelentíssimo Senhor"
+        assert info["pronome_corpo"] == "Vossa Excelência"
+
+    def test_ilustrissimo_pronome_singular(self) -> None:
+        """Ao Ilustríssimo Senhor must keep singular pronome."""
+        info = _info_base_masculino()
+        _aplicar_tratamento_db(info, "Ao Ilustríssimo Senhor")
+        assert info["vocativo"] == "Ilustríssimo Senhor"
+        assert info["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_ilustrissima_pronome_singular(self) -> None:
+        """'À Ilustríssima Senhora' must keep singular feminine forms."""
+        info = _info_base_feminino()
+        _aplicar_tratamento_db(info, "À Ilustríssima Senhora")
+        assert info["vocativo"] == "Ilustríssima Senhora"
+        assert info["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_cuidados_pronome_plural(self) -> None:
+        """'Cuidados' tratamento must produce plural vocativo and plural pronome."""
+        info = _info_base_masculino()
+        _aplicar_tratamento_db(info, "Aos Cuidados do Sr.")
+        assert info["vocativo"] == "Ilustríssimos Senhores(as)"
+        assert info["pronome_corpo"] == "Vossas Senhorias"
+

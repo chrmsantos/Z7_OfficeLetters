@@ -425,6 +425,8 @@ def _worker_main(
             if tipo_propositura == "requerimento_pesar":
                 ctx["vocativo"]           = "Ilustríssimos Senhores(as)"
                 ctx["VOCATIVO"]           = "Ilustríssimos Senhores(as)"
+                ctx["pronome_corpo"]      = "Vossas Senhorias"
+                ctx["PRONOME_CORPO"]      = "Vossas Senhorias"
                 ctx["tratamento_rodape"]  = "Aos familiares do Sr.(ª),"
                 ctx["TRATAMENTO_RODAPE"]  = "Aos familiares do Sr.(ª),"
                 ctx["destinatario_nome"]  = falecido_merged.upper()

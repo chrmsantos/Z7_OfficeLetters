@@ -26,12 +26,22 @@ __all__ = [
 class DestinatarioEntrada(TypedDict, total=False):
     """Shape of a recipient object as returned by the Gemini AI."""
 
+    tipo: str  # "PF", "PJ", or "Coletivo"
     nome: str
-    cargo_ou_tratamento: str
+    # PF fields
+    nivel_protocolo: str   # "VE" (federal/state), "VE_M" (municipal), or absent (default VS)
+    funcao_profissao: str
+    # PJ / Coletivo fields
+    objeto_atividade: str
+    representante: str
+    funcao_representante: str
+    # Common fields
     endereco: str
     email: str
     is_prefeito: bool
+    # Legacy fields — kept for backward compatibility with custom prompts
     is_instituicao: bool
+    cargo_ou_tratamento: str
     genero: str  # "M" or "F"
 
 
@@ -87,7 +97,7 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
     nome: str = dest.get("nome") or ""
     if dest.get("is_prefeito") or "prefeito" in nome.lower():
         return DestinatarioProcessado(
-            tratamento_rodape="A Sua Excelência, o Senhor",
+            tratamento_rodape="À Sua Excelência o Senhor",
             destinatario_nome=_config.PREFEITO["nome"],
             destinatario_endereco=_config.PREFEITO["endereco"],
             vocativo="Excelentíssimo Senhor Prefeito",
@@ -95,21 +105,54 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
             envio="Protocolo",
         )
 
-    is_inst: bool = bool(dest.get("is_instituicao") or False)
+    tipo: str = dest.get("tipo") or ""
+    is_inst: bool = tipo in ("PJ", "Coletivo") or bool(dest.get("is_instituicao") or False)
     genero: str = dest.get("genero") or "M"  # "M" or "F"; default masculine
 
     # ── Tratamento no rodapé ──────────────────────────────────────────────────
     if is_inst:
         nome_lower = nome.lower()
         tratamento_rodape = "À" if nome_lower.startswith("a") else "Ao"
+        vocativo = "Ilustríssimas Senhoras" if genero == "F" else "Ilustríssimos Senhores"
+        pronome_corpo = "Vossas Senhorias"
     else:
-        tratamento_rodape = (
-            "À Ilustríssima Senhora" if genero == "F" else "Ao Ilustríssimo Senhor"
-        )
+        # PF — four protocol levels
+        nivel: str = dest.get("nivel_protocolo") or "VS"
+        genero_art = "a Senhora" if genero == "F" else "o Senhor"
+        if nivel == "VE":
+            # Federal / state authorities: no crase
+            tratamento_rodape = f"A Sua Excelência {genero_art}"
+            vocativo = "Excelentíssima Senhora" if genero == "F" else "Excelentíssimo Senhor"
+            pronome_corpo = "Vossa Excelência"
+        elif nivel == "VE_M":
+            # Municipal authorities: crase
+            tratamento_rodape = f"À Sua Excelência {genero_art}"
+            vocativo = "Excelentíssima Senhora" if genero == "F" else "Excelentíssimo Senhor"
+            pronome_corpo = "Vossa Excelência"
+        else:
+            # Default — Vossa Senhoria
+            tratamento_rodape = "À Ilustríssima Senhora" if genero == "F" else "Ao Ilustríssimo Senhor"
+            vocativo = "Ilustríssima Senhora" if genero == "F" else "Ilustríssimo Senhor"
+            pronome_corpo = "Vossa Senhoria"
 
-    # ── Cargo / tratamento — strip generic honorifics ─────────────────────────
-    cargo: str = dest.get("cargo_ou_tratamento") or ""
-    if not is_inst:
+    # ── Address block ─────────────────────────────────────────────────────────
+    endereco: str = dest.get("endereco") or ""
+    email: str = dest.get("email") or ""
+    partes_endereco: list[str] = []
+
+    if is_inst:
+        # PJ / Coletivo: object/activity, then representative info
+        objeto = dest.get("objeto_atividade") or dest.get("cargo_ou_tratamento") or ""
+        representante = dest.get("representante") or ""
+        funcao_rep = dest.get("funcao_representante") or ""
+        if objeto:
+            partes_endereco.append(objeto)
+        if representante:
+            rep_linha = f"{funcao_rep}: {representante}" if funcao_rep else representante
+            partes_endereco.append(rep_linha)
+    else:
+        # PF: function / profession
+        cargo: str = dest.get("funcao_profissao") or dest.get("cargo_ou_tratamento") or ""
         # Pattern: "Sr. / Real Title" → keep only "Real Title"
         if "/" in cargo:
             partes = [p.strip() for p in cargo.split("/", 1)]
@@ -118,15 +161,13 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
         # Discard the field entirely when it is just a generic honorific
         if cargo.strip().lower() in _HONORIFICOS:
             cargo = ""
+        if cargo:
+            partes_endereco.append(cargo)
 
-    # ── Address block ─────────────────────────────────────────────────────────
-    endereco: str = dest.get("endereco") or ""
-    email: str = dest.get("email") or ""
-    endereco_final = cargo
     if endereco:
-        endereco_final += f"\n{endereco}"
+        partes_endereco.append(endereco)
     if email:
-        endereco_final += f"\n{email}"
+        partes_endereco.append(email)
 
     # ── Delivery method ───────────────────────────────────────────────────────
     if email:
@@ -136,18 +177,10 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
     else:
         envio = "Em Mãos"
 
-    # ── Vocative and body pronoun ─────────────────────────────────────────────
-    if is_inst:
-        vocativo = "Ilustríssimas Senhoras" if genero == "F" else "Ilustríssimos Senhores"
-        pronome_corpo = "Vossas Senhorias"
-    else:
-        vocativo = "Ilustríssima Senhora" if genero == "F" else "Ilustríssimo Senhor"
-        pronome_corpo = "Vossa Senhoria"
-
     return DestinatarioProcessado(
         tratamento_rodape=tratamento_rodape,
         destinatario_nome=nome.upper(),
-        destinatario_endereco=endereco_final.strip(),
+        destinatario_endereco="\n".join(partes_endereco),
         vocativo=vocativo,
         pronome_corpo=pronome_corpo,
         envio=envio,
