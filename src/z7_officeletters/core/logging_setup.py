@@ -11,6 +11,7 @@ Public exports:
         string until ``configurar_logging`` is called).
     configurar_logging: Configures all handlers and returns the log file path.
     registrar_chamada_ia: Append one structured AI-call record to the AI log.
+    registrar_conferencia_ia: Append one verification-phase record to the AI log.
 """
 
 from __future__ import annotations
@@ -26,7 +27,14 @@ from typing import Any
 
 from z7_officeletters.constants import PASTA_LOG_IA, PASTA_LOGS
 
-__all__ = ["SESSAO_ID", "logger", "ia_log_path", "configurar_logging", "registrar_chamada_ia"]
+__all__ = [
+    "SESSAO_ID",
+    "logger",
+    "ia_log_path",
+    "configurar_logging",
+    "registrar_chamada_ia",
+    "registrar_conferencia_ia",
+]
 
 # Unique identifier for the current process run, embedded in every log line.
 SESSAO_ID: str = uuid.uuid4().hex[:8]
@@ -130,6 +138,56 @@ def registrar_chamada_ia(record: dict[str, Any]) -> None:
     if not ia_log_path:
         return
     try:
+        with open(ia_log_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False, default=str))
+            fh.write("\n")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def registrar_conferencia_ia(relatorio: Any) -> None:
+    """Append one verification-phase record as a JSON line to the per-session AI log.
+
+    Records a ``RelatorioConferencia`` produced by
+    :func:`~z7_officeletters.core.verification.conferir_trabalho` as a
+    structured JSONL entry of type ``"conferencia"``.  The record includes
+    the aggregate counters and the per-file results (errors found, whether
+    correction succeeded, etc.).
+
+    Silently does nothing if :func:`configurar_logging` has not yet been called
+    (e.g. during unit tests that do not initialise logging).
+
+    Args:
+        relatorio: A :class:`~z7_officeletters.core.verification.RelatorioConferencia`
+            instance (typed as ``Any`` here to avoid a circular import).
+    """
+    if not ia_log_path:
+        return
+
+    from datetime import datetime  # noqa: PLC0415
+
+    try:
+        resultados_serializados = [
+            {
+                "arquivo": r.arquivo,
+                "erros_dados": r.erros_dados,
+                "erros_linguisticos": r.erros_linguisticos,
+                "erros_planilha": r.erros_planilha,
+                "corrigido": r.corrigido,
+                "incorrigivel": r.incorrigivel,
+            }
+            for r in relatorio.resultados
+        ]
+        record: dict[str, Any] = {
+            "tipo": "conferencia",
+            "timestamp": datetime.now().isoformat(timespec="milliseconds"),
+            "sessao_id": SESSAO_ID,
+            "total_verificados": relatorio.total_verificados,
+            "total_com_erros": relatorio.total_com_erros,
+            "total_corrigidos": relatorio.total_corrigidos,
+            "total_incorrigiveis": relatorio.total_incorrigiveis,
+            "resultados": resultados_serializados,
+        }
         with open(ia_log_path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False, default=str))
             fh.write("\n")
