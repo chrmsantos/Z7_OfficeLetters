@@ -46,8 +46,9 @@ from z7_officeletters.core import authors as _authors
 from z7_officeletters.core import documents as _docs
 from z7_officeletters.core import files as _files
 from z7_officeletters.core import recipients as _recipients
+from z7_officeletters.core import verification as _verification
 from z7_officeletters.core.api_key import salvar_api_key
-from z7_officeletters.core.logging_setup import configurar_logging
+from z7_officeletters.core.logging_setup import configurar_logging, registrar_conferencia_ia
 
 __all__ = ["run_processing_worker"]
 
@@ -236,6 +237,7 @@ def _worker_main(
         total_prompt_tokens = 0
         total_candidates_tokens = 0
         total_tokens = 0
+        registros_verificacao: list[_verification.RegistroOficio] = []
 
         # ── Phase 1: AI extraction ────────────────────────────────────────────
         # Process each propositura individually; collect validated data dicts.
@@ -456,7 +458,8 @@ def _worker_main(
                 ano=year,
                 tipo_propositura=tipo_propositura,
             )
-            doc.save(os.path.join(PASTA_SAIDA, nome))
+            caminho_oficio = os.path.join(PASTA_SAIDA, nome)
+            doc.save(caminho_oficio)
             q.put(("log", f"  ✔  {nome}", "success"))
 
             if tipo_propositura == "requerimento_pesar":
@@ -477,9 +480,34 @@ def _worker_main(
                 info["envio"],
                 inputs["sigla"],
             ])
+
+            # Register this letter for Phase 6 verification.
+            registros_verificacao.append(_verification.RegistroOficio(
+                caminho=caminho_oficio,
+                nome_arquivo=nome,
+                ctx=dict(ctx),
+                dados_grupo=[d for d, _, __ in grupo],
+                dest_raw=dict(dest0),
+                info=dict(info),
+                n_props=n_props,
+                tipo_propositura=tipo_propositura,
+                template_path=str(_tmpl),
+                linha_planilha_idx=len(dados_planilha) - 1,
+            ))
+
             numero_atual += 1
 
-        # ── Excel spreadsheet ─────────────────────────────────────────────────
+        # ── Phase 5: Verification (conference) ───────────────────────────────
+        # Runs before the spreadsheet is written to disk so that any corrections
+        # to dados_planilha rows are reflected in the final .xlsx file.
+        if registros_verificacao:
+            relatorio_conf = _verification.conferir_trabalho(
+                registros_verificacao, dados_planilha, q
+            )
+            registrar_conferencia_ia(relatorio_conf)
+            erros += relatorio_conf.total_incorrigiveis
+
+        # ── Phase 6: Excel spreadsheet ────────────────────────────────────────
         q.put(("log", "\n📊  Gerando planilha Excel…", "accent"))
         if getattr(sys, "frozen", False):
             modelo_xlsx = Path(sys.executable).parent / MODELO_PLANILHA
