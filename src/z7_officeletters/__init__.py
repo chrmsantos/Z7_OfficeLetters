@@ -14,5 +14,5 @@ from __future__ import annotations
 __all__ = ["APP_NAME", "APP_VERSION", "APP_AUTHOR"]
 
 APP_NAME: str = "Z7 OfficeLetters"
-APP_VERSION: str = "2.5-beta2"
+APP_VERSION: str = "3.0.1-rc2"
 APP_AUTHOR: str = "Christian Martin dos Santos"

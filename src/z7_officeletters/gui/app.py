@@ -61,7 +61,6 @@ class AutoOficiosApp(ctk.CTk):
         self.geometry("1140x680")
         self.minsize(920, 580)
         self.configure(fg_color=_C["bg"])
-        self._maximize_on_startup()
 
         _icon = Path(__file__).parent.parent.parent.parent / "icon.ico"
         if _icon.exists():
@@ -73,10 +72,12 @@ class AutoOficiosApp(ctk.CTk):
         self._prop_paths: list[str] = []
         self._stored_key: str = ""
         self._log_entries: list[tuple[str, str]] = []  # (text, tag) for theme rebuild
+        self._log_has_placeholder: bool = False
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._build_ui()
+        self.after(0, self._maximize_on_startup)
         threading.Thread(target=self._run_init_bg, daemon=True).start()
         self._poll_queue()
 
@@ -220,27 +221,40 @@ class AutoOficiosApp(ctk.CTk):
         self._build_footer()
 
     def _build_header(self) -> None:
-        hdr = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=0, height=76)
+        hdr = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=0, height=90)
         hdr.grid(row=0, column=0, columnspan=2, sticky="ew")
         hdr.grid_propagate(False)
         hdr.grid_columnconfigure(0, weight=1)
         hdr.grid_columnconfigure(1, weight=0)
 
         title_frame = ctk.CTkFrame(hdr, fg_color="transparent")
-        title_frame.grid(row=0, column=0, sticky="w", padx=24, pady=(18, 0))
+        title_frame.grid(row=0, column=0, sticky="w", padx=24, pady=(14, 0))
+        title_frame.grid_columnconfigure(0, weight=0)
+
+        name_row = ctk.CTkFrame(title_frame, fg_color="transparent")
+        name_row.grid(row=0, column=0, sticky="w")
 
         ctk.CTkLabel(
-            title_frame, text="Z7 OFFICELETTERS",
+            name_row, text="Z7 OFFICELETTERS",
             font=ctk.CTkFont(size=22, weight="bold"),
             text_color=_C["text"],
         ).pack(side="left")
 
+        badge = ctk.CTkFrame(name_row, fg_color=_C["accent"], corner_radius=10)
+        badge.pack(side="left", padx=(12, 0), pady=(2, 0))
+        ctk.CTkLabel(
+            badge, text=f"v{APP_VERSION}",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#ffffff",
+        ).pack(padx=10, pady=(2, 3))
+
         ctk.CTkLabel(
             title_frame,
-            text=f"   Gerador de Ofícios Legislativos  •  v{APP_VERSION}",
-            font=ctk.CTkFont(size=13),
+            text="Automatize ofícios legislativos com IA",
+            font=ctk.CTkFont(size=12),
             text_color=_C["dim"],
-        ).pack(side="left", pady=4)
+            anchor="w",
+        ).grid(row=1, column=0, sticky="w", pady=(3, 0))
 
         _theme_icon = "☀" if self._theme == "dark" else "🌙"
         _theme_tip  = "Tema Claro" if self._theme == "dark" else "Tema Escuro"
@@ -253,7 +267,7 @@ class AutoOficiosApp(ctk.CTk):
             text_color=_C["dim"],
             border_width=1, border_color=_C["border"],
             command=self._toggle_theme,
-        ).grid(row=0, column=1, sticky="e", padx=20, pady=(22, 0))
+        ).grid(row=0, column=1, sticky="e", padx=20, pady=(30, 0))
 
     def _build_left_panel(self) -> None:
         self._left = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
@@ -378,7 +392,7 @@ class AutoOficiosApp(ctk.CTk):
             self._action_frame,
             text="⚡   GERAR OFÍCIOS",
             font=ctk.CTkFont(size=15, weight="bold"),
-            height=54, corner_radius=12,
+            height=54, corner_radius=16,
             fg_color=_C["accent"], hover_color=_C["accent2"],
             text_color="#ffffff",
             command=self._start_processing,
@@ -474,7 +488,19 @@ class AutoOficiosApp(ctk.CTk):
         tb.tag_config("warn",    foreground=_C["warn"])
         tb.tag_config("dim",     foreground=_C["dim"])
         tb.tag_config("accent",  foreground=_C["accent"])
-        tb.tag_config("bold",    font=("Consolas", 12, "bold"), foreground=_C["text"])
+        tb.tag_config("bold",        font=("Consolas", 12, "bold"), foreground=_C["text"])
+        tb.tag_config("placeholder", foreground=_C["dim"])
+        if not self._log_entries:
+            tb.configure(state="normal")
+            tb.insert(
+                "1.0",
+                "\n\n\n\n        📋   Adicione proposituras e clique em Gerar\n",
+                "placeholder",
+            )
+            tb.configure(state="disabled")
+            self._log_has_placeholder = True
+        else:
+            self._log_has_placeholder = False
 
         summary = ctk.CTkFrame(self._right, fg_color=_C["panel"], corner_radius=10)
         summary.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 18))
@@ -528,7 +554,7 @@ class AutoOficiosApp(ctk.CTk):
         ).grid(row=0, column=1, sticky="e", padx=(0, 8), pady=6)
 
         ctk.CTkLabel(
-            footer, text=f"© {APP_AUTHOR}",
+            footer, text=f"© {APP_AUTHOR}  •  Dharma, virtude e gratidão.",
             font=ctk.CTkFont(size=10), text_color=_C["dim"],
         ).grid(row=0, column=2, sticky="e", padx=16, pady=6)
 
@@ -805,6 +831,9 @@ class AutoOficiosApp(ctk.CTk):
         self._log_entries.append((text, tag))
         tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
         tb.configure(state="normal")
+        if getattr(self, "_log_has_placeholder", False):
+            tb.delete("1.0", "end")
+            self._log_has_placeholder = False
         if tag:
             tb.insert("end", text + "\n", tag)
         else:
@@ -817,7 +846,13 @@ class AutoOficiosApp(ctk.CTk):
         tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
         tb.configure(state="normal")
         tb.delete("1.0", "end")
+        tb.insert(
+            "1.0",
+            "\n\n\n\n        📋   Adicione proposituras e clique em Gerar\n",
+            "placeholder",
+        )
         tb.configure(state="disabled")
+        self._log_has_placeholder = True
 
     # =========================================================================
     # Processing
@@ -928,11 +963,13 @@ class AutoOficiosApp(ctk.CTk):
             current, total = msg[1], msg[2]
             pct = current / total if total else 0
             self._progress.set(pct)
+            bar_color = _C["warn"] if pct < 0.4 else (_C["accent"] if pct < 0.8 else _C["success"])
+            self._progress.configure(progress_color=bar_color)
             self._prog_label.configure(
                 text=f"Processando moção {current} de {total}…",
                 text_color=_C["dim"],
             )
-            self._prog_pct.configure(text=f"{int(pct * 100)} %")
+            self._prog_pct.configure(text=f"{int(pct * 100)} %", text_color=bar_color)
 
         elif kind == "done":
             generated, errors, elapsed, total_tokens = msg[1], msg[2], msg[3], msg[4]

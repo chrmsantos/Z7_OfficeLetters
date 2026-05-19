@@ -25,7 +25,7 @@ Workflow:
 
 - **GitHub:** `chrmsantos/Z7_OfficeLetters` — branch `master` (default)
 - **Local workspace:** `C:\Users\csantos\AppData\Local\Z7\Apps\Z7_OfficeLetters`
-- **Version:** `2.3.2-beta2` (in `pyproject.toml`)
+- **Version:** `3.0.1-rc2` (in `pyproject.toml`)
 - **License:** GNU GPL v3.0
 
 ---
