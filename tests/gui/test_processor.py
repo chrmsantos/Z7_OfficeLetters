@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from z7_officeletters.gui.workers.processor import (
-    _aplicar_tratamento_db,
-    _formatar_lista_pt,
-    _frases_propositura,
-    _normalizar_dest,
+from z7_officeletters.core.documents import (
+    formatar_lista_pt as _formatar_lista_pt,
+    frases_propositura as _frases_propositura,
 )
+from z7_officeletters.core.recipients import aplicar_tratamento_db as _aplicar_tratamento_db
+from z7_officeletters.gui.workers.processor import _normalizar_dest
 
 
 # =============================================================================

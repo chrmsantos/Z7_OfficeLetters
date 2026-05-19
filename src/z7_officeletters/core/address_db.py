@@ -18,6 +18,7 @@ Public exports:
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import unicodedata
@@ -25,6 +26,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 __all__ = ["EntradaEndereco", "carregar_db", "buscar_endereco", "resetar_cache"]
+
+logger = logging.getLogger(__name__)
 
 
 class EntradaEndereco(NamedTuple):
@@ -146,7 +149,8 @@ def carregar_db(path: Path) -> list[EntradaEndereco]:
 
         doc = Document(str(path))
         paragraphs = [p.text for p in doc.paragraphs]
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Falha ao carregar base de endereços '%s': %s.", path, exc)
         return []
     return _parse_entries(paragraphs)
 

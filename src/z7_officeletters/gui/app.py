@@ -153,6 +153,8 @@ class AutoOficiosApp(ctk.CTk):
             import z7_officeletters.core.ai as _ai  # noqa: PLC0415
             _ai.MODELO_IA = loaded_model
 
+        self._update_ai_status()
+
         if "numero_oficio" in session_state:
             self._num_var.set(session_state["numero_oficio"])
         if "redator" in session_state:
@@ -410,6 +412,14 @@ class AutoOficiosApp(ctk.CTk):
             command=self._open_avancado, **_btn_kw,
         ).grid(row=0, column=0, sticky="ew")
 
+        self._ai_status_label = ctk.CTkLabel(
+            self._left, text="",
+            font=ctk.CTkFont(size=11),
+            text_color=_C["dim"], anchor="center",
+        )
+        self._ai_status_label.grid(row=18, column=0, sticky="ew", padx=20, pady=(6, 14))
+        self._update_ai_status()
+
     def _build_right_panel(self) -> None:
         self._right = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
         self._right.grid(row=1, column=1, sticky="nsew", padx=(7, 14), pady=12)
@@ -544,6 +554,20 @@ class AutoOficiosApp(ctk.CTk):
         ).grid(row=row, column=0, sticky="w", padx=20, pady=(0, 4))
 
     # =========================================================================
+    # AI status
+    # =========================================================================
+    def _update_ai_status(self) -> None:
+        model = self._modelo_ia_var.get() or "gemini-2.0-flash"
+        has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
+        if has_key:
+            text = f"🤖 {model}  •  ✔ Validado"
+            color = _C["success"]
+        else:
+            text = f"🤖 {model}  •  ⚠ Chave não configurada"
+            color = _C["warn"]
+        self._ai_status_label.configure(text=text, text_color=color)
+
+    # =========================================================================
     # Theme
     # =========================================================================
     def _toggle_theme(self) -> None:
@@ -585,6 +609,7 @@ class AutoOficiosApp(ctk.CTk):
         self._modelo_ia_var.set(saved_modelo)
         self._apikey_var.set(saved_key)
         self._log_entries = saved_log_entries
+        self._update_ai_status()
 
         self._prop_listbox.delete(0, tk.END)
         for p in self._prop_paths:
@@ -737,6 +762,7 @@ class AutoOficiosApp(ctk.CTk):
             def _on_ai_saved(key: str, modelo: str) -> None:
                 self._stored_key = key
                 self._apikey_var.set("")
+                self._update_ai_status()
 
             show_ai_api_dialog(
                 self,

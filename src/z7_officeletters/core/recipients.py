@@ -20,6 +20,7 @@ __all__ = [
     "DestinatarioEntrada",
     "DestinatarioProcessado",
     "processar_destinatario",
+    "aplicar_tratamento_db",
 ]
 
 
@@ -185,3 +186,50 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
         pronome_corpo=pronome_corpo,
         envio=envio,
     )
+
+
+def aplicar_tratamento_db(info: dict[str, Any], tratamento: str) -> None:
+    """Override honorifics in *info* using the address-database tratamento line.
+
+    Called after :func:`processar_destinatario` when the address database
+    supplies a more authoritative tratamento string.  Mutates *info* in place.
+
+    The function syncs ``vocativo`` and ``pronome_corpo`` with the new
+    ``tratamento_rodape`` value so that a wrong gender inferred by the AI does
+    not bleed through into the final letter.
+
+    Args:
+        info: ``DestinatarioProcessado`` dict to update in place.
+        tratamento: Raw tratamento line from the address database (e.g.
+            ``"A Sua Excelência o Senhor"``).
+    """
+    t = tratamento.strip()
+    t_lower = t.lower()
+    if "excelê" in t_lower or "excelencia" in t_lower.encode("ascii", "ignore").decode():
+        info["tratamento_rodape"] = t
+        info["pronome_corpo"] = "Vossa Excelência"
+        info["vocativo"] = (
+            "Excelentíssima Senhora" if "senhora" in t_lower else "Excelentíssimo Senhor"
+        )
+    elif "cuidados" in t_lower:
+        info["tratamento_rodape"] = t
+        info["vocativo"] = "Ilustríssimos Senhores(as)"
+        info["pronome_corpo"] = "Vossas Senhorias"
+    else:
+        info["tratamento_rodape"] = t
+        # When the DB tratamento encodes a gendered honorific (e.g. "À Ilustríssima
+        # Senhora" or "Ao Ilustríssimo Senhor"), sync vocativo/pronome_corpo so that
+        # a wrong gender from the AI does not bleed through into the final letter.
+        t_ascii = t_lower.encode("ascii", "ignore").decode()
+        if "ilustrissima" in t_ascii or (
+            "senhora" in t_lower and "senhori" not in t_lower
+        ):
+            info["vocativo"] = "Ilustríssima Senhora"
+            info["pronome_corpo"] = "Vossa Senhoria"
+        elif "ilustrissimo" in t_ascii or (
+            "senhor" in t_lower
+            and "senhora" not in t_lower
+            and "senhori" not in t_lower
+        ):
+            info["vocativo"] = "Ilustríssimo Senhor"
+            info["pronome_corpo"] = "Vossa Senhoria"

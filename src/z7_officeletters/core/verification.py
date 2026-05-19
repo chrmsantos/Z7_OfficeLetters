@@ -29,6 +29,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from z7_officeletters.core.documents import formatar_lista_pt as _formatar_lista_pt
+from z7_officeletters.core.documents import frases_propositura as _frases_propositura
+
 __all__ = [
     "RegistroOficio",
     "ResultadoVerificacao",
@@ -124,43 +127,6 @@ class RelatorioConferencia:
     total_corrigidos: int = 0
     total_incorrigiveis: int = 0
     resultados: list[ResultadoVerificacao] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# (Replicados aqui para evitar import circular com gui/workers/processor.py)
-# ---------------------------------------------------------------------------
-
-
-def _formatar_lista_pt(items: list[str]) -> str:
-    """Formata lista de strings em estilo português, deduplicando a ordem.
-
-    Examples:
-        ``["a"]`` → ``"a"``
-        ``["a", "b"]`` → ``"a e b"``
-        ``["a", "b", "c"]`` → ``"a, b e c"``
-    """
-    unique: list[str] = list(dict.fromkeys(items))
-    if len(unique) == 1:
-        return unique[0]
-    return ", ".join(unique[:-1]) + " e " + unique[-1]
-
-
-def _frases_propositura(
-    tipo_propositura: str, tipo_mocao_merged: str, n_props: int
-) -> tuple[str, str, str]:
-    """Retorna tripla (designacao, copia_art, aprovada_s) com concordância de número.
-
-    Returns:
-        ``(designacao_propositura, copia_art, aprovada_s)``
-    """
-    if tipo_propositura == "requerimento_pesar":
-        if n_props > 1:
-            return "Requerimentos de Pesar", "cópias dos", "aprovados"
-        return "Requerimento de Pesar", "cópia do", "aprovado"
-    if n_props > 1:
-        return f"Moções de {tipo_mocao_merged}", "cópias das", "aprovadas"
-    return f"Moção de {tipo_mocao_merged}", "cópia da", "aprovada"
 
 
 # ---------------------------------------------------------------------------

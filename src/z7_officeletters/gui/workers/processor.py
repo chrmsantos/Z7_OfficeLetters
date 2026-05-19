@@ -58,95 +58,6 @@ def _normalizar_dest(nome: str) -> str:
     return " ".join(nome.upper().split())
 
 
-def _formatar_lista_pt(items: list[str]) -> str:
-    """Format a list of strings in Portuguese style, deduplicating while preserving order.
-
-    Examples:
-        ``["a"]`` → ``"a"``
-        ``["a", "b"]`` → ``"a e b"``
-        ``["a", "b", "c"]`` → ``"a, b e c"``
-    """
-    unique: list[str] = list(dict.fromkeys(items))
-    if len(unique) == 1:
-        return unique[0]
-    return ", ".join(unique[:-1]) + " e " + unique[-1]
-
-
-def _frases_propositura(
-    tipo_propositura: str,
-    tipo_mocao_merged: str,
-    n_props: int,
-) -> tuple[str, str, str]:
-    """Return plural-aware phrase fragments for the letter template.
-
-    Args:
-        tipo_propositura: ``"mocao"`` or ``"requerimento_pesar"``.
-        tipo_mocao_merged: Merged motion type string (e.g. ``"Aplauso"``).
-            Ignored when *tipo_propositura* is ``"requerimento_pesar"``.
-        n_props: Number of propositions grouped in this letter.
-
-    Returns:
-        A three-tuple ``(designacao_propositura, copia_art, aprovada_s)``
-        where:
-        - *designacao_propositura* — full noun phrase, e.g. ``"Moção de Aplauso"``
-          or ``"Moções de Aplauso"``.
-        - *copia_art* — contracted article phrase, e.g. ``"cópia da"`` or
-          ``"cópias das"``.
-        - *aprovada_s* — past-participle agreement, ``"aprovada"`` /
-          ``"aprovadas"`` / ``"aprovado"`` / ``"aprovados"``.
-    """
-    if tipo_propositura == "requerimento_pesar":
-        if n_props > 1:
-            return "Requerimentos de Pesar", "cópias dos", "aprovados"
-        return "Requerimento de Pesar", "cópia do", "aprovado"
-    # moção
-    if n_props > 1:
-        return f"Moções de {tipo_mocao_merged}", "cópias das", "aprovadas"
-    return f"Moção de {tipo_mocao_merged}", "cópia da", "aprovada"
-
-
-def _aplicar_tratamento_db(info: dict, tratamento: str) -> None:
-    """Override tratamento_rodape and honorifics in *info* from a DB tratamento line.
-
-    Called after ``processar_destinatario`` when the address database
-    provides a more authoritative tratamento string.
-
-    Args:
-        info: ``DestinatarioProcessado`` dict (mutated in place).
-        tratamento: Raw tratamento line from the address database.
-    """
-    t = tratamento.strip()
-    t_lower = t.lower()
-    if "excelê" in t_lower or "excelencia" in t_lower.encode("ascii", "ignore").decode():
-        info["tratamento_rodape"] = t
-        info["pronome_corpo"] = "Vossa Excelência"
-        info["vocativo"] = (
-            "Excelentíssima Senhora" if "senhora" in t_lower else "Excelentíssimo Senhor"
-        )
-    elif "cuidados" in t_lower:
-        info["tratamento_rodape"] = t
-        info["vocativo"] = "Ilustríssimos Senhores(as)"
-        info["pronome_corpo"] = "Vossas Senhorias"
-    else:
-        info["tratamento_rodape"] = t
-        # When the DB tratamento encodes a gendered honorific (e.g. "À Ilustríssima
-        # Senhora" or "Ao Ilustríssimo Senhor"), sync vocativo/pronome_corpo so that
-        # a wrong gender from the AI does not bleed through into the final letter.
-        t_ascii = t_lower.encode("ascii", "ignore").decode()
-        if "ilustrissima" in t_ascii or (
-            "senhora" in t_lower and "senhori" not in t_lower
-        ):
-            info["vocativo"] = "Ilustríssima Senhora"
-            info["pronome_corpo"] = "Vossa Senhoria"
-        elif "ilustrissimo" in t_ascii or (
-            "senhor" in t_lower
-            and "senhora" not in t_lower
-            and "senhori" not in t_lower
-        ):
-            info["vocativo"] = "Ilustríssimo Senhor"
-            info["pronome_corpo"] = "Vossa Senhoria"
-
-
 def _worker_main(
     inputs: dict[str, Any],
     q: "queue.Queue[tuple[Any, ...]]",
@@ -318,7 +229,7 @@ def _worker_main(
 
                 # Override honorifics when DB supplies a richer tratamento string.
                 if db_entry:
-                    _aplicar_tratamento_db(info, db_entry.tratamento)
+                    _recipients.aplicar_tratamento_db(info, db_entry.tratamento)
 
                 dest_key = (tipo_propositura, _normalizar_dest(dest["nome"]))
                 if dest_key not in grupos:
@@ -348,21 +259,21 @@ def _worker_main(
             texto_autoria, sigla_autores = _authors.formatar_autores(all_autores)
 
             nums_mocao = [d_item["numero_mocao"] for d_item, _, __ in grupo]
-            num_mocao_merged = _formatar_lista_pt(nums_mocao)
+            num_mocao_merged = _docs.formatar_lista_pt(nums_mocao)
 
             tipos_mocao = [
                 str(d_item.get("tipo_mocao", ""))
                 for d_item, _, __ in grupo
                 if d_item.get("tipo_mocao")
             ]
-            tipo_mocao_merged = _formatar_lista_pt(tipos_mocao) if tipos_mocao else ""
+            tipo_mocao_merged = _docs.formatar_lista_pt(tipos_mocao) if tipos_mocao else ""
 
             falecidos = [
                 str(d_item.get("falecido", ""))
                 for d_item, _, __ in grupo
                 if d_item.get("falecido")
             ]
-            falecido_merged = _formatar_lista_pt(falecidos) if falecidos else ""
+            falecido_merged = _docs.formatar_lista_pt(falecidos) if falecidos else ""
 
             # Recipient info is identical for all items in the group
             # (they share the same destination); use the first entry.
@@ -384,7 +295,7 @@ def _worker_main(
             # Plural-aware phrase fragments used by both templates.
             # These allow the assunto line and body paragraph to read correctly
             # regardless of whether one or many propositions are grouped.
-            _designacao_prop, _copia_art, _aprovada_s = _frases_propositura(
+            _designacao_prop, _copia_art, _aprovada_s = _docs.frases_propositura(
                 tipo_propositura, tipo_mocao_merged, n_props
             )
 

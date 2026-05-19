@@ -5,6 +5,8 @@ the Excel control spreadsheet, and the safe Windows filenames for each
 generated document.
 
 Public exports:
+    formatar_lista_pt: Format a Python list as a Portuguese enumeration string.
+    frases_propositura: Return plural-aware phrase fragments for the letter template.
     normalizar_numero_mocao: Strip year suffixes from a motion number string.
     construir_nome_arquivo: Build a safe Windows filename for one letter.
     criar_modelo_planilha: Create (or overwrite) the Excel template with headers.
@@ -17,6 +19,8 @@ import sys
 from pathlib import Path
 
 __all__ = [
+    "formatar_lista_pt",
+    "frases_propositura",
     "normalizar_numero_mocao",
     "construir_nome_arquivo",
     "criar_modelo_planilha",
@@ -30,6 +34,59 @@ _RE_ANO_MOCAO: re.Pattern[str] = re.compile(r"[-/]\d{2,4}$")
 
 # Characters that are illegal in Windows file and folder names.
 _RE_NOME_INVALIDO: re.Pattern[str] = re.compile(r'[\\/*?:"<>|]')
+
+
+def formatar_lista_pt(items: list[str]) -> str:
+    """Format a list of strings as a Portuguese enumeration, deduplicating order.
+
+    Examples:
+        ``["a"]`` → ``"a"``
+        ``["a", "b"]`` → ``"a e b"``
+        ``["a", "b", "c"]`` → ``"a, b e c"``
+
+    Args:
+        items: Strings to format.  Duplicates are removed while preserving order.
+
+    Returns:
+        Single formatted string.
+    """
+    unique: list[str] = list(dict.fromkeys(items))
+    if len(unique) == 1:
+        return unique[0]
+    return ", ".join(unique[:-1]) + " e " + unique[-1]
+
+
+def frases_propositura(
+    tipo_propositura: str,
+    tipo_mocao_merged: str,
+    n_props: int,
+) -> tuple[str, str, str]:
+    """Return plural-aware phrase fragments for the letter template.
+
+    Args:
+        tipo_propositura: ``"mocao"`` or ``"requerimento_pesar"``.
+        tipo_mocao_merged: Merged motion type string (e.g. ``"Aplauso"``).
+            Ignored when *tipo_propositura* is ``"requerimento_pesar"``.
+        n_props: Number of propositions grouped in this letter.
+
+    Returns:
+        A three-tuple ``(designacao_propositura, copia_art, aprovada_s)``
+        where:
+
+        - *designacao_propositura* — full noun phrase, e.g. ``"Moção de Aplauso"``
+          or ``"Moções de Aplauso"``.
+        - *copia_art* — contracted article phrase, e.g. ``"cópia da"`` or
+          ``"cópias das"``.
+        - *aprovada_s* — past-participle agreement, ``"aprovada"`` /
+          ``"aprovadas"`` / ``"aprovado"`` / ``"aprovados"``.
+    """
+    if tipo_propositura == "requerimento_pesar":
+        if n_props > 1:
+            return "Requerimentos de Pesar", "cópias dos", "aprovados"
+        return "Requerimento de Pesar", "cópia do", "aprovado"
+    if n_props > 1:
+        return f"Moções de {tipo_mocao_merged}", "cópias das", "aprovadas"
+    return f"Moção de {tipo_mocao_merged}", "cópia da", "aprovada"
 
 
 def normalizar_numero_mocao(numero: str) -> str:

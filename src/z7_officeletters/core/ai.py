@@ -273,8 +273,8 @@ def carregar_prompt_template() -> str:
     if p.exists():
         try:
             return p.read_text(encoding="utf-8")
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Falha ao ler prompt template '%s': %s. Usando template padrão.", p, exc)
     return PROMPT_TEMPLATE_PADRAO
 
 
@@ -288,8 +288,8 @@ def carregar_prompt_template_pesar() -> str:
     if p.exists():
         try:
             return p.read_text(encoding="utf-8")
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Falha ao ler prompt template pesar '%s': %s. Usando template padrão.", p, exc)
     return PROMPT_TEMPLATE_PESAR_PADRAO
 
 
@@ -304,8 +304,9 @@ def _load_modelo_ia() -> str:
     try:
         from z7_officeletters.core.api_key import carregar_modelo_ia  # noqa: PLC0415
         return carregar_modelo_ia()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         from z7_officeletters.core.api_key import DEFAULT_MODELO_IA  # noqa: PLC0415
+        logger.warning("Falha ao carregar modelo IA: %s. Usando modelo padrão '%s'.", exc, DEFAULT_MODELO_IA)
         return DEFAULT_MODELO_IA
 
 

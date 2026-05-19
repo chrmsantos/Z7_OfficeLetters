@@ -66,7 +66,6 @@ a = Analysis(
         "keyring.backends.Windows",
         # Recycle Bin
         "send2trash",
-        "send2trash.plat_win",
         # Core app
         "z7_officeletters",
         "z7_officeletters.core",
@@ -92,7 +91,6 @@ a = Analysis(
         # Misc
         "PIL",
         "PIL._tkinter_finder",
-        "pkg_resources",
         "packaging",
     ],
     hookspath=[],
