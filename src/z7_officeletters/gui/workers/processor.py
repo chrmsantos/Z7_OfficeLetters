@@ -231,7 +231,7 @@ def _worker_main(
                 if db_entry:
                     _recipients.aplicar_tratamento_db(info, db_entry.tratamento)
 
-                dest_key = (tipo_propositura, _normalizar_dest(dest["nome"]))
+                dest_key = (tipo_propositura, _normalizar_dest(dest_proc["nome"]))
                 if dest_key not in grupos:
                     grupos[dest_key] = []
                 grupos[dest_key].append((dados, dest, info))
