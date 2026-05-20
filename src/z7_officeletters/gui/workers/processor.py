@@ -168,6 +168,7 @@ def _worker_main(
                     texto, cliente,
                     tipo_propositura=tipo_propositura,
                     cancel_event=cancel_event,
+                    on_rate_limit=lambda msg: q.put(("log", f"  {msg}", "warn")),
                 )
             except RuntimeError as exc:
                 if cancel_event.is_set():

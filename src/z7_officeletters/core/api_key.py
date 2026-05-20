@@ -24,17 +24,21 @@ __all__ = [
     "KEYRING_SERVICE",
     "KEYRING_USERNAME",
     "KEYRING_MODEL_USERNAME",
+    "KEYRING_ACCOUNT_USERNAME",
     "DEFAULT_MODELO_IA",
     "salvar_api_key",
     "carregar_api_key",
     "salvar_modelo_ia",
     "carregar_modelo_ia",
+    "salvar_conta",
+    "carregar_conta",
     "migrar_chave_do_registro",
 ]
 
 KEYRING_SERVICE: str = "z7_officeletters"
 KEYRING_USERNAME: str = "gemini_api_key"
 KEYRING_MODEL_USERNAME: str = "gemini_model"
+KEYRING_ACCOUNT_USERNAME: str = "google_account"
 DEFAULT_MODELO_IA: str = "gemini-2.0-flash"
 
 
@@ -87,6 +91,20 @@ def carregar_modelo_ia() -> str:
     import keyring  # noqa: PLC0415
 
     return keyring.get_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME) or DEFAULT_MODELO_IA
+
+
+def salvar_conta(conta: str) -> None:
+    """Persist the Google account e-mail in the Windows Credential Manager."""
+    import keyring  # noqa: PLC0415
+
+    keyring.set_password(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME, conta)
+
+
+def carregar_conta() -> str:
+    """Retrieve the stored Google account e-mail, or empty string."""
+    import keyring  # noqa: PLC0415
+
+    return keyring.get_password(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME) or ""
 
 
 def migrar_chave_do_registro() -> None:

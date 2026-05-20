@@ -41,14 +41,17 @@ def show_ai_api_dialog(
         get_stored_key: Callable returning the currently persisted key (empty if none).
         on_saved: Callback invoked with ``(api_key, modelo)`` after a successful save.
     """
-    from z7_officeletters.core.api_key import salvar_api_key, salvar_modelo_ia  # noqa: PLC0415
+    from z7_officeletters.core.api_key import salvar_api_key, salvar_modelo_ia, salvar_conta, carregar_conta  # noqa: PLC0415
     import z7_officeletters.core.ai as _ai  # noqa: PLC0415
 
     apikey_visible: list[bool] = [False]
+    _stored_key = get_stored_key()
+    if _stored_key and not apikey_var.get().strip():
+        apikey_var.set(_stored_key)
 
     dlg = ctk.CTkToplevel(parent)
     dlg.title("API de IA")
-    dlg.geometry("480x550")
+    dlg.geometry("480x610")
     dlg.resizable(False, False)
     dlg.grab_set()
     dlg.configure(fg_color=_C["bg"])
@@ -56,7 +59,7 @@ def show_ai_api_dialog(
     dlg.update_idletasks()
     px, py = parent.winfo_x(), parent.winfo_y()
     pw, ph = parent.winfo_width(), parent.winfo_height()
-    dlg.geometry(f"480x550+{px + (pw - 480) // 2}+{py + (ph - 550) // 2}")
+    dlg.geometry(f"480x610+{px + (pw - 480) // 2}+{py + (ph - 610) // 2}")
 
     # ── Section: API Key ───────────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -74,7 +77,24 @@ def show_ai_api_dialog(
         text_color=_C["success"] if _current_key else _C["warn"],
         anchor="w",
     )
-    _status_lbl.pack(fill="x", padx=22, pady=(0, 6))
+    _status_lbl.pack(fill="x", padx=22, pady=(0, 2))
+
+    _conta_atual = carregar_conta()
+    conta_var = ctk.StringVar(value=_conta_atual)
+    _conta_row = ctk.CTkFrame(dlg, fg_color="transparent")
+    _conta_row.pack(fill="x", padx=22, pady=(0, 6))
+    ctk.CTkLabel(
+        _conta_row, text="Conta:",
+        font=ctk.CTkFont(size=11),
+        text_color=_C["dim"], width=52, anchor="w",
+    ).pack(side="left")
+    ctk.CTkEntry(
+        _conta_row, textvariable=conta_var,
+        placeholder_text="seu@email.com",
+        font=ctk.CTkFont(size=11), height=26,
+        fg_color=_C["panel"], border_color=_C["border"],
+        text_color=_C["text"],
+    ).pack(side="left", fill="x", expand=True)
 
     api_frame = ctk.CTkFrame(dlg, fg_color="transparent")
     api_frame.pack(fill="x", padx=20)
@@ -201,11 +221,14 @@ def show_ai_api_dialog(
 
         def _do_save_and_test() -> None:
             try:
-                if api_key:
+                if api_key and api_key != get_stored_key():
                     salvar_api_key(api_key)
                     dlg.after(0, lambda: _append("✔  Chave salva.", "success"))
                 else:
                     dlg.after(0, lambda: _append("ℹ  Usando chave já armazenada.", "dim"))
+                _conta = conta_var.get().strip()
+                if _conta:
+                    salvar_conta(_conta)
                 salvar_modelo_ia(modelo)
                 _ai.MODELO_IA = modelo
                 dlg.after(0, lambda: _append("✔  Modelo salvo.", "success"))
@@ -251,4 +274,11 @@ def show_ai_api_dialog(
         threading.Thread(target=_do_save_and_test, daemon=True).start()
 
     save_btn.configure(command=_on_save)
-    dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+
+    def _on_close() -> None:
+        # Evita vazar a chave pré-preenchida na var compartilhada ao fechar sem salvar
+        if apikey_var.get().strip() == get_stored_key():
+            apikey_var.set("")
+        dlg.destroy()
+
+    dlg.protocol("WM_DELETE_WINDOW", _on_close)

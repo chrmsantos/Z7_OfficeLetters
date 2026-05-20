@@ -25,7 +25,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 from z7_officeletters.constants import MAX_TENTATIVAS_IA, RETRY_DELAY_PADRAO_S
 from z7_officeletters.core.logging_setup import SESSAO_ID, logger, registrar_chamada_ia
@@ -391,6 +391,7 @@ def extrair_dados_com_ia(
     cliente_genai: Any,
     tipo_propositura: str = "mocao",
     cancel_event: "threading.Event | None" = None,
+    on_rate_limit: "Callable[[str], None] | None" = None,
 ) -> dict[str, Any]:
     """Send a propositura text to Gemini and return validated structured data.
 
@@ -451,6 +452,10 @@ def extrair_dados_com_ia(
                         tentativa + 1,
                         MAX_TENTATIVAS_IA,
                     )
+                    if on_rate_limit is not None:
+                        on_rate_limit(
+                            f"⏳  Rate limit atingido. Aguardando {espera}s (tentativa {tentativa + 1}/{MAX_TENTATIVAS_IA})…"
+                        )
                     for _ in range(espera):
                         if cancel_event is not None and cancel_event.is_set():
                             raise RuntimeError("Processamento cancelado.")
