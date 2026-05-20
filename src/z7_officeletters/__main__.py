@@ -56,7 +56,7 @@ def _criar_splash() -> Any:
     bar_outer.pack(pady=(22, 0))
     bar_outer.pack_propagate(False)
     segment_w = 90
-    bar_inner = tk.Frame(bar_outer, bg="#4f8ef7", height=4, width=segment_w)
+    bar_inner = tk.Frame(bar_outer, bg="#8b5cf6", height=4, width=segment_w)
     bar_inner.place(x=0, y=0, relheight=1, width=segment_w)
 
     root.update()
