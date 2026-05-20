@@ -1,0 +1,356 @@
+﻿python.exe : 295 INFO: PyInstaller: 6.20.0, contrib hooks: 2026.4
+No linha:1 caractere:1
++ & "C:\Users\csantos\AppData\Local\Programs\Python\Python314\python.ex ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (295 INFO: PyIns...b hooks: 2026.4 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+296 INFO: Python: 3.14.5
+368 INFO: Platform: Windows-11-10.0.26200-SP0
+368 INFO: Python environment: 
+C:\Users\csantos\AppData\Local\Programs\Python\Python314
+567 INFO: Module search paths (PYTHONPATH):
+['C:\\Users\\csantos\\AppData\\Local\\Z7\\Apps\\Z7_OfficeLetters',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\python314.zi
+p',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\DLLs',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pa
+ckages',
+ 'C:\\Users\\csantos\\AppData\\Local\\Z7\\Apps\\Z7_OfficeLetters\\src',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pa
+ckages\\win32',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pa
+ckages\\win32\\lib',
+ 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pa
+ckages\\Pythonwin',
+ 'C:\\Users\\csantos\\AppData\\Local\\Z7\\Apps\\Z7_OfficeLetters\\src',
+ 'C:\\Users\\csantos\\AppData\\Local\\Z7\\Apps\\Z7_OfficeLetters']
+1311 INFO: Appending 'datas' from .spec
+1373 INFO: checking Analysis
+1518 INFO: Building because excludes changed
+1518 INFO: Looking for Python shared library...
+1518 INFO: Using Python shared library: 
+C:\Users\csantos\AppData\Local\Programs\Python\Python314\python314.dll
+1518 INFO: Running Analysis Analysis-00.toc
+1518 INFO: Target bytecode optimization level: 0
+1518 INFO: Initializing module dependency graph...
+1521 INFO: Initializing module graph hook caches...
+1562 INFO: Analyzing modules for base_library.zip ...
+4239 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\csa
+ntos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstal
+ler\\hooks'
+5511 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIn
+staller\\hooks'
+6522 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\cs
+antos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInsta
+ller\\hooks'
+7503 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\c
+santos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInst
+aller\\hooks'
+12056 INFO: Caching module dependency graph...
+12119 INFO: Analyzing C:\Users\csantos\AppData\Local\Z7\Apps\Z7_OfficeLetters\s
+rc\z7_officeletters\__main__.py
+12133 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Us
+ers\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\
+PyInstaller\\hooks\\pre_find_module_path'
+12136 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+12808 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIn
+staller\\hooks'
+12987 INFO: Processing standard module hook 'hook-customtkinter.py' from 'C:\\U
+sers\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\
+\_pyinstaller_hooks_contrib\\stdhooks'
+13260 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIn
+staller\\hooks'
+13334 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users
+\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyI
+nstaller\\hooks'
+13342 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\
+csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIns
+taller\\hooks'
+13353 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:
+\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packag
+es\\PyInstaller\\hooks\\pre_safe_import_module'
+13354 INFO: SetuptoolsInfo: initializing cached setuptools info...
+14631 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15216 INFO: Processing standard module hook 'hook-multiprocessing.util.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks'
+15388 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\csan
+tos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstall
+er\\hooks'
+17175 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\csan
+tos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstall
+er\\hooks'
+17406 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users
+\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyI
+nstaller\\hooks'
+18258 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks'
+18633 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\
+\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-package
+s\\PyInstaller\\hooks'
+19666 INFO: Processing standard module hook 'hook-pythoncom.py' from 'C:\\Users
+\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_py
+installer_hooks_contrib\\stdhooks'
+19897 INFO: Processing standard module hook 'hook-pywintypes.py' from 'C:\\User
+s\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_p
+yinstaller_hooks_contrib\\stdhooks'
+20097 INFO: Processing pre-safe-import-module hook 'hook-win32com.py' from 'C:\
+\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-package
+s\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+20328 INFO: Processing standard module hook 'hook-win32com.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyi
+nstaller_hooks_contrib\\stdhooks'
+21514 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from 'C:\\Users
+\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyI
+nstaller\\hooks\\pre_safe_import_module'
+21757 INFO: Processing standard module hook 'hook-keyring.py' from 'C:\\Users\\
+csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIns
+taller\\hooks'
+22990 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\U
+sers\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\
+\PyInstaller\\hooks\\pre_safe_import_module'
+22990 INFO: Setuptools: 'jaraco' appears to be a partial setuptools-vendored 
+copy - extending search paths to ['C:\\Users\\csantos\\AppData\\Local\\Programs
+\\Python\\Python314\\Lib\\site-packages\\jaraco', 'C:\\Users\\csantos\\AppData\
+\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\setuptools\\_vendor\\j
+araco']!
+22992 INFO: Processing pre-safe-import-module hook 'hook-jaraco.context.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+23016 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:
+\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packag
+es\\PyInstaller\\hooks\\pre_safe_import_module'
+23017 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored 
+copy - creating alias to 'setuptools._vendor.backports'!
+23027 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\User
+s\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\Py
+Installer\\hooks'
+23055 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:
+\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packag
+es\\PyInstaller\\hooks\\pre_safe_import_module'
+23115 INFO: Processing pre-safe-import-module hook 'hook-jaraco.functools.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+23139 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+23950 INFO: Processing pre-safe-import-module hook 'hook-jaraco.text.py' from '
+C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pack
+ages\\PyInstaller\\hooks\\pre_safe_import_module'
+23951 INFO: Setuptools: 'jaraco.text' appears to be a setuptools-vendored copy 
+- creating alias to 'setuptools._vendor.jaraco.text'!
+23974 INFO: Processing standard module hook 
+'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\csantos\\AppData\\Loc
+al\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks'
+23976 INFO: Processing pre-safe-import-module hook 
+'hook-importlib_resources.py' from 'C:\\Users\\csantos\\AppData\\Local\\Program
+s\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_m
+odule'
+24134 INFO: Processing pre-safe-import-module hook 
+'hook-importlib_metadata.py' from 'C:\\Users\\csantos\\AppData\\Local\\Programs
+\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_mo
+dule'
+24134 INFO: Setuptools: 'importlib_metadata' appears to be a 
+setuptools-vendored copy - creating alias to 
+'setuptools._vendor.importlib_metadata'!
+24193 INFO: Processing standard module hook 
+'hook-setuptools._vendor.importlib_metadata.py' from 'C:\\Users\\csantos\\AppDa
+ta\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks'
+24242 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'C:\\Use
+rs\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\P
+yInstaller\\hooks\\pre_safe_import_module'
+24243 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - 
+creating alias to 'setuptools._vendor.zipp'!
+24682 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Us
+ers\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\
+PyInstaller\\hooks\\pre_safe_import_module'
+24682 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - 
+creating alias to 'setuptools._vendor.tomli'!
+25830 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Us
+ers\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\
+PyInstaller\\hooks\\pre_safe_import_module'
+25831 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - 
+creating alias to 'setuptools._vendor.wheel'!
+26153 INFO: Processing standard module hook 'hook-openpyxl.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyi
+nstaller_hooks_contrib\\stdhooks'
+26476 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Users\\csa
+ntos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyinsta
+ller_hooks_contrib\\stdhooks'
+27235 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\User
+s\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_p
+yinstaller_hooks_contrib\\stdhooks'
+28959 INFO: Processing standard module hook 'hook-docx.py' from 'C:\\Users\\csa
+ntos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyinsta
+ller_hooks_contrib\\stdhooks'
+30237 INFO: Processing standard module hook 'hook-cryptography.py' from 'C:\\Us
+ers\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\
+_pyinstaller_hooks_contrib\\stdhooks'
+32635 INFO: hook-cryptography: cryptography does not seem to be using 
+dynamically linked OpenSSL.
+33852 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\
+Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages
+\\PyInstaller\\hooks'
+36259 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\c
+santos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyins
+taller_hooks_contrib\\stdhooks'
+37467 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyi
+nstaller_hooks_contrib\\stdhooks'
+39082 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyi
+nstaller_hooks_contrib\\stdhooks'
+41814 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\Users\\cs
+antos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyinst
+aller_hooks_contrib\\stdhooks'
+44779 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\
+csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyin
+staller_hooks_contrib\\stdhooks'
+45601 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIn
+staller\\hooks'
+52174 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\
+csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyin
+staller_hooks_contrib\\stdhooks'
+52765 INFO: Processing standard module hook 'hook-charset_normalizer.py' from '
+C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pack
+ages\\_pyinstaller_hooks_contrib\\stdhooks'
+53556 INFO: Processing standard module hook 'hook-pycparser.py' from 'C:\\Users
+\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_py
+installer_hooks_contrib\\stdhooks'
+55623 INFO: Processing standard module hook 'hook-websockets.py' from 'C:\\User
+s\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_p
+yinstaller_hooks_contrib\\stdhooks'
+C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packages\tkca
+lendar\calendar_.py:221: SyntaxWarning: "\ " is an invalid escape sequence. 
+Such sequences will not work in the future. Did you mean "\\ "? A raw string 
+is also an option.
+  font = kw.pop("font", "Liberation\ Sans 9")
+58602 INFO: Processing standard module hook 'hook-babel.py' from 'C:\\Users\\cs
+antos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInsta
+ller\\hooks'
+59123 INFO: Analyzing hidden import 'babel.numbers'
+59182 INFO: Analyzing hidden import 'keyring.backends.Windows'
+59215 INFO: Processing standard module hook 'hook-win32ctypes.core.py' from 'C:
+\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packag
+es\\PyInstaller\\hooks'
+61013 INFO: Analyzing hidden import 'z7_officeletters.gui.dialogs.api_key'
+61026 INFO: Analyzing hidden import 'PIL._tkinter_finder'
+61028 INFO: Processing module hooks (post-graph stage)...
+62285 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from '
+C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-pack
+ages\\_pyinstaller_hooks_contrib\\stdhooks'
+62334 WARNING: Hidden import "pycparser.lextab" not found!
+62334 WARNING: Hidden import "pycparser.yacctab" not found!
+63033 WARNING: Hidden import "tzdata" not found!
+63673 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' 
+from 'C:\\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\sit
+e-packages\\PyInstaller\\hooks'
+68363 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\
+\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyIn
+staller\\hooks'
+68364 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\
+Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages
+\\_pyinstaller_hooks_contrib\\stdhooks'
+68415 INFO: Performing binary vs. data reclassification (2176 entries)
+69183 INFO: Looking for ctypes DLLs
+69206 WARNING: Ignoring AppKit.framework/AppKit imported from C:\Users\csantos\
+AppData\Local\Programs\Python\Python314\Lib\site-packages\darkdetect\_mac_detec
+t.py - only basenames are supported with ctypes imports!
+69289 INFO: Analyzing run-time hooks ...
+69300 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\csant
+os\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstalle
+r\\hooks\\rthooks'
+69305 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\csant
+os\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstalle
+r\\hooks\\rthooks'
+69308 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\User
+s\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\Py
+Installer\\hooks\\rthooks'
+69313 INFO: Including run-time hook 'pyi_rth_pywintypes.py' from 'C:\\Users\\cs
+antos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyinst
+aller_hooks_contrib\\rthooks'
+69316 INFO: Including run-time hook 'pyi_rth_pythoncom.py' from 'C:\\Users\\csa
+ntos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\_pyinsta
+ller_hooks_contrib\\rthooks'
+69318 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\cs
+antos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInsta
+ller\\hooks\\rthooks'
+69320 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'C:\
+\Users\\csantos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-package
+s\\_pyinstaller_hooks_contrib\\rthooks'
+69322 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\csan
+tos\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstall
+er\\hooks\\rthooks'
+69420 INFO: Creating base_library.zip...
+69461 INFO: Looking for dynamic libraries
+73902 INFO: Extra DLL search directories (AddDllDirectory): []
+73903 INFO: Extra DLL search directories (PATH): []
+75047 INFO: Warnings written to C:\Users\csantos\AppData\Local\Z7\Apps\Z7_Offic
+eLetters\build\auto_oficios\warn-auto_oficios.txt
+75294 INFO: Graph cross-reference written to C:\Users\csantos\AppData\Local\Z7\
+Apps\Z7_OfficeLetters\build\auto_oficios\xref-auto_oficios.html
+75745 INFO: checking PYZ
+75857 INFO: checking PKG
+75892 INFO: Building because toc changed
+75893 INFO: Building PKG (CArchive) Z7_OfficeLetters.pkg
+90292 INFO: Building PKG (CArchive) Z7_OfficeLetters.pkg completed 
+successfully.
+90464 INFO: Bootloader C:\Users\csantos\AppData\Local\Programs\Python\Python314
+\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+90464 INFO: checking EXE
+90496 INFO: Building because toc changed
+90496 INFO: Building EXE from EXE-00.toc
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\__main__.py", line 321, in <module>
+    run()
+    ~~~^^
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\__main__.py", line 215, in run
+    run_build(pyi_config, spec_file, **vars(args))
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\__main__.py", line 70, in run_build
+    PyInstaller.building.build_main.main(pyi_config, spec_file, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\building\build_main.py", line 1275, in main
+    build(specfile, distpath, workpath, clean_build)
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\building\build_main.py", line 1213, in build
+    exec(code, spec_namespace)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "auto_oficios.spec", line 110, in <module>
+    exe = EXE(
+        pyz,
+    ...<18 lines>...
+        icon="icon.ico",
+    )
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\building\api.py", line 675, in __init__
+    self.__postinit__()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\building\datastruct.py", line 184, in __postinit__
+    self.assemble()
+    ~~~~~~~~~~~~~^^
+  File "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Lib\site-packa
+ges\PyInstaller\building\api.py", line 769, in assemble
+    os.remove(self.name)
+    ~~~~~~~~~^^^^^^^^^^^
+PermissionError: [WinError 5] Acesso negado: 'C:\\Users\\csantos\\AppData\\Loca
+l\\Z7\\Apps\\Z7_OfficeLetters\\dist\\Z7_OfficeLetters.exe'
