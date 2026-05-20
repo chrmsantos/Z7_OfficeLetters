@@ -64,7 +64,7 @@ PROMPT_TEMPLATE_PADRAO: str = (
     "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente.\n"
     "      - 'email': endereço de e-mail do destinatário.\n"
     "      - 'is_prefeito': true se o destinatário for o prefeito ou a prefeitura; omita o campo nos demais casos.\n"
-    '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento; use "M" quando indeterminado. Sempre inclua este campo.\n'
+    '      - \'genero\': "M" para masculino ou "F" para feminino. Para PF: infira pelo nome ou cargo do destinatário. Para PJ e Coletivo: infira pelo gênero do representante (se explicitamente mencionado no texto) — NUNCA pelo gênero gramatical do nome da instituição; use "M" como padrão para instituições. Sempre inclua este campo.\n'
     "    Campos exclusivos de PF (incluir apenas se presentes no texto):\n"
     "      - 'funcao_profissao': função ou profissão da pessoa física.\n"
     "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora').\n"
@@ -148,7 +148,7 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
     "      - 'endereco': endereço de correspondência extraído literalmente do texto. Não infira endereços a partir de localizações mencionadas indiretamente.\n"
     "      - 'email': endereço de e-mail do destinatário.\n"
     "      - 'is_prefeito': true se o destinatário for o prefeito ou a prefeitura; omita o campo nos demais casos.\n"
-    '      - \'genero\': "M" para masculino ou "F" para feminino — infira pelo nome, cargo ou tratamento; use "M" quando indeterminado. Sempre inclua este campo.\n'
+    '      - \'genero\': "M" para masculino ou "F" para feminino. Para PF: infira pelo nome ou cargo do destinatário. Para PJ e Coletivo: infira pelo gênero do representante (se explicitamente mencionado no texto) — NUNCA pelo gênero gramatical do nome da instituição; use "M" como padrão para instituições. Sempre inclua este campo.\n'
     "    Campos exclusivos de PF (incluir apenas se presentes no texto):\n"
     "      - 'funcao_profissao': função ou profissão da pessoa física.\n"
     "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora').\n"
