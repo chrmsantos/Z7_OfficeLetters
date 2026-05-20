@@ -13,6 +13,15 @@ from __future__ import annotations
 
 __all__ = ["APP_NAME", "APP_VERSION", "APP_AUTHOR"]
 
+
+def _read_version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("z7-officeletters")
+    except Exception:
+        return "3.0.2b1"  # fallback para builds congelados sem metadados
+
+
 APP_NAME: str = "Z7 OfficeLetters"
-APP_VERSION: str = "3.0.1-rc2"
+APP_VERSION: str = _read_version()
 APP_AUTHOR: str = "Christian Martin dos Santos"

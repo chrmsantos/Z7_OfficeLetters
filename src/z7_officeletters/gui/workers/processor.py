@@ -159,7 +159,8 @@ def _worker_main(
                 q.put(("cancelled", i - 1, total, "proposituras"))
                 return
 
-            q.put(("log", f"─── Propositura {i}/{total} ─────────────────────────────", "dim"))
+            _tipo_label = "Moção" if tipo_propositura == "mocao" else "Req. Pesar"
+            q.put(("log", f"\n▶  Propositura {i}/{total}  ·  {_tipo_label}", "accent"))
             q.put(("progress", i - 1, total))
 
             try:
@@ -201,6 +202,19 @@ def _worker_main(
             num_raw = dados.get("numero_requerimento") or dados.get("numero_mocao", "")
             dados["numero_mocao"] = _docs.normalizar_numero_mocao(str(num_raw))
             extracted.append((tipo_propositura, dados))
+
+            _num_extr = dados.get("numero_mocao") or "–"
+            _tipo_extr = dados.get("tipo_mocao", "")
+            _falecido_extr = dados.get("falecido", "")
+            _dests_extr = [d.get("nome", "?") for d in dados.get("destinatarios", [])]
+            _label_extr = _tipo_extr or ("Pesar" if tipo_propositura == "requerimento_pesar" else "")
+            _dests_str = " / ".join(_dests_extr) if _dests_extr else "sem destinatários"
+            _sum_label = f"nº {_num_extr}"
+            if _label_extr:
+                _sum_label += f" ({_label_extr})"
+            if _falecido_extr:
+                _sum_label += f" · {_falecido_extr}"
+            q.put(("log", f"  ↳  {_sum_label}  →  {_dests_str}", "dim"))
 
         # ── Phase 2: group by (tipo_propositura, recipient) ───────────────────
         # When multiple propositions share the same recipient, they are merged
@@ -279,17 +293,19 @@ def _worker_main(
             # (they share the same destination); use the first entry.
             _dados0, dest0, info = grupo[0]
 
-            if n_props > 1:
-                q.put(("log",
-                    f"─── Ofício nº {numero_atual:03d} — {dest_key[1]} "
-                    f"({n_props} proposituras agrupadas) ───",
-                    "dim"))
-            else:
-                q.put(("log",
-                    f"─── Ofício nº {numero_atual:03d} — {dest_key[1]} ─────────────────────────────",
-                    "dim"))
-
+            _tipo_ofc = (
+                "Req. Pesar"
+                if tipo_propositura == "requerimento_pesar"
+                else (f"Moção de {tipo_mocao_merged}" if tipo_mocao_merged else "Moção")
+            )
+            _agrup_label = f"  ({n_props}×)" if n_props > 1 else ""
             num_str = f"{numero_atual:03d}"
+            q.put(("log",
+                f"\n  📄  Ofício {num_str}{_agrup_label}  ·  {_tipo_ofc}  →  {dest_key[1]}",
+                "bold"))
+            _autores_log = "  /  ".join(all_autores) if all_autores else "—"
+            q.put(("log", f"      {_autores_log}", "dim"))
+
             sigla_redator = inputs["sigla"]
 
             # Plural-aware phrase fragments used by both templates.

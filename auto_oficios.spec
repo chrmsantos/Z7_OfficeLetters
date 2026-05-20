@@ -25,6 +25,8 @@ a = Analysis(
         # Babel locale data (necessário para tkcalendar com locale="pt_BR")
         (str(Path(babel_dir) / "locale-data"), "babel/locale-data"),
         (str(Path(babel_dir) / "global.dat"),  "babel"),
+        # Metadados do pacote (necessário para importlib.metadata.version funcionar no exe)
+        ("src/z7_officeletters.egg-info",          "z7_officeletters.egg-info"),
         # Arquivos de dados da aplicação (copiados para o mesmo diretório do exe)
         ("config.json",                            "."),
         ("templates/modelo_mocao.docx",            "templates"),

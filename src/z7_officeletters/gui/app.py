@@ -965,10 +965,16 @@ class AutoOficiosApp(ctk.CTk):
             self._progress.set(pct)
             bar_color = _C["warn"] if pct < 0.4 else (_C["accent"] if pct < 0.8 else _C["success"])
             self._progress.configure(progress_color=bar_color)
-            self._prog_label.configure(
-                text=f"Processando moção {current} de {total}…",
-                text_color=_C["dim"],
-            )
+            if current >= total > 0:
+                self._prog_label.configure(
+                    text="Gerando documentos…",
+                    text_color=_C["dim"],
+                )
+            else:
+                self._prog_label.configure(
+                    text=f"Analisando propositura {current + 1} de {total}…",
+                    text_color=_C["dim"],
+                )
             self._prog_pct.configure(text=f"{int(pct * 100)} %", text_color=bar_color)
 
         elif kind == "done":
