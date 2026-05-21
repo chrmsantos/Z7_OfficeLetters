@@ -16,6 +16,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import sys
 import threading
 import time
@@ -33,6 +34,7 @@ from z7_officeletters.constants import (
     MESES_PT,
     MODELO_OFICIO,
     MODELO_PLANILHA,
+    MODELO_REQUERIMENTO_PESAR,
     PASTA_LOGS,
     PASTA_PLANILHA,
     PASTA_PROPOSITURAS,
@@ -44,6 +46,7 @@ from z7_officeletters.core import config as _config
 from z7_officeletters.core.documents import criar_modelo_planilha
 from z7_officeletters.core.files import listar_proposituras
 from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia
+from z7_officeletters.core.logging_setup import configurar_logging
 from z7_officeletters.gui.constants import _C, _DARK, _LIGHT
 from z7_officeletters.gui.workers.processor import run_processing_worker
 
@@ -108,6 +111,7 @@ class AutoOficiosApp(ctk.CTk):
     def _run_init_bg(self) -> None:
         for p in (PASTA_LOGS, PASTA_PROPOSITURAS, PASTA_SAIDA, PASTA_PLANILHA):
             Path(p).mkdir(parents=True, exist_ok=True)
+        configurar_logging()
         try:
             if getattr(sys, "frozen", False):
                 modelo = Path(sys.executable).parent / MODELO_PLANILHA
@@ -117,6 +121,20 @@ class AutoOficiosApp(ctk.CTk):
                 criar_modelo_planilha(modelo)
         except Exception:  # noqa: BLE001
             pass
+        # Copy bundled .docx templates next to the exe so the user can edit them.
+        if getattr(sys, "frozen", False):
+            try:
+                _meipass = Path(getattr(sys, "_MEIPASS", ""))
+                _exe_dir = Path(sys.executable).parent
+                for tmpl in (MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR):
+                    dest = _exe_dir / tmpl
+                    if not dest.exists():
+                        src = _meipass / tmpl
+                        if src.exists():
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(src, dest)
+            except Exception:  # noqa: BLE001
+                pass
 
         loaded_key = ""
         loaded_model = ""

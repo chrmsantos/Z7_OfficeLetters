@@ -31,6 +31,7 @@ __all__ = [
     "SESSAO_ID",
     "logger",
     "ia_log_path",
+    "log_file_path",
     "configurar_logging",
     "registrar_chamada_ia",
     "registrar_conferencia_ia",
@@ -43,6 +44,9 @@ logger: logging.Logger = logging.getLogger("z7_officeletters")
 
 # Absolute path of the per-session AI JSONL log. Set by configurar_logging().
 ia_log_path: str = ""
+
+# Absolute path of the rotating .log file for this session. Set by configurar_logging().
+log_file_path: str = ""
 
 
 def configurar_logging(verbose: bool = False) -> str:
@@ -63,7 +67,7 @@ def configurar_logging(verbose: bool = False) -> str:
     Returns:
         Absolute path of the log file created in this session.
     """
-    global ia_log_path
+    global ia_log_path, log_file_path
     # Prevent handler accumulation on repeated calls (e.g., during testing).
     logger.handlers.clear()
 
@@ -115,6 +119,7 @@ def configurar_logging(verbose: bool = False) -> str:
         )
 
     sys.excepthook = _excepthook  # type: ignore[assignment]
+    log_file_path = log_path
     logger.debug("Sessão de log iniciada. ID=%s", SESSAO_ID)
     return log_path
 

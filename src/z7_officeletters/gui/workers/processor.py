@@ -48,7 +48,7 @@ from z7_officeletters.core import files as _files
 from z7_officeletters.core import recipients as _recipients
 from z7_officeletters.core import verification as _verification
 from z7_officeletters.core.api_key import salvar_api_key
-from z7_officeletters.core.logging_setup import configurar_logging, registrar_conferencia_ia
+from z7_officeletters.core.logging_setup import log_file_path, registrar_conferencia_ia
 
 __all__ = ["run_processing_worker"]
 
@@ -69,8 +69,7 @@ def _worker_main(
         from docxtpl import DocxTemplate  # noqa: PLC0415
         from openpyxl import Workbook, load_workbook  # noqa: PLC0415
 
-        log_path = configurar_logging()
-        q.put(("log", f"📋  Log: {log_path}", "dim"))
+        q.put(("log", f"📋  Log: {log_file_path}", "dim"))
 
         salvar_api_key(inputs["api_key"])
         cliente = genai.Client(api_key=inputs["api_key"])
