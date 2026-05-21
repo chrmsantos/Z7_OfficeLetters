@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from z7_officeletters.core.documents import construir_nome_arquivo, normalizar_numero_mocao
+from z7_officeletters.core.documents import (
+    _titlecase_nome,
+    construir_nome_arquivo,
+    normalizar_numero_mocao,
+)
 
 
 # =============================================================================
@@ -90,3 +94,52 @@ class TestConstruirNomeArquivo:
         )
         for ch in r'\/*?:"<>|':
             assert ch not in nome
+
+    def test_nome_dest_caps_convertido_para_titulo(self) -> None:
+        assert "Marcos Silva" in self._nome(nome_dest="MARCOS SILVA")
+
+    def test_nome_dest_preposicao_minuscula(self) -> None:
+        assert "João da Silva" in self._nome(nome_dest="JOÃO DA SILVA")
+
+    def test_nome_dest_instituicao_caps_titulo(self) -> None:
+        assert "Câmara Municipal" in self._nome(nome_dest="CÂMARA MUNICIPAL")
+
+    def test_nome_dest_abreviacao_com_ponto_preservada(self) -> None:
+        assert "S.A." in self._nome(nome_dest="EMPRESA S.A.")
+
+    def test_nome_dest_ja_em_titulo_nao_alterado(self) -> None:
+        assert "Fulano de Tal" in self._nome(nome_dest="Fulano de Tal")
+
+
+# =============================================================================
+# _titlecase_nome
+# =============================================================================
+class TestTitlecaseNome:
+
+    def test_nome_pessoa_caps(self) -> None:
+        assert _titlecase_nome("MARCOS SILVA") == "Marcos Silva"
+
+    def test_preposicoes_minusculas(self) -> None:
+        assert _titlecase_nome("JOÃO DA SILVA") == "João da Silva"
+
+    def test_multiplas_preposicoes(self) -> None:
+        assert _titlecase_nome("ASSOCIAÇÃO DOS MORADORES DE BAIRRO") == "Associação dos Moradores de Bairro"
+
+    def test_preposicao_primeira_palavra_preservada(self) -> None:
+        # First token is never lowercased even if it is a preposition
+        assert _titlecase_nome("DE SOUZA").startswith("De")
+
+    def test_abreviacao_com_ponto_preservada(self) -> None:
+        assert _titlecase_nome("EMPRESA S.A.") == "Empresa S.A."
+
+    def test_acronimo_sem_vogal_preservado(self) -> None:
+        # BNB = B-N-B, no vowels → kept uppercase
+        assert _titlecase_nome("AG\u00caNCIA BNB") == "Ag\u00eancia BNB"
+        # CNPJ = C-N-P-J, no vowels → kept uppercase
+        assert _titlecase_nome("CNPJ") == "CNPJ"
+
+    def test_string_vazia(self) -> None:
+        assert _titlecase_nome("") == ""
+
+    def test_uma_palavra(self) -> None:
+        assert _titlecase_nome("PREFEITURA") == "Prefeitura"

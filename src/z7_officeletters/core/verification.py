@@ -679,18 +679,18 @@ def conferir_trabalho(
         # ── 1. Data consistency ───────────────────────────────────────────────
         resultado.erros_dados = verificar_consistencia_dados(registro)
         if resultado.erros_dados:
-            q.put(("log", "    🔴 Erros de dados:", "error"))
+            q.put(("log", "    � Ajustes de dados:", "warn"))
             for e in resultado.erros_dados:
                 logger.warning("  [DADOS] %s — %s", registro.nome_arquivo, e)
-                q.put(("log", f"      • {e}", "warn"))
+                q.put(("log", f"      • {e}", "dim"))
 
         # ── 2. Linguistic concordance ─────────────────────────────────────────
         resultado.erros_linguisticos = verificar_concordancia_linguistica(registro)
         if resultado.erros_linguisticos:
-            q.put(("log", "    🟡 Erros linguísticos:", "error"))
+            q.put(("log", "    📝 Ajustes linguísticos:", "warn"))
             for e in resultado.erros_linguisticos:
                 logger.warning("  [LINGUÍSTICO] %s — %s", registro.nome_arquivo, e)
-                q.put(("log", f"      • {e}", "warn"))
+                q.put(("log", f"      • {e}", "dim"))
 
         # ── 3. Spreadsheet row ────────────────────────────────────────────────
         idx = registro.linha_planilha_idx
@@ -699,10 +699,10 @@ def conferir_trabalho(
                 dados_planilha[idx], registro
             )
             if resultado.erros_planilha:
-                q.put(("log", "    🟠 Erros na planilha:", "error"))
+                q.put(("log", "    📝 Ajustes na planilha:", "warn"))
                 for e in resultado.erros_planilha:
                     logger.warning("  [PLANILHA] %s — %s", registro.nome_arquivo, e)
-                    q.put(("log", f"      • {e}", "warn"))
+                    q.put(("log", f"      • {e}", "dim"))
 
         # ── 4. Auto-correction ────────────────────────────────────────────────
         if resultado.tem_erros:

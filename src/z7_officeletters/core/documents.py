@@ -35,6 +35,50 @@ _RE_ANO_MOCAO: re.Pattern[str] = re.compile(r"[-/]\d{2,4}$")
 # Characters that are illegal in Windows file and folder names.
 _RE_NOME_INVALIDO: re.Pattern[str] = re.compile(r'[\\/*?:"<>|]')
 
+# Portuguese vowels (all lowercase) — used to detect likely acronyms.
+_VOGAIS: frozenset[str] = frozenset("aeiouáéíóúâêôãõà")
+
+# Portuguese prepositions and articles that should be lowercased mid-name.
+_PREPS_PT: frozenset[str] = frozenset({
+    "a", "ao", "aos", "à", "às",
+    "com", "da", "das", "de", "do", "dos",
+    "e", "em",
+    "na", "nas", "no", "nos",
+    "o", "os",
+    "para", "por",
+})
+
+
+def _titlecase_nome(nome: str) -> str:
+    """Convert a recipient name to title case for use in filenames.
+
+    Tokens are preserved as all-caps when they:
+
+    - Contain a period (abbreviations like ``S.A.`` or ``A.P.A.E.``)
+    - Have no vowels (consonant-cluster abbreviations like ``BNB``, ``CNPJ``)
+
+    Known Portuguese prepositions/articles are lowercased (except at
+    position 0).  All other tokens are capitalised.
+    """
+    words = nome.split()
+    if not words:
+        return nome
+    result: list[str] = []
+    for i, word in enumerate(words):
+        w_lower = word.lower()
+        if "." in word:
+            # Contains a period → abbreviation (S.A., A.P.A.E., Jr.)
+            result.append(word)
+        elif not any(c in _VOGAIS for c in w_lower):
+            # No vowels → consonant-only abbreviation (BNB, CNPJ, SP)
+            result.append(word)
+        elif i > 0 and w_lower in _PREPS_PT:
+            # Mid-name preposition/article → lowercase
+            result.append(w_lower)
+        else:
+            result.append(word.capitalize())
+    return " ".join(result)
+
 
 def formatar_lista_pt(items: list[str]) -> str:
     """Format a list of strings as a Portuguese enumeration, deduplicating order.
@@ -145,6 +189,7 @@ def construir_nome_arquivo(
     Returns:
         Sanitised filename string ending in ``.docx``.
     """
+    nome_dest = _titlecase_nome(nome_dest)
     # Trim long recipient names so the full path stays under 240 chars on Windows.
     _MAX_DEST = 60
     nome_dest_trim = nome_dest[:_MAX_DEST].rstrip() if len(nome_dest) > _MAX_DEST else nome_dest

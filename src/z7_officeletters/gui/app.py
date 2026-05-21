@@ -18,6 +18,7 @@ import queue
 import re
 import sys
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -68,6 +69,7 @@ class AutoOficiosApp(ctk.CTk):
 
         self._queue: queue.Queue[tuple[Any, ...]] = queue.Queue()
         self._processing = False
+        self._proc_start_time: float = 0.0
         self._cancel_event = threading.Event()
         self._prop_paths: list[str] = []
         self._stored_key: str = ""
@@ -918,6 +920,7 @@ class AutoOficiosApp(ctk.CTk):
         self._limpar_pastas_saida()
 
         self._processing = True
+        self._proc_start_time = time.time()
         self._cancel_event.clear()
         self._gen_btn.configure(state="disabled", text="⏳   Processando…")
         self._cancel_btn.grid()
@@ -971,8 +974,18 @@ class AutoOficiosApp(ctk.CTk):
                     text_color=_C["dim"],
                 )
             else:
+                eta_str = ""
+                if current > 0 and self._proc_start_time:
+                    elapsed = time.time() - self._proc_start_time
+                    remaining = (elapsed / current) * (total - current)
+                    mins, secs = divmod(int(remaining), 60)
+                    eta_str = (
+                        f"  ·  ~{mins}m {secs:02d}s restantes"
+                        if mins
+                        else f"  ·  ~{secs}s restantes"
+                    )
                 self._prog_label.configure(
-                    text=f"Analisando propositura {current + 1} de {total}…",
+                    text=f"Analisando propositura {current + 1} de {total}…{eta_str}",
                     text_color=_C["dim"],
                 )
             self._prog_pct.configure(text=f"{int(pct * 100)} %", text_color=bar_color)

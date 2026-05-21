@@ -197,7 +197,7 @@ def _worker_main(
                     f"(entrada: {usage['prompt_tokens']:,} | saída: {usage['candidates_tokens']:,}){_saldo_str}",
                     "dim"))
             for alerta in alertas_ia:
-                q.put(("log", f"  ⚠  {alerta}", "warn"))
+                q.put(("log", f"  ℹ  {alerta}", "dim"))
 
             # Normalise motion/requerimento number to just the numeric part.
             num_raw = dados.get("numero_requerimento") or dados.get("numero_mocao", "")
