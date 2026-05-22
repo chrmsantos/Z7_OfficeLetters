@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.conftest import make_dest_simples, make_dest_pj, make_dest_coletivo
-from z7_officeletters.core.recipients import processar_destinatario
+from z7_officeletters.core.recipients import processar_destinatario, determinar_genero_instituicao
 
 
 # =============================================================================
@@ -33,6 +33,12 @@ class TestProcessarDestinatario:
         r = processar_destinatario(make_dest_simples(is_prefeito=True))
         assert "Oeste/SP" in r["destinatario_endereco"]
         assert "Prefeito Municipal" in r["destinatario_endereco"]
+
+    def test_prefeita_feminina(self) -> None:
+        r = processar_destinatario(make_dest_simples(nome="Prefeita", genero="F"))
+        assert r["vocativo"] == "Excelentíssima Senhora Prefeita"
+        assert r["tratamento_rodape"] == "À Sua Excelência a Senhora"
+        assert r["pronome_corpo"] == "Vossa Excelência"
 
     # --- Delivery method ---
     def test_envio_email_tem_prioridade_sobre_endereco(self) -> None:
@@ -66,13 +72,13 @@ class TestProcessarDestinatario:
 
     def test_instituicao_tratamento_ao(self) -> None:
         r = processar_destinatario(
-            make_dest_simples(nome="Câmara Municipal", is_instituicao=True)
+            make_dest_simples(nome="Conselho Tutelar", is_instituicao=True)
         )
         assert r["tratamento_rodape"] == "Ao"
 
-    def test_instituicao_comeca_com_a_usa_crase(self) -> None:
+    def test_instituicao_feminina_usa_crase(self) -> None:
         r = processar_destinatario(
-            make_dest_simples(nome="ABCD Fundação", is_instituicao=True)
+            make_dest_simples(nome="Câmara Municipal", is_instituicao=True)
         )
         assert r["tratamento_rodape"] == "À"
 
@@ -223,7 +229,7 @@ class TestNivelProtocolo:
 class TestProcessarDestinatarioPJ:
 
     def test_pj_tratamento_ao(self) -> None:
-        r = processar_destinatario(make_dest_pj(nome="Câmara Municipal"))
+        r = processar_destinatario(make_dest_pj(nome="Conselho Municipal"))
         assert r["tratamento_rodape"] == "Ao"
 
     def test_pj_comeca_com_a_usa_crase(self) -> None:
@@ -398,5 +404,37 @@ class TestConsistenciaPronomes:
         ve_m = processar_destinatario(make_dest_simples(nivel_protocolo="VE_M"))
         assert not ve["tratamento_rodape"].startswith("À")
         assert ve_m["tratamento_rodape"].startswith("À")
+
+
+# =============================================================================
+# determinar_genero_instituicao
+# =============================================================================
+class TestDeterminarGeneroInstituicao:
+
+    @pytest.mark.parametrize("nome,genero_esperado", [
+        ("Câmara Municipal", "F"),
+        ("Companhia de Água", "F"),
+        ("Prefeitura de Lins", "F"),
+        ("Associação dos Moradores", "F"),
+        ("Fundação Bradesco", "F"),
+        ("Empresa Brasileira", "F"),
+        ("Santa Casa de Misericórdia", "F"),
+        ("Assembleia de Deus", "F"),
+        ("1ª Companhia de Polícia", "F"),
+        ("1º Batalhão da PM", "M"),
+        ("Conselho Tutelar", "M"),
+        ("Abrigo São João", "M"),
+        ("Asilo dos Velhos", "M"),
+        ("Albergue Noturno", "M"),
+        ("Tribunal de Justiça", "M"),
+        ("OAB de Santa Bárbara", "F"),
+        ("APAE", "F"),
+        ("SABESP", "F"),
+        ("CPFL Paulista", "F"),
+        ("Ministério Público", "M"),
+        ("Departamento de Obras", "M"),
+    ])
+    def test_generos_instituicao(self, nome: str, genero_esperado: str) -> None:
+        assert determinar_genero_instituicao(nome) == genero_esperado
 
 

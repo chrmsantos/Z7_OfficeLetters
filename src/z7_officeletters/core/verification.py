@@ -602,8 +602,13 @@ def _corrigir_linha_planilha(
     n_props = registro.n_props
     tipo_prop = registro.tipo_propositura
 
-    # Extrair o ano da data ISO (campo linha[1], formato YYYY-MM-DD)
-    data_iso = str(linha[1]) if len(linha) > 1 else ""
+    # Pad line to at least 6 elements to prevent IndexError
+    linha_corr = list(linha)
+    if len(linha_corr) < 6:
+        linha_corr.extend([""] * (6 - len(linha_corr)))
+
+    # Extrair o ano da data ISO (campo linha_corr[1], formato YYYY-MM-DD)
+    data_iso = str(linha_corr[1])
     year = data_iso[:4] if len(data_iso) >= 4 else ""
 
     num_mocao = ctx.get("num_mocao", "")
@@ -620,14 +625,10 @@ def _corrigir_linha_planilha(
         f"{info.get('tratamento_rodape', '')} {info.get('destinatario_nome', '')}".strip()
     )
 
-    linha_corr = list(linha)
-    linha_corr[0] = ctx.get("num_oficio", linha[0])
-    if len(linha_corr) > 2:
-        linha_corr[2] = destinatario
-    if len(linha_corr) > 3:
-        linha_corr[3] = assunto
-    if len(linha_corr) > 5:
-        linha_corr[5] = info.get("envio", linha[5])
+    linha_corr[0] = ctx.get("num_oficio", linha_corr[0])
+    linha_corr[2] = destinatario
+    linha_corr[3] = assunto
+    linha_corr[5] = info.get("envio", linha_corr[5])
     return linha_corr
 
 

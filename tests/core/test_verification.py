@@ -641,6 +641,19 @@ class TestCorrigirLinhaPlanilha:
         assert corr[4] == "Alex Dantas (ad)"
         assert corr[6] == "ajc"
 
+    def test_linha_curta_ou_vazia_corrigida_sem_index_error(self) -> None:
+        reg = _registro()
+        linha_curta = ["001"]
+        corr = _corrigir_linha_planilha(linha_curta, reg)
+        assert len(corr) >= 6
+        assert corr[0] == reg.ctx.get("num_oficio")
+        assert corr[2] == "Ao Ilustríssimo Senhor FULANO DE TAL"
+        
+        linha_vazia: list[Any] = []
+        corr_vazia = _corrigir_linha_planilha(linha_vazia, reg)
+        assert len(corr_vazia) >= 6
+        assert corr_vazia[0] == reg.ctx.get("num_oficio")
+
     def test_assunto_mocao_singular_formato_exato(self) -> None:
         """Verifica que o assunto gerado contém 'Moção' (com cedilha), não 'Moão'."""
         reg = _registro()

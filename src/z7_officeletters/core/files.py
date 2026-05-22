@@ -155,7 +155,10 @@ def ler_arquivo_mocoes(caminho: str) -> str:
             doc_com.Close(False)
         finally:
             if word is not None:
-                word.Quit()
+                try:
+                    word.Quit()
+                except Exception:
+                    pass
         return texto
 
     if sufixo == ".odt":

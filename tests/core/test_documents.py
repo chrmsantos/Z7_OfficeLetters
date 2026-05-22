@@ -143,3 +143,9 @@ class TestTitlecaseNome:
 
     def test_uma_palavra(self) -> None:
         assert _titlecase_nome("PREFEITURA") == "Prefeitura"
+
+    def test_acronimo_com_vogal_preservado(self) -> None:
+        # APAE, OAB, SUS contain vowels but should be preserved in uppercase
+        assert _titlecase_nome("ASSOCIAÇÃO OAB") == "Associação OAB"
+        assert _titlecase_nome("APAE DE SANTA BÁRBARA") == "APAE de Santa Bárbara"
+        assert _titlecase_nome("SISTEMA SUS") == "Sistema SUS"

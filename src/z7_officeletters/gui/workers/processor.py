@@ -270,6 +270,16 @@ def _worker_main(
                 for a in d_item["autores"]:
                     if a not in all_autores:
                         all_autores.append(a)
+
+            # Warn user if any extracted author name is not mapped in config.json
+            for a in all_autores:
+                if _authors.sigla_autor(a) == "indef":
+                    q.put((
+                        "log",
+                        f"  ⚠  Autor '{a}' não encontrado no config.json. Usando sigla 'indef'.",
+                        "warn"
+                    ))
+
             texto_autoria, sigla_autores = _authors.formatar_autores(all_autores)
 
             nums_mocao = [d_item["numero_mocao"] for d_item, _, __ in grupo]

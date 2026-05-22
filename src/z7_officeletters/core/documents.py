@@ -48,6 +48,13 @@ _PREPS_PT: frozenset[str] = frozenset({
     "para", "por",
 })
 
+# Common Portuguese acronyms and abbreviations containing vowels to be kept uppercase.
+_ACRONIMOS_PT: frozenset[str] = frozenset({
+    "oab", "apae", "mds", "sus", "ong", "ongs", "eua", "onu", "cras", "creas",
+    "ubs", "upa", "mei", "eireli", "ltda", "ead", "mec", "pt", "psdb", "pdt",
+    "pl", "psol", "mdb", "psd", "pp", "pode", "pcd"
+})
+
 
 def _titlecase_nome(nome: str) -> str:
     """Convert a recipient name to title case for use in filenames.
@@ -56,6 +63,7 @@ def _titlecase_nome(nome: str) -> str:
 
     - Contain a period (abbreviations like ``S.A.`` or ``A.P.A.E.``)
     - Have no vowels (consonant-cluster abbreviations like ``BNB``, ``CNPJ``)
+    - Match a predefined set of common Portuguese acronyms (``APAE``, ``OAB``, ``SUS``)
 
     Known Portuguese prepositions/articles are lowercased (except at
     position 0).  All other tokens are capitalised.
@@ -72,6 +80,9 @@ def _titlecase_nome(nome: str) -> str:
         elif not any(c in _VOGAIS for c in w_lower):
             # No vowels → consonant-only abbreviation (BNB, CNPJ, SP)
             result.append(word)
+        elif w_lower in _ACRONIMOS_PT:
+            # Common acronyms containing vowels -> keep uppercase
+            result.append(word.upper())
         elif i > 0 and w_lower in _PREPS_PT:
             # Mid-name preposition/article → lowercase
             result.append(w_lower)
