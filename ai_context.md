@@ -199,7 +199,7 @@ Manages the full lifecycle of a single AI extraction call.
 ```python
 _chamada_lock: threading.Lock   # protects _chamada_n
 _chamada_n: list[int] = [0]     # sequential AI call counter within the session
-MODELO_IA: str                  # loaded from keyring; default "gemini-2.0-flash"
+MODELO_IA: str                  # loaded from keyring; default "gemini-3.1-flash-lite"
 PROMPT_TEMPLATE: str            # active moção prompt (overridable via GUI)
 PROMPT_TEMPLATE_PESAR: str      # active requerimento de pesar prompt
 ```
@@ -270,7 +270,7 @@ PREFEITO: PrefeitoConfig        # {"nome": "...", "endereco": "..."}
 Stores the Gemini API key encrypted in **Windows Credential Manager** via `keyring` (replaces the legacy plain-text Registry entry). Provides one-time migration with `migrar_chave_do_registro()`.
 
 ```python
-DEFAULT_MODELO_IA = "gemini-2.0-flash"
+DEFAULT_MODELO_IA = "gemini-3.1-flash-lite"
 salvar_api_key(chave: str) -> None
 carregar_api_key() -> str
 salvar_modelo_ia(modelo: str) -> None
@@ -423,7 +423,7 @@ Input text is split at each `MOÇÃO Nº` / `REQUERIMENTO Nº` header using `RE_
 
 ### AI extraction (Gemini)
 
-- Default model: `gemini-2.0-flash` (stored in `keyring`; overridable per-session via Advanced dialog).
+- Default model: `gemini-3.1-flash-lite` (stored in `keyring`; overridable per-session via Advanced dialog).
 - Schema returned by AI (moção):
 
 ```json

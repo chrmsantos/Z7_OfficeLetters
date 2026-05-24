@@ -7,7 +7,7 @@ Utiliza a API **Google Gemini** para extrair dados estruturados a partir do text
 ## Funcionalidades
 
 - Leitura de moções a partir de arquivo de texto (`mocoes.txt`)
-- Extração automática de dados via IA (Google Gemini 2.0 Flash)
+- Extração automática de dados via IA (Google Gemini 3.1 Flash-Lite)
 - Geração de ofícios em `.docx` a partir de modelo Word
 - Suporte a múltiplos destinatários por moção
 - Aplicação de regras de negócio para endereçamento, tratamento e forma de envio

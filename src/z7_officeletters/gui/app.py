@@ -79,9 +79,15 @@ class AutoOficiosApp(ctk.CTk):
         self._log_entries: list[tuple[str, str]] = []  # (text, tag) for theme rebuild
         self._log_has_placeholder: bool = False
 
+        # AI Chat state variables
+        self._chat_history: list[dict[str, str]] = []
+        self._custom_instructions: str = ""
+        self._showing_chat: bool = True
+
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._build_ui()
+        self._post_startup_greeting()
         self.after(0, self._maximize_on_startup)
         threading.Thread(target=self._run_init_bg, daemon=True).start()
         self._poll_queue()
@@ -522,8 +528,33 @@ class AutoOficiosApp(ctk.CTk):
         else:
             self._log_has_placeholder = False
 
+        # AI Chat UI input controls
+        self._chat_input_frame = ctk.CTkFrame(self._right, fg_color="transparent")
+        self._chat_input_frame.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 10))
+        self._chat_input_frame.grid_columnconfigure(0, weight=1)
+        self._chat_input_frame.grid_columnconfigure(1, weight=0)
+
+        self._chat_entry = ctk.CTkEntry(
+            self._chat_input_frame,
+            placeholder_text="Digite instruções complementares ou converse com a IA...",
+            font=ctk.CTkFont(size=13),
+            height=36,
+        )
+        self._chat_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self._chat_entry.bind("<Return>", lambda event: self._send_chat_message())
+
+        self._chat_send_btn = ctk.CTkButton(
+            self._chat_input_frame,
+            text="Enviar",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            width=80,
+            height=36,
+            command=self._send_chat_message,
+        )
+        self._chat_send_btn.grid(row=0, column=1)
+
         summary = ctk.CTkFrame(self._right, fg_color=_C["panel"], corner_radius=10)
-        summary.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 18))
+        summary.grid(row=6, column=0, sticky="ew", padx=20, pady=(0, 18))
         summary.grid_columnconfigure(0, weight=1)
 
         self._summary_label = ctk.CTkLabel(
@@ -603,7 +634,7 @@ class AutoOficiosApp(ctk.CTk):
     # AI status
     # =========================================================================
     def _update_ai_status(self) -> None:
-        model = self._modelo_ia_var.get() or "gemini-2.0-flash"
+        model = self._modelo_ia_var.get() or "gemini-3.1-flash-lite"
         has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
         if has_key:
             text = f"🤖 {model}  •  ✔ Validado"
@@ -612,6 +643,145 @@ class AutoOficiosApp(ctk.CTk):
             text = f"🤖 {model}  •  ⚠ Chave não configurada"
             color = _C["warn"]
         self._ai_status_label.configure(text=text, text_color=color)
+
+    def _post_startup_greeting(self) -> None:
+        greeting = (
+            "Olá! Sou o assistente de IA do Z7 OfficeLetters. 🤖\n\n"
+            "Estou pronto para ajudar você a automatizar a extração de dados e geração de ofícios.\n\n"
+            "Antes de iniciarmos, você tem alguma instrução complementar? Por exemplo:\n"
+            "  1. Prefere algum tratamento especial para autoridades municipais?\n"
+            "  2. Deseja que eu omita ou destaque alguma informação específica no corpo dos documentos?\n"
+            "  3. Algum formato específico para datas ou nomes?\n\n"
+            "Digite suas preferências no campo abaixo e envie, ou clique diretamente em 'GERAR OFÍCIOS' para usar as regras padrão!"
+        )
+        self._log(greeting, "success")
+
+    def _send_chat_message(self) -> None:
+        msg = self._chat_entry.get().strip()
+        if not msg:
+            return
+
+        if self._processing:
+            return
+
+        # If we had run an execution, logs are shown. Let's redraw the chat first!
+        if not self._showing_chat:
+            self._redraw_chat()
+            self._showing_chat = True
+
+        self._log(f"\nVocê: {msg}", "accent")
+        self._chat_entry.delete(0, "end")
+
+        api_key = self._apikey_var.get().strip() or self._stored_key
+        if not api_key:
+            self._log(
+                "\n🤖 Assistente: Para que eu possa responder e processar suas instruções complementares, "
+                "por favor, informe e salve a chave da API Gemini no painel esquerdo ou em 'Avançado'.",
+                "warn",
+            )
+            return
+
+        self._chat_entry.configure(state="disabled")
+        self._chat_send_btn.configure(state="disabled", text="Enviando...")
+
+        def _chat_thread() -> None:
+            try:
+                from google import genai  # noqa: PLC0415
+                from google.genai import types  # noqa: PLC0415
+
+                cliente = genai.Client(api_key=api_key)
+                model = self._modelo_ia_var.get() or "gemini-3.1-flash-lite"
+
+                system_instruction = (
+                    "Você é o assistente de IA do Z7 OfficeLetters, um aplicativo de automação de ofícios legislativos. "
+                    "Seu objetivo é ajudar o usuário a configurar e refinar as instruções personalizadas para a extração de dados das proposituras. "
+                    "Responda a perguntas do usuário sobre a tarefa e confirme as regras ou preferências que ele deseja aplicar. "
+                    "Seja conciso, profissional e prestativo. Lembre-se que você está em um chat antes da execução da tarefa."
+                )
+
+                contents = []
+                for h in self._chat_history:
+                    contents.append(
+                        types.Content(
+                            role=h["role"],
+                            parts=[types.Part.from_text(text=h["content"])],
+                        )
+                    )
+                contents.append(
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=msg)],
+                    )
+                )
+
+                config = types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.7,
+                )
+
+                response = cliente.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=config,
+                )
+
+                resp_text = (response.text or "").strip()
+                self._chat_history.append({"role": "user", "content": msg})
+                self._chat_history.append({"role": "model", "content": resp_text})
+
+                if not self._custom_instructions:
+                    self._custom_instructions = msg
+                else:
+                    self._custom_instructions += f"\n- {msg}"
+
+                def _success() -> None:
+                    self._log(f"\n🤖 Assistente: {resp_text}\n", "success")
+                    self._chat_entry.configure(state="normal")
+                    self._chat_send_btn.configure(state="normal", text="Enviar")
+                    self._chat_entry.focus()
+
+                self.after(0, _success)
+
+            except Exception as exc:  # noqa: BLE001
+                def _error(err_msg: str) -> None:
+                    self._log(f"\n❌ Erro ao obter resposta da IA: {err_msg}", "error")
+                    self._chat_entry.configure(state="normal")
+                    self._chat_send_btn.configure(state="normal", text="Enviar")
+
+                self.after(0, lambda: _error(str(exc)))
+
+        threading.Thread(target=_chat_thread, daemon=True).start()
+
+    def _redraw_chat(self) -> None:
+        self._log_entries.clear()
+        tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
+        tb.configure(state="normal")
+        tb.delete("1.0", "end")
+
+        greeting = (
+            "Olá! Sou o assistente de IA do Z7 OfficeLetters. 🤖\n\n"
+            "Estou pronto para ajudar você a automatizar a extração de dados e geração de ofícios.\n\n"
+            "Antes de iniciarmos, você tem alguma instrução complementar? Por exemplo:\n"
+            "  1. Prefere algum tratamento especial para autoridades municipais?\n"
+            "  2. Deseja que eu omita ou destaque alguma informação específica no corpo dos documentos?\n"
+            "  3. Algum formato específico para datas ou nomes?\n\n"
+            "Digite suas preferências no campo abaixo e envie, ou clique diretamente em 'GERAR OFÍCIOS' para usar as regras padrão!"
+        )
+        self._log(greeting, "success")
+
+        for msg in self._chat_history:
+            if msg["role"] == "user":
+                self._log(f"\nVocê: {msg['content']}", "accent")
+            else:
+                 self._log(f"\n🤖 Assistente: {msg['content']}\n", "success")
+
+    def _enable_chat_controls(self) -> None:
+        self._chat_entry.configure(state="normal")
+        self._chat_send_btn.configure(state="normal", text="Enviar")
+
+    def _disable_chat_controls(self) -> None:
+        self._chat_entry.configure(state="disabled")
+        self._chat_send_btn.configure(state="disabled")
 
     # =========================================================================
     # Theme
@@ -938,6 +1108,8 @@ class AutoOficiosApp(ctk.CTk):
         self._limpar_pastas_saida()
 
         self._processing = True
+        self._showing_chat = False
+        self._disable_chat_controls()
         self._proc_start_time = time.time()
         self._cancel_event.clear()
         self._gen_btn.configure(state="disabled", text="⏳   Processando…")
@@ -956,6 +1128,7 @@ class AutoOficiosApp(ctk.CTk):
             "data_iso":     data_dt.strftime("%Y-%m-%d"),
             "arquivos":     arquivos,
             "api_key":      api_key,
+            "instrucoes_complementares": self._custom_instructions,
         }
         run_processing_worker(inputs, self._queue, self._cancel_event)
 
@@ -1011,6 +1184,7 @@ class AutoOficiosApp(ctk.CTk):
         elif kind == "done":
             generated, errors, elapsed, total_tokens = msg[1], msg[2], msg[3], msg[4]
             self._processing = False
+            self._enable_chat_controls()
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             mins, secs = divmod(int(elapsed), 60)
@@ -1039,6 +1213,7 @@ class AutoOficiosApp(ctk.CTk):
         elif kind == "cancelled":
             done_so_far, total, label = msg[1], msg[2], msg[3]
             self._processing = False
+            self._enable_chat_controls()
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
@@ -1052,6 +1227,7 @@ class AutoOficiosApp(ctk.CTk):
 
         elif kind == "error":
             self._processing = False
+            self._enable_chat_controls()
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")

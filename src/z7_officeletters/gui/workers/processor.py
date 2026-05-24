@@ -168,6 +168,7 @@ def _worker_main(
                     tipo_propositura=tipo_propositura,
                     cancel_event=cancel_event,
                     on_rate_limit=lambda msg: q.put(("log", f"  {msg}", "warn")),
+                    instrucoes_complementares=inputs.get("instrucoes_complementares"),
                 )
             except RuntimeError as exc:
                 if cancel_event.is_set():
