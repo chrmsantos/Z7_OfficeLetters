@@ -11,7 +11,7 @@ are re-exported here for backward compatibility.
 Public exports:
     _DARK: Dark-theme colour map.
     _LIGHT: Light-theme colour map.
-    _C: Mutable active palette (initialised to ``_DARK``).
+    _C: Mutable active palette (initialised to ``_LIGHT``).
     _RE_PROPOSITURA_SPLIT: Alias for ``RE_PROPOSITURA_SPLIT`` (backward compat).
     _RE_TIPO_PROPOSITURA: Alias for ``RE_TIPO_PROPOSITURA`` (backward compat).
     detectar_tipo_propositura: Return the detected type of a propositura text block.
@@ -58,4 +58,4 @@ _LIGHT: dict[str, str] = {
 }
 
 # Mutable active palette — updated in-place by _toggle_theme.
-_C: dict[str, str] = dict(_DARK)
+_C: dict[str, str] = dict(_LIGHT)

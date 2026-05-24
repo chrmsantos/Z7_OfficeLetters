@@ -58,7 +58,8 @@ class AutoOficiosApp(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
-        self._theme: str = "dark"
+        self._theme: str = "light"
+        ctk.set_appearance_mode("light")
         self._load_saved_theme()
 
         self.title(f"Z7 OfficeLetters v{APP_VERSION} — Gerador Legislativo")
@@ -206,7 +207,7 @@ class AutoOficiosApp(ctk.CTk):
             session_path = Path(BASE_DIR) / "last_session.json"
             if session_path.exists():
                 saved = json.loads(session_path.read_text(encoding="utf-8"))
-                saved_theme = saved.get("theme", "dark")
+                saved_theme = saved.get("theme", "light")
                 if saved_theme != self._theme:
                     self._theme = saved_theme
                     ctk.set_appearance_mode(saved_theme)
