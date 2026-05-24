@@ -12,10 +12,16 @@ import z7_officeletters.core.api_key as _api_key_mod
 from z7_officeletters.core.api_key import (
     KEYRING_SERVICE,
     KEYRING_USERNAME,
+    KEYRING_ACCOUNT_USERNAME,
+    DEFAULT_API_KEY,
+    DEFAULT_CONTA,
     carregar_api_key,
     migrar_chave_do_registro,
     salvar_api_key,
+    salvar_conta,
+    carregar_conta,
 )
+
 
 
 # =============================================================================
@@ -52,15 +58,46 @@ class TestCarregarApiKey:
         with patch("keyring.get_password", return_value="chave-secreta"):
             assert carregar_api_key() == "chave-secreta"
 
-    def test_retorna_string_vazia_quando_nao_ha_chave(self) -> None:
+    def test_retorna_chave_padrao_quando_nao_ha_chave(self) -> None:
         with patch("keyring.get_password", return_value=None):
-            assert carregar_api_key() == ""
+            assert carregar_api_key() == DEFAULT_API_KEY
 
     def test_consulta_servico_e_usuario_corretos(self) -> None:
         with patch("keyring.get_password") as mock_get:
             mock_get.return_value = "k"
             carregar_api_key()
             mock_get.assert_called_once_with(KEYRING_SERVICE, KEYRING_USERNAME)
+
+
+# =============================================================================
+# salvar_conta
+# =============================================================================
+class TestSalvarConta:
+
+    def test_escreve_no_keyring(self) -> None:
+        with patch("keyring.set_password") as mock_set:
+            salvar_conta("teste@email.com")
+            mock_set.assert_called_once_with(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME, "teste@email.com")
+
+
+# =============================================================================
+# carregar_conta
+# =============================================================================
+class TestCarregarConta:
+
+    def test_retorna_conta_do_keyring(self) -> None:
+        with patch("keyring.get_password", return_value="outra@email.com"):
+            assert carregar_conta() == "outra@email.com"
+
+    def test_retorna_conta_padrao_quando_nao_ha_conta(self) -> None:
+        with patch("keyring.get_password", return_value=None):
+            assert carregar_conta() == DEFAULT_CONTA
+
+    def test_consulta_servico_e_usuario_corretos(self) -> None:
+        with patch("keyring.get_password") as mock_get:
+            mock_get.return_value = "c"
+            carregar_conta()
+            mock_get.assert_called_once_with(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME)
 
 
 # =============================================================================

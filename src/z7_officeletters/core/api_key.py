@@ -40,6 +40,8 @@ KEYRING_USERNAME: str = "gemini_api_key"
 KEYRING_MODEL_USERNAME: str = "gemini_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
 DEFAULT_MODELO_IA: str = "gemini-2.0-flash"
+DEFAULT_CONTA: str = "sentineltray.google.com"
+DEFAULT_API_KEY: str = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
 
 
 def salvar_api_key(chave: str) -> None:
@@ -63,11 +65,11 @@ def carregar_api_key() -> str:
     """Retrieve the Gemini API key from the Windows Credential Manager.
 
     Returns:
-        The stored API key, or an empty string if none is found.
+        The stored API key, or the default API key if none is found.
     """
     import keyring  # noqa: PLC0415
 
-    return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME) or ""
+    return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME) or DEFAULT_API_KEY
 
 
 def salvar_modelo_ia(modelo: str) -> None:
@@ -101,10 +103,10 @@ def salvar_conta(conta: str) -> None:
 
 
 def carregar_conta() -> str:
-    """Retrieve the stored Google account e-mail, or empty string."""
+    """Retrieve the stored Google account e-mail, or the default account."""
     import keyring  # noqa: PLC0415
 
-    return keyring.get_password(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME) or ""
+    return keyring.get_password(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME) or DEFAULT_CONTA
 
 
 def migrar_chave_do_registro() -> None:
