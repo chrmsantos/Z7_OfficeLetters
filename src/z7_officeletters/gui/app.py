@@ -535,21 +535,46 @@ class AutoOficiosApp(ctk.CTk):
         self._chat_input_frame.grid_columnconfigure(0, weight=1)
         self._chat_input_frame.grid_columnconfigure(1, weight=0)
 
-        self._chat_entry = ctk.CTkEntry(
+        self._chat_entry = ctk.CTkTextbox(
             self._chat_input_frame,
-            placeholder_text="Digite instruções complementares ou converse com a IA...",
             font=ctk.CTkFont(size=13),
-            height=36,
+            height=54,
+            wrap="word",
         )
         self._chat_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        self._chat_entry.bind("<Return>", lambda event: self._send_chat_message())
+
+        # Placeholder implementation for CTkTextbox
+        self._chat_placeholder = "Digite instruções complementares ou converse com a IA..."
+        self._chat_has_placeholder = True
+        self._chat_entry.insert("1.0", self._chat_placeholder)
+        self._chat_entry.configure(text_color=_C["dim"])
+
+        def _on_focus_in(event: Any) -> None:
+            if self._chat_has_placeholder:
+                self._chat_entry.delete("1.0", "end")
+                self._chat_entry.configure(text_color=_C["text"])
+                self._chat_has_placeholder = False
+
+        def _on_focus_out(event: Any) -> None:
+            content = self._chat_entry.get("1.0", "end-1c").strip()
+            if not content:
+                self._chat_entry.delete("1.0", "end")
+                self._chat_entry.insert("1.0", self._chat_placeholder)
+                self._chat_entry.configure(text_color=_C["dim"])
+                self._chat_has_placeholder = True
+
+        self._chat_entry.bind("<FocusIn>", _on_focus_in)
+        self._chat_entry.bind("<FocusOut>", _on_focus_out)
+        self._chat_entry.bind("<Control-Return>", lambda event: (self._send_chat_message(), "break")[1])
 
         self._chat_send_btn = ctk.CTkButton(
             self._chat_input_frame,
             text="Enviar",
             font=ctk.CTkFont(size=12, weight="bold"),
             width=80,
-            height=36,
+            height=54,
+            fg_color=_C["accent"], hover_color=_C["accent2"],
+            text_color="#ffffff",
             command=self._send_chat_message,
         )
         self._chat_send_btn.grid(row=0, column=1)
@@ -658,7 +683,9 @@ class AutoOficiosApp(ctk.CTk):
         self._log(greeting, "success")
 
     def _send_chat_message(self) -> None:
-        msg = self._chat_entry.get().strip()
+        if getattr(self, "_chat_has_placeholder", False):
+            return
+        msg = self._chat_entry.get("1.0", "end-1c").strip()
         if not msg:
             return
 
@@ -671,7 +698,10 @@ class AutoOficiosApp(ctk.CTk):
             self._showing_chat = True
 
         self._log(f"\nVocê: {msg}", "accent")
-        self._chat_entry.delete(0, "end")
+        self._chat_entry.delete("1.0", "end")
+        self._chat_entry.insert("1.0", self._chat_placeholder)
+        self._chat_entry.configure(text_color=_C["dim"])
+        self._chat_has_placeholder = True
 
         api_key = self._apikey_var.get().strip() or self._stored_key
         if not api_key:
