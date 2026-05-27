@@ -317,28 +317,9 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
     section.left_margin = Cm(2.0)
     section.right_margin = Cm(2.0)
 
-    # Add Sender (Remetente) at the top-left area in smaller font
-    p_rem = doc.add_paragraph()
-    p_rem.paragraph_format.space_after = Pt(0)
-    p_rem.paragraph_format.line_spacing = 1.0
-    r_rem1 = p_rem.add_run("REMETENTE:\nCâmara Municipal de Santa Bárbara d'Oeste\n")
-    r_rem1.font.size = Pt(8.5)
-    r_rem1.font.bold = True
-    r_rem1.font.name = "Arial"
-
-    r_rem2 = p_rem.add_run("Avenida Monte Castelo, 800 - Centro\nSanta Bárbara d'Oeste/SP - CEP 13450-025")
-    r_rem2.font.size = Pt(8)
-    r_rem2.font.name = "Arial"
-
-    # Add some spacing before the Recipient
-    p_spacing = doc.add_paragraph()
-    p_spacing.paragraph_format.space_before = Pt(36)
-    p_spacing.paragraph_format.space_after = Pt(0)
-
-    # Add Recipient (Destinatário) on the right/bottom area
-    # In DL envelopes, the recipient is aligned to the right or left with a large left indent (e.g. 9 cm)
+    # Add Recipient (Destinatário) aligned to the left
     p_dest = doc.add_paragraph()
-    p_dest.paragraph_format.left_indent = Cm(9.0)  # indent to the right side of the DL envelope
+    p_dest.paragraph_format.space_before = Pt(36)  # Add some spacing from the top
     p_dest.paragraph_format.space_after = Pt(0)
     p_dest.paragraph_format.line_spacing = 1.15
 

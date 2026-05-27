@@ -180,4 +180,8 @@ class TestCriarModeloEnvelope:
         assert "TRATAMENTO_RODAPE" in texto_completo
         assert "DESTINATARIO_NOME" in texto_completo
         assert "DESTINATARIO_ENDERECO" in texto_completo
-        assert "REMETENTE" in texto_completo
+        assert "REMETENTE" not in texto_completo
+
+        # Verify paragraph count and left alignment
+        assert len(doc.paragraphs) == 1
+        assert doc.paragraphs[0].paragraph_format.left_indent is None

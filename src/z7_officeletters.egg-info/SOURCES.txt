@@ -18,6 +18,7 @@ src/z7_officeletters/core/documents.py
 src/z7_officeletters/core/files.py
 src/z7_officeletters/core/logging_setup.py
 src/z7_officeletters/core/recipients.py
+src/z7_officeletters/core/updater.py
 src/z7_officeletters/core/verification.py
 src/z7_officeletters/gui/__init__.py
 src/z7_officeletters/gui/app.py

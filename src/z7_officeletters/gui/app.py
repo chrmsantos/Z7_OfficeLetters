@@ -1084,7 +1084,7 @@ class AutoOficiosApp(ctk.CTk):
         ).grid(row=1, column=1, sticky="ew", padx=(3, 0))
 
         ctk.CTkButton(
-            btn_frame, text="�  Modelos",
+            btn_frame, text="📁  Templates",
             command=self._open_pasta_templates, **_btn_kw,
         ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
         ctk.CTkButton(
