@@ -32,6 +32,7 @@ __all__ = [
     "MODELO_OFICIO",
     "MODELO_REQUERIMENTO_PESAR",
     "MODELO_PLANILHA",
+    "MODELO_ENVELOPE",
     "ENDERECAMENTO_PADRAO",
     "BASE_DIR",
     "PASTA_SAIDA",
@@ -39,6 +40,7 @@ __all__ = [
     "PASTA_LOG_IA",
     "PASTA_PROPOSITURAS",
     "PASTA_PLANILHA",
+    "PASTA_ENVELOPES",
     "MAX_TENTATIVAS_IA",
     "RETRY_DELAY_PADRAO_S",
     "RE_PROPOSITURA_SPLIT",
@@ -72,6 +74,7 @@ FORMATOS_SUPORTADOS: frozenset[str] = frozenset(ORDEM_PREFERENCIA)
 MODELO_OFICIO: str = "templates/modelo_mocao.docx"
 MODELO_REQUERIMENTO_PESAR: str = "templates/modelo_requer_pesar.docx"
 MODELO_PLANILHA: str = "templates/modelo_planilha.xlsx"
+MODELO_ENVELOPE: str = "templates/modelo_envelope.docx"
 
 # ── Address database (optional — app degrades gracefully if missing) ──────────
 ENDERECAMENTO_PADRAO: str = "ender/enderecamentos_padrao.docx"
@@ -95,6 +98,7 @@ else:
 PASTA_LOG_IA: str = str(Path(PASTA_LOGS) / "ia")
 PASTA_PROPOSITURAS: str = str(BASE_DIR / "proposituras")
 PASTA_PLANILHA: str = str(BASE_DIR / "planilha_gerada")
+PASTA_ENVELOPES: str = str(BASE_DIR / "envelopes_gerados")
 
 # ── AI retry policy ───────────────────────────────────────────────────────────
 MAX_TENTATIVAS_IA: int = 5

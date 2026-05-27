@@ -35,20 +35,23 @@ from z7_officeletters.constants import (
     MODELO_OFICIO,
     MODELO_PLANILHA,
     MODELO_REQUERIMENTO_PESAR,
+    MODELO_ENVELOPE,
     PASTA_LOGS,
     PASTA_PLANILHA,
     PASTA_PROPOSITURAS,
     PASTA_SAIDA,
+    PASTA_ENVELOPES,
     BASE_DIR,
     ENDERECAMENTO_PADRAO,
 )
 from z7_officeletters.core import config as _config
-from z7_officeletters.core.documents import criar_modelo_planilha
+from z7_officeletters.core.documents import criar_modelo_planilha, criar_modelo_envelope
 from z7_officeletters.core.files import listar_proposituras
 from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia
 from z7_officeletters.core.logging_setup import configurar_logging
 from z7_officeletters.gui.constants import _C, _DARK, _LIGHT
 from z7_officeletters.gui.workers.processor import run_processing_worker
+from z7_officeletters.core.updater import obter_ultima_versao, comparar_versoes
 
 __all__ = ["AutoOficiosApp"]
 
@@ -116,9 +119,17 @@ class AutoOficiosApp(ctk.CTk):
         pass
 
     def _run_init_bg(self) -> None:
-        for p in (PASTA_LOGS, PASTA_PROPOSITURAS, PASTA_SAIDA, PASTA_PLANILHA):
+        for p in (PASTA_LOGS, PASTA_PROPOSITURAS, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES):
             Path(p).mkdir(parents=True, exist_ok=True)
         configurar_logging()
+
+        # Clean up any leftover old executable from a previous update
+        try:
+            old_exe = Path(sys.executable + ".old")
+            if old_exe.exists():
+                old_exe.unlink()
+        except Exception:
+            pass
         try:
             if getattr(sys, "frozen", False):
                 modelo = Path(sys.executable).parent / MODELO_PLANILHA
@@ -128,12 +139,21 @@ class AutoOficiosApp(ctk.CTk):
                 criar_modelo_planilha(modelo)
         except Exception:  # noqa: BLE001
             pass
+        try:
+            if getattr(sys, "frozen", False):
+                modelo_env = Path(sys.executable).parent / MODELO_ENVELOPE
+            else:
+                modelo_env = Path(__file__).parent.parent.parent.parent / MODELO_ENVELOPE
+            if not modelo_env.exists():
+                criar_modelo_envelope(modelo_env)
+        except Exception:  # noqa: BLE001
+            pass
         # Copy bundled .docx templates next to the exe so the user can edit them.
         if getattr(sys, "frozen", False):
             try:
                 _meipass = Path(getattr(sys, "_MEIPASS", ""))
                 _exe_dir = Path(sys.executable).parent
-                for tmpl in (MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR):
+                for tmpl in (MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_ENVELOPE):
                     dest = _exe_dir / tmpl
                     if not dest.exists():
                         src = _meipass / tmpl
@@ -253,6 +273,7 @@ class AutoOficiosApp(ctk.CTk):
         hdr.grid_propagate(False)
         hdr.grid_columnconfigure(0, weight=1)
         hdr.grid_columnconfigure(1, weight=0)
+        hdr.grid_columnconfigure(2, weight=0)
 
         title_frame = ctk.CTkFrame(hdr, fg_color="transparent")
         title_frame.grid(row=0, column=0, sticky="w", padx=24, pady=(14, 0))
@@ -283,9 +304,23 @@ class AutoOficiosApp(ctk.CTk):
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=(3, 0))
 
+        # Update button
+        self._update_btn = ctk.CTkButton(
+            hdr,
+            text="🔄  Atualizar",
+            font=ctk.CTkFont(size=12),
+            width=110, height=32, corner_radius=8,
+            fg_color=_C["panel"], hover_color=_C["border"],
+            text_color=_C["dim"],
+            border_width=1, border_color=_C["border"],
+            command=self._check_for_updates_user,
+        )
+        self._update_btn.grid(row=0, column=1, sticky="e", padx=(0, 10), pady=(30, 0))
+
+        # Theme button
         _theme_icon = "☀" if self._theme == "dark" else "🌙"
         _theme_tip  = "Tema Claro" if self._theme == "dark" else "Tema Escuro"
-        ctk.CTkButton(
+        self._theme_btn = ctk.CTkButton(
             hdr,
             text=f"{_theme_icon}  {_theme_tip}",
             font=ctk.CTkFont(size=12),
@@ -294,7 +329,8 @@ class AutoOficiosApp(ctk.CTk):
             text_color=_C["dim"],
             border_width=1, border_color=_C["border"],
             command=self._toggle_theme,
-        ).grid(row=0, column=1, sticky="e", padx=20, pady=(30, 0))
+        )
+        self._theme_btn.grid(row=0, column=2, sticky="e", padx=20, pady=(30, 0))
 
     def _build_left_panel(self) -> None:
         self._left = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
@@ -597,11 +633,18 @@ class AutoOficiosApp(ctk.CTk):
         ).grid(row=0, column=1, padx=(0, 6), pady=8)
 
         ctk.CTkButton(
+            summary, text="✉  Envelopes Gerados",
+            font=ctk.CTkFont(size=12), height=36, width=130, corner_radius=8,
+            fg_color=_C["border"], hover_color=_C["accent2"], text_color=_C["text"],
+            command=self._open_envelopes_folder,
+        ).grid(row=0, column=2, padx=(0, 6), pady=8)
+
+        ctk.CTkButton(
             summary, text="📊  Planilha Gerada",
             font=ctk.CTkFont(size=12), height=36, width=110, corner_radius=8,
             fg_color=_C["border"], hover_color=_C["accent2"], text_color=_C["text"],
             command=self._open_spreadsheet_folder,
-        ).grid(row=0, column=2, padx=(0, 12), pady=8)
+        ).grid(row=0, column=3, padx=(0, 12), pady=8)
 
     def _build_footer(self) -> None:
         import webbrowser  # noqa: PLC0415
@@ -660,7 +703,7 @@ class AutoOficiosApp(ctk.CTk):
     # AI status
     # =========================================================================
     def _update_ai_status(self) -> None:
-        model = self._modelo_ia_var.get() or "gemini-3.1-flash-lite"
+        model = self._modelo_ia_var.get() or "gemini-3.5-flash"
         has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
         if has_key:
             text = f"🤖 {model}  •  ✔ Validado"
@@ -721,7 +764,7 @@ class AutoOficiosApp(ctk.CTk):
                 from google.genai import types  # noqa: PLC0415
 
                 cliente = genai.Client(api_key=api_key)
-                model = self._modelo_ia_var.get() or "gemini-3.1-flash-lite"
+                model = self._modelo_ia_var.get() or "gemini-3.5-flash"
 
                 system_instruction = (
                     "Você é o assistente de IA do Z7 OfficeLetters, um aplicativo de automação de ofícios legislativos. "
@@ -953,6 +996,11 @@ class AutoOficiosApp(ctk.CTk):
         folder.mkdir(exist_ok=True)
         os.startfile(str(folder))
 
+    def _open_envelopes_folder(self) -> None:
+        folder = Path(PASTA_ENVELOPES).resolve()
+        folder.mkdir(exist_ok=True)
+        os.startfile(str(folder))
+
     def _open_spreadsheet_folder(self) -> None:
         folder = Path(PASTA_PLANILHA).resolve()
         folder.mkdir(exist_ok=True)
@@ -1079,7 +1127,7 @@ class AutoOficiosApp(ctk.CTk):
     # Processing
     # =========================================================================
     def _limpar_pastas_saida(self) -> None:
-        for pasta in (Path(PASTA_SAIDA), Path(PASTA_PLANILHA)):
+        for pasta in (Path(PASTA_SAIDA), Path(PASTA_PLANILHA), Path(PASTA_ENVELOPES)):
             if pasta.exists():
                 for arq in pasta.iterdir():
                     if arq.is_file():
@@ -1129,7 +1177,7 @@ class AutoOficiosApp(ctk.CTk):
 
         from z7_officeletters.gui.dialogs.confirmation import confirm_cleanup  # noqa: PLC0415
 
-        pastas = [Path(PASTA_SAIDA), Path(PASTA_PLANILHA)]
+        pastas = [Path(PASTA_SAIDA), Path(PASTA_PLANILHA), Path(PASTA_ENVELOPES)]
         total_files = sum(
             sum(1 for f in p.iterdir() if f.is_file())
             for p in pastas if p.exists()
@@ -1268,6 +1316,203 @@ class AutoOficiosApp(ctk.CTk):
                 text_color=_C["error"],
             )
             messagebox.showerror("Erro Fatal", msg[1])
+
+    # =========================================================================
+    # Auto-Update System
+    # =========================================================================
+    def _check_for_updates_user(self) -> None:
+        if self._processing:
+            return
+
+        self._update_btn.configure(state="disabled", text="⏳ Checando...")
+
+        def _bg_check() -> None:
+            try:
+                tag_name, download_url = obter_ultima_versao()
+                versao_limpa = tag_name.lstrip("vV")
+
+                def _handle_result() -> None:
+                    self._update_btn.configure(state="normal", text="🔄  Atualizar")
+                    if comparar_versoes(versao_limpa, APP_VERSION):
+                        if messagebox.askyesno(
+                            "Atualização Disponível",
+                            f"Uma nova versão estável ({tag_name}) está disponível!\n\n"
+                            f"Sua versão atual: {APP_VERSION}\n"
+                            f"Nova versão: {versao_limpa}\n\n"
+                            "Deseja baixar e instalar a atualização agora?",
+                            parent=self,
+                        ):
+                            self._mostrar_janela_download(download_url, tag_name)
+                    else:
+                        messagebox.showinfo(
+                            "Sem Atualizações",
+                            f"Você já está utilizando a versão mais recente ({APP_VERSION}).",
+                            parent=self,
+                        )
+
+                self.after(0, _handle_result)
+            except Exception as exc:
+                def _handle_err() -> None:
+                    self._update_btn.configure(state="normal", text="🔄  Atualizar")
+                    messagebox.showerror(
+                        "Erro de Atualização",
+                        f"Não foi possível verificar atualizações:\n{exc}",
+                        parent=self,
+                    )
+                self.after(0, _handle_err)
+
+        threading.Thread(target=_bg_check, daemon=True).start()
+
+    def _mostrar_janela_download(self, download_url: str, versao: str) -> None:
+        if not getattr(sys, "frozen", False):
+            messagebox.showinfo(
+                "Modo de Desenvolvimento",
+                f"Atualização {versao} está disponível, mas o processo de auto-atualização "
+                "só se aplica à versão compilada (.exe).\n\n"
+                "Para testar, baixe o binário ou empacote o projeto usando o PyInstaller.",
+                parent=self,
+            )
+            return
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Baixando Atualização")
+        dlg.geometry("400x180")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.configure(fg_color=_C["bg"])
+
+        dlg.update_idletasks()
+        px, py = self.winfo_x(), self.winfo_y()
+        pw, ph = self.winfo_width(), self.winfo_height()
+        dlg.geometry(f"400x180+{px + (pw - 400) // 2}+{py + (ph - 180) // 2}")
+
+        ctk.CTkLabel(
+            dlg,
+            text=f"Baixando versão {versao}...",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=_C["text"],
+            anchor="w",
+        ).pack(fill="x", padx=24, pady=(20, 10))
+
+        prog_bar = ctk.CTkProgressBar(
+            dlg,
+            height=16,
+            corner_radius=8,
+            progress_color=_C["accent"],
+            fg_color=_C["panel"],
+        )
+        prog_bar.pack(fill="x", padx=24, pady=5)
+        prog_bar.set(0.0)
+
+        prog_lbl = ctk.CTkLabel(
+            dlg,
+            text="Conectando...",
+            font=ctk.CTkFont(size=11),
+            text_color=_C["dim"],
+            anchor="w",
+        )
+        prog_lbl.pack(fill="x", padx=24, pady=(2, 10))
+
+        download_cancelled = threading.Event()
+
+        def _cancel() -> None:
+            download_cancelled.set()
+            dlg.destroy()
+
+        ctk.CTkButton(
+            dlg,
+            text="Cancelar",
+            font=ctk.CTkFont(size=12),
+            height=34,
+            width=100,
+            corner_radius=8,
+            fg_color=_C["panel"],
+            hover_color=_C["error"],
+            text_color=_C["text"],
+            command=_cancel,
+        ).pack(pady=(5, 10))
+
+        def _bg_download() -> None:
+            temp_path = sys.executable + ".tmp"
+            try:
+                import urllib.request  # noqa: PLC0415
+
+                req = urllib.request.Request(
+                    download_url,
+                    headers={"User-Agent": "Z7_OfficeLetters-Updater"},
+                )
+                with urllib.request.urlopen(req, timeout=20) as response:
+                    total_size = int(response.info().get("Content-Length", 0))
+                    bytes_downloaded = 0
+
+                    with open(temp_path, "wb") as f:
+                        while not download_cancelled.is_set():
+                            chunk = response.read(65536)  # 64 KB
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            bytes_downloaded += len(chunk)
+
+                            if total_size:
+                                pct = bytes_downloaded / total_size
+                                def _update(p: float, bd: int, ts: int) -> None:
+                                    if dlg.winfo_exists():
+                                        prog_bar.set(p)
+                                        prog_lbl.configure(
+                                            text=f"Baixado {bd / (1024 * 1024):.1f} MB de {ts / (1024 * 1024):.1f} MB ({int(p * 100)}%)"
+                                        )
+                                self.after(0, _update, pct, bytes_downloaded, total_size)
+
+                    if download_cancelled.is_set():
+                        try:
+                            Path(temp_path).unlink()
+                        except Exception:
+                            pass
+                        return
+
+                if Path(temp_path).stat().st_size == 0:
+                    raise RuntimeError("O arquivo baixado está vazio.")
+
+                old_exe = sys.executable + ".old"
+                try:
+                    if Path(old_exe).exists():
+                        Path(old_exe).unlink()
+                except Exception:
+                    pass
+
+                os.rename(sys.executable, old_exe)
+                os.rename(temp_path, sys.executable)
+
+                def _success() -> None:
+                    if dlg.winfo_exists():
+                        dlg.destroy()
+                    messagebox.showinfo(
+                        "Atualização Concluída",
+                        "A atualização foi baixada com sucesso!\n\n"
+                        "Ela será efetivada automaticamente na próxima vez que você iniciar o aplicativo.",
+                        parent=self,
+                    )
+
+                self.after(0, _success)
+
+            except Exception as exc:
+                try:
+                    if Path(temp_path).exists():
+                        Path(temp_path).unlink()
+                except Exception:
+                    pass
+
+                def _error(err: str) -> None:
+                    if dlg.winfo_exists():
+                        dlg.destroy()
+                    messagebox.showerror(
+                        "Erro no Download",
+                        f"Ocorreu um erro ao baixar a atualização:\n{err}",
+                        parent=self,
+                    )
+                self.after(0, _error, str(exc))
+
+        threading.Thread(target=_bg_download, daemon=True).start()
 
     # =========================================================================
     # Window close

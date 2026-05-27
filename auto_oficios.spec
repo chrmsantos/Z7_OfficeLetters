@@ -32,6 +32,7 @@ a = Analysis(
         ("templates/modelo_mocao.docx",            "templates"),
         ("templates/modelo_requer_pesar.docx",     "templates"),
         ("templates/modelo_planilha.xlsx",         "templates"),
+        ("templates/modelo_envelope.docx",         "templates"),
     ],
     hiddenimports=[
         # GUI
@@ -79,6 +80,7 @@ a = Analysis(
         "z7_officeletters.core.files",
         "z7_officeletters.core.logging_setup",
         "z7_officeletters.core.recipients",
+        "z7_officeletters.core.updater",
         "z7_officeletters.gui",
         "z7_officeletters.gui.app",
         "z7_officeletters.gui.constants",

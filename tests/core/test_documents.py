@@ -8,6 +8,7 @@ from z7_officeletters.core.documents import (
     _titlecase_nome,
     construir_nome_arquivo,
     normalizar_numero_mocao,
+    criar_modelo_envelope,
 )
 
 
@@ -149,3 +150,34 @@ class TestTitlecaseNome:
         assert _titlecase_nome("ASSOCIAÇÃO OAB") == "Associação OAB"
         assert _titlecase_nome("APAE DE SANTA BÁRBARA") == "APAE de Santa Bárbara"
         assert _titlecase_nome("SISTEMA SUS") == "Sistema SUS"
+
+
+# =============================================================================
+# criar_modelo_envelope
+# =============================================================================
+class TestCriarModeloEnvelope:
+
+    def test_cria_envelope_com_dimensoes_e_placeholders(self, tmp_path: Path) -> None:
+        from docx import Document  # type: ignore[import-untyped]
+        
+        caminho_temp = tmp_path / "modelo_envelope.docx"
+        assert not caminho_temp.exists()
+
+        resultado = criar_modelo_envelope(caminho_temp)
+        assert resultado == caminho_temp
+        assert caminho_temp.exists()
+
+        # Load it and verify size and sections
+        doc = Document(caminho_temp)
+        section = doc.sections[0]
+        
+        # Verify DL dimensions: 22 cm by 11 cm
+        assert abs(section.page_width.cm - 22.0) < 0.01
+        assert abs(section.page_height.cm - 11.0) < 0.01
+
+        # Read text and verify placeholders exist in the text
+        texto_completo = "\n".join(p.text for p in doc.paragraphs)
+        assert "TRATAMENTO_RODAPE" in texto_completo
+        assert "DESTINATARIO_NOME" in texto_completo
+        assert "DESTINATARIO_ENDERECO" in texto_completo
+        assert "REMETENTE" in texto_completo

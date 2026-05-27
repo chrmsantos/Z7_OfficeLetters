@@ -39,8 +39,8 @@ KEYRING_SERVICE: str = "z7_officeletters"
 KEYRING_USERNAME: str = "gemini_api_key"
 KEYRING_MODEL_USERNAME: str = "gemini_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
-DEFAULT_MODELO_IA: str = "gemini-3.1-flash-lite"
-DEFAULT_CONTA: str = "sentineltray.google.com"
+DEFAULT_MODELO_IA: str = "gemini-3.5-flash"
+DEFAULT_CONTA: str = "sentineltray"
 DEFAULT_API_KEY: str = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
 
 

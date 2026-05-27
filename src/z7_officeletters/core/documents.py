@@ -24,6 +24,7 @@ __all__ = [
     "normalizar_numero_mocao",
     "construir_nome_arquivo",
     "criar_modelo_planilha",
+    "criar_modelo_envelope",
 ]
 
 # ── Pre-compiled regex patterns ───────────────────────────────────────────────
@@ -276,4 +277,79 @@ def criar_modelo_planilha(destino: "str | Path | None" = None) -> Path:
     ws.freeze_panes = "A2"
 
     wb.save(str(destino))
+    return destino
+
+
+def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
+    """Create the default Word envelope template with placeholders and DL size.
+
+    If *destino* is ``None``, the file is placed in the default templates folder.
+
+    Args:
+        destino: Target file path.  ``None`` uses the default location.
+
+    Returns:
+        Path of the file created.
+    """
+    from docx import Document  # type: ignore[import-untyped]  # noqa: PLC0415
+    from docx.shared import Cm, Pt  # type: ignore[import-untyped]  # noqa: PLC0415
+
+    if destino is None:
+        from z7_officeletters.constants import MODELO_ENVELOPE  # noqa: PLC0415
+
+        if getattr(sys, "frozen", False):
+            destino = Path(sys.executable).parent / MODELO_ENVELOPE
+        else:
+            destino = Path(__file__).parent.parent.parent.parent / MODELO_ENVELOPE
+    destino = Path(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+
+    doc = Document()
+
+    # Set page size to DL envelope (22 cm x 11 cm in landscape orientation)
+    section = doc.sections[0]
+    section.page_width = Cm(22)
+    section.page_height = Cm(11)
+
+    # Set margins
+    section.top_margin = Cm(1.5)
+    section.bottom_margin = Cm(1.5)
+    section.left_margin = Cm(2.0)
+    section.right_margin = Cm(2.0)
+
+    # Add Sender (Remetente) at the top-left area in smaller font
+    p_rem = doc.add_paragraph()
+    p_rem.paragraph_format.space_after = Pt(0)
+    p_rem.paragraph_format.line_spacing = 1.0
+    r_rem1 = p_rem.add_run("REMETENTE:\nCâmara Municipal de Santa Bárbara d'Oeste\n")
+    r_rem1.font.size = Pt(8.5)
+    r_rem1.font.bold = True
+    r_rem1.font.name = "Arial"
+
+    r_rem2 = p_rem.add_run("Avenida Monte Castelo, 800 - Centro\nSanta Bárbara d'Oeste/SP - CEP 13450-025")
+    r_rem2.font.size = Pt(8)
+    r_rem2.font.name = "Arial"
+
+    # Add some spacing before the Recipient
+    p_spacing = doc.add_paragraph()
+    p_spacing.paragraph_format.space_before = Pt(36)
+    p_spacing.paragraph_format.space_after = Pt(0)
+
+    # Add Recipient (Destinatário) on the right/bottom area
+    # In DL envelopes, the recipient is aligned to the right or left with a large left indent (e.g. 9 cm)
+    p_dest = doc.add_paragraph()
+    p_dest.paragraph_format.left_indent = Cm(9.0)  # indent to the right side of the DL envelope
+    p_dest.paragraph_format.space_after = Pt(0)
+    p_dest.paragraph_format.line_spacing = 1.15
+
+    r_dest_title = p_dest.add_run("DESTINATÁRIO:\n")
+    r_dest_title.font.size = Pt(9.5)
+    r_dest_title.font.bold = True
+    r_dest_title.font.name = "Arial"
+
+    r_dest_body = p_dest.add_run("{{ TRATAMENTO_RODAPE }} {{ DESTINATARIO_NOME }}\n{{ DESTINATARIO_ENDERECO }}")
+    r_dest_body.font.size = Pt(11)
+    r_dest_body.font.name = "Arial"
+
+    doc.save(str(destino))
     return destino

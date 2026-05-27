@@ -39,7 +39,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA, RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
+from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, MODELO_ENVELOPE, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES, RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
 from z7_officeletters.core import ai as _ai
 from z7_officeletters.core import address_db as _addr_db
 from z7_officeletters.core import authors as _authors
@@ -125,6 +125,7 @@ def _worker_main(
 
         modelo_oficio = _resolve_template(MODELO_OFICIO)
         modelo_requerimento_pesar = _resolve_template(MODELO_REQUERIMENTO_PESAR)
+        modelo_envelope = _resolve_template(MODELO_ENVELOPE)
 
         # Address DB — optional; the app degrades gracefully when absent.
         _db_path = _resolve_template(ENDERECAMENTO_PADRAO)
@@ -138,6 +139,12 @@ def _worker_main(
         if not modelo_oficio.exists():
             q.put(("error", f"Arquivo 'modelo_mocao.docx' não encontrado.\n{modelo_oficio}"))
             return
+
+        if not modelo_envelope.exists():
+            try:
+                _docs.criar_modelo_envelope(modelo_envelope)
+            except Exception as exc:
+                q.put(("log", f"  ⚠  Não foi possível criar o template de envelope: {exc}", "warn"))
 
         dados_planilha: list[list[str]] = []
         numero_atual: int = inputs["num_inicial"]
@@ -399,6 +406,24 @@ def _worker_main(
             caminho_oficio = os.path.join(PASTA_SAIDA, nome)
             doc.save(caminho_oficio)
             q.put(("log", f"  ✔  {nome}", "success"))
+
+            # Generate envelope if delivery method is "Carta"
+            if info["envio"] == "Carta":
+                Path(PASTA_ENVELOPES).mkdir(parents=True, exist_ok=True)
+                if modelo_envelope.exists():
+                    try:
+                        doc_env = DocxTemplate(str(modelo_envelope))
+                        doc_env.render(ctx)
+                        nome_dest_safe = _docs._RE_NOME_INVALIDO.sub("", _docs._titlecase_nome(dest0["nome"]))
+                        nome_envelope = f"Envelope - Of. {num_str} - {nome_dest_safe}.docx"
+                        caminho_envelope = os.path.join(PASTA_ENVELOPES, nome_envelope)
+                        doc_env.save(caminho_envelope)
+                        q.put(("log", f"  ✉  Envelope gerado: {nome_envelope}", "success"))
+                    except Exception as exc:
+                        q.put(("log", f"  ✖  Erro ao gerar envelope para {dest0['nome']}: {exc}", "error"))
+                        erros += 1
+                else:
+                    q.put(("log", "  ⚠  Template de envelope não encontrado — ignorando geração do envelope.", "warn"))
 
             if tipo_propositura == "requerimento_pesar":
                 plural_s = "s" if n_props > 1 else ""
