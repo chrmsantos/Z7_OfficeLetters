@@ -1,6 +1,6 @@
 # Z7 OfficeLetters
 
-Ferramenta de automação para geração de ofícios legislativos da Câmara Municipal de Santa Bárbara d'Oeste/SP.
+Ferramenta de automação para geração de ofícios legislativos municipais.
 
 Utiliza a API **Google Gemini** para extrair dados estruturados a partir do texto de moções legislativas e gera automaticamente os documentos Word e uma planilha de controle.
 
