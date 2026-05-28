@@ -76,7 +76,7 @@ def salvar_modelo_ia(modelo: str) -> None:
     """Persist the AI model name in the Windows Credential Manager.
 
     Args:
-        modelo: The Gemini model name string to store (e.g. ``"gemini-3.1-flash-lite"``).
+        modelo: The Gemini model name string to store (e.g. ``"gemini-3.5-flash"``).
     """
     import keyring  # noqa: PLC0415
 
