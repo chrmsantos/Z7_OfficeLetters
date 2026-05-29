@@ -257,6 +257,7 @@ class AutoOficiosApp(ctk.CTk):
         self._prop_listbox.delete(0, tk.END)
         for p in saved_props:
             self._prop_listbox.insert(tk.END, Path(p).name)
+        self._check_for_updates_startup()
 
     def _load_saved_theme(self) -> None:
         try:
@@ -1496,6 +1497,28 @@ class AutoOficiosApp(ctk.CTk):
                         parent=self,
                     )
                 self.after(0, _handle_err)
+
+        threading.Thread(target=_bg_check, daemon=True).start()
+
+    def _check_for_updates_startup(self) -> None:
+        def _bg_check() -> None:
+            try:
+                tag_name, download_url = obter_ultima_versao()
+                versao_limpa = tag_name.lstrip("vV")
+                if comparar_versoes(versao_limpa, APP_VERSION):
+                    def _prompt_update() -> None:
+                        if messagebox.askyesno(
+                            "Atualização Disponível",
+                            f"Uma nova versão estável ({tag_name}) está disponível!\n\n"
+                            f"Sua versão atual: {APP_VERSION}\n"
+                            f"Nova versão: {versao_limpa}\n\n"
+                            "Deseja baixar e instalar a atualização agora?",
+                            parent=self,
+                        ):
+                            self._mostrar_janela_download(download_url, tag_name)
+                    self.after(0, _prompt_update)
+            except Exception:  # noqa: BLE001
+                pass
 
         threading.Thread(target=_bg_check, daemon=True).start()
 
