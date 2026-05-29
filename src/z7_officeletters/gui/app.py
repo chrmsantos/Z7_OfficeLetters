@@ -1625,9 +1625,12 @@ class AutoOficiosApp(ctk.CTk):
                     messagebox.showinfo(
                         "Atualização Concluída",
                         "A atualização foi baixada com sucesso!\n\n"
-                        "Ela será efetivada automaticamente na próxima vez que você iniciar o aplicativo.",
+                        "O aplicativo será reiniciado automaticamente na nova versão.",
                         parent=self,
                     )
+                    import subprocess  # noqa: PLC0415
+                    subprocess.Popen([sys.executable])
+                    self._on_close()
 
                 self.after(0, _success)
 
