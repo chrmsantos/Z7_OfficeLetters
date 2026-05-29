@@ -38,7 +38,6 @@ from z7_officeletters.constants import (
     MODELO_ENVELOPE,
     PASTA_LOGS,
     PASTA_PLANILHA,
-    PASTA_PROPOSITURAS,
     PASTA_SAIDA,
     PASTA_ENVELOPES,
     BASE_DIR,
@@ -46,7 +45,6 @@ from z7_officeletters.constants import (
 )
 from z7_officeletters.core import config as _config
 from z7_officeletters.core.documents import criar_modelo_planilha, criar_modelo_envelope
-from z7_officeletters.core.files import listar_proposituras
 from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia
 from z7_officeletters.core.logging_setup import configurar_logging
 from z7_officeletters.gui.constants import _C, _DARK, _LIGHT
@@ -82,6 +80,10 @@ class AutoOficiosApp(ctk.CTk):
         self._stored_key: str = ""
         self._log_entries: list[tuple[str, str]] = []  # (text, tag) for theme rebuild
         self._log_has_placeholder: bool = False
+        self._summary_color_tag = "dim"
+        self._progress_color_tag = "accent"
+        self._prog_label_color_tag = "dim"
+        self._prog_pct_color_tag = "accent"
 
         # AI Chat state variables
         self._chat_history: list[dict[str, str]] = []
@@ -119,7 +121,7 @@ class AutoOficiosApp(ctk.CTk):
         pass
 
     def _run_init_bg(self) -> None:
-        for p in (PASTA_LOGS, PASTA_PROPOSITURAS, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES):
+        for p in (PASTA_LOGS, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES):
             Path(p).mkdir(parents=True, exist_ok=True)
         configurar_logging()
 
@@ -172,12 +174,6 @@ class AutoOficiosApp(ctk.CTk):
         except Exception:  # noqa: BLE001
             pass
 
-        prop_files: list[Path] = []
-        try:
-            prop_files = listar_proposituras()
-        except Exception:  # noqa: BLE001
-            pass
-
         session_state: dict[str, Any] = {}
         try:
             session_path = Path(BASE_DIR) / "last_session.json"
@@ -186,13 +182,12 @@ class AutoOficiosApp(ctk.CTk):
         except Exception:  # noqa: BLE001
             pass
 
-        self.after(0, lambda: self._on_init_ready(loaded_key, loaded_model, prop_files, session_state))
+        self.after(0, lambda: self._on_init_ready(loaded_key, loaded_model, session_state))
 
     def _on_init_ready(
         self,
         loaded_key: str,
         loaded_model: str,
-        prop_files: list[Path],
         session_state: dict[str, Any],
     ) -> None:
         self._stored_key = loaded_key
@@ -211,16 +206,57 @@ class AutoOficiosApp(ctk.CTk):
             self._data_var.set(session_state["data"])
 
         saved_props = [p for p in session_state.get("proposituras", []) if Path(p).exists()]
-        if saved_props:
-            self._prop_paths = saved_props
-            self._prop_listbox.delete(0, tk.END)
-            for p in saved_props:
-                self._prop_listbox.insert(tk.END, Path(p).name)
-        else:
-            self._prop_paths = [str(p) for p in prop_files]
-            self._prop_listbox.delete(0, tk.END)
-            for p in prop_files:
-                self._prop_listbox.insert(tk.END, p.name)
+        self._prop_paths = saved_props
+
+        if "summary_text" in session_state:
+            self._summary_color_tag = session_state.get("summary_color_tag", "dim")
+            self._summary_label.configure(
+                text=session_state["summary_text"],
+                text_color=_C.get(self._summary_color_tag, _C["dim"]),
+            )
+        
+        if "progress_value" in session_state:
+            self._progress.set(session_state["progress_value"])
+            self._progress_color_tag = session_state.get("progress_color_tag", "accent")
+            self._progress.configure(
+                progress_color=_C.get(self._progress_color_tag, _C["accent"])
+            )
+            
+        if "prog_label_text" in session_state:
+            self._prog_label_color_tag = session_state.get("prog_label_color_tag", "dim")
+            self._prog_label.configure(
+                text=session_state["prog_label_text"],
+                text_color=_C.get(self._prog_label_color_tag, _C["dim"]),
+            )
+            
+        if "prog_pct_text" in session_state:
+            self._prog_pct_color_tag = session_state.get("prog_pct_color_tag", "accent")
+            self._prog_pct.configure(
+                text=session_state["prog_pct_text"],
+                text_color=_C.get(self._prog_pct_color_tag, _C["accent"]),
+            )
+
+        if "log_entries" in session_state:
+            self._log_entries = []
+            tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
+            tb.configure(state="normal")
+            tb.delete("1.0", "end")
+            
+            log_has_placeholder = session_state.get("log_has_placeholder", False)
+            self._log_has_placeholder = log_has_placeholder
+            
+            for entry in session_state["log_entries"]:
+                text, tag = entry[0], entry[1]
+                self._log_entries.append((text, tag))
+                if tag:
+                    tb.insert("end", text + "\n", tag)
+                else:
+                    tb.insert("end", text + "\n")
+            tb.see("end")
+            tb.configure(state="disabled")
+        self._prop_listbox.delete(0, tk.END)
+        for p in saved_props:
+            self._prop_listbox.insert(tk.END, Path(p).name)
 
     def _load_saved_theme(self) -> None:
         try:
@@ -243,6 +279,16 @@ class AutoOficiosApp(ctk.CTk):
             "data": self._data_var.get(),
             "proposituras": [p for p in self._prop_paths if Path(p).exists()],
             "theme": self._theme,
+            "log_entries": self._log_entries,
+            "log_has_placeholder": getattr(self, "_log_has_placeholder", False),
+            "summary_text": self._summary_label.cget("text"),
+            "summary_color_tag": getattr(self, "_summary_color_tag", "dim"),
+            "progress_value": self._progress.get(),
+            "progress_color_tag": getattr(self, "_progress_color_tag", "accent"),
+            "prog_label_text": self._prog_label.cget("text"),
+            "prog_label_color_tag": getattr(self, "_prog_label_color_tag", "dim"),
+            "prog_pct_text": self._prog_pct.cget("text"),
+            "prog_pct_color_tag": getattr(self, "_prog_pct_color_tag", "accent"),
         }
         try:
             session_path = Path(BASE_DIR) / "last_session.json"
@@ -478,6 +524,7 @@ class AutoOficiosApp(ctk.CTk):
         modelos_frame = ctk.CTkFrame(self._left, fg_color="transparent")
         modelos_frame.grid(row=17, column=0, sticky="ew", padx=20, pady=(0, 18))
         modelos_frame.grid_columnconfigure(0, weight=1)
+        modelos_frame.grid_columnconfigure(1, weight=1)
 
         _btn_kw: dict[str, Any] = dict(
             font=ctk.CTkFont(size=12), height=34, corner_radius=10,
@@ -487,7 +534,12 @@ class AutoOficiosApp(ctk.CTk):
         ctk.CTkButton(
             modelos_frame, text="🔧  Avançado",
             command=self._open_avancado, **_btn_kw,
-        ).grid(row=0, column=0, sticky="ew")
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
+
+        ctk.CTkButton(
+            modelos_frame, text="🧹  Limpar",
+            command=self._confirmar_e_limpar_tudo, **_btn_kw,
+        ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
 
         self._ai_status_label = ctk.CTkLabel(
             self._left, text="",
@@ -870,6 +922,14 @@ class AutoOficiosApp(ctk.CTk):
         saved_modelo = self._modelo_ia_var.get()
         saved_key = self._apikey_var.get()
         saved_log_entries = list(self._log_entries)  # snapshot for tag-aware restore
+        saved_summary_text = self._summary_label.cget("text")
+        saved_summary_tag = getattr(self, "_summary_color_tag", "dim")
+        saved_progress_val = self._progress.get()
+        saved_progress_tag = getattr(self, "_progress_color_tag", "accent")
+        saved_prog_label_text = self._prog_label.cget("text")
+        saved_prog_label_tag = getattr(self, "_prog_label_color_tag", "dim")
+        saved_prog_pct_text = self._prog_pct.cget("text")
+        saved_prog_pct_tag = getattr(self, "_prog_pct_color_tag", "accent")
         try:
             tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
             _ = tb.get("1.0", "end-1c")  # ensure textbox is initialised
@@ -917,6 +977,27 @@ class AutoOficiosApp(ctk.CTk):
             tb2.see("end")
             tb2.configure(state="disabled")
 
+        self._summary_color_tag = saved_summary_tag
+        self._summary_label.configure(
+            text=saved_summary_text,
+            text_color=_C.get(saved_summary_tag, _C["dim"]),
+        )
+        self._progress.set(saved_progress_val)
+        self._progress_color_tag = saved_progress_tag
+        self._progress.configure(
+            progress_color=_C.get(saved_progress_tag, _C["accent"])
+        )
+        self._prog_label_color_tag = saved_prog_label_tag
+        self._prog_label.configure(
+            text=saved_prog_label_text,
+            text_color=_C.get(saved_prog_label_tag, _C["dim"]),
+        )
+        self._prog_pct_color_tag = saved_prog_pct_tag
+        self._prog_pct.configure(
+            text=saved_prog_pct_text,
+            text_color=_C.get(saved_prog_pct_tag, _C["accent"]),
+        )
+
     # =========================================================================
     # Interactions
     # =========================================================================
@@ -944,17 +1025,10 @@ class AutoOficiosApp(ctk.CTk):
         values = [f"{n} ({s})" for n, s in _config.MAPA_REDATORES.items()]
         self._sigla_combo.configure(values=values)
 
-    def _refresh_proposituras(self) -> None:
-        files = listar_proposituras()
-        self._prop_paths = [str(p) for p in files]
-        self._prop_listbox.delete(0, tk.END)
-        for p in files:
-            self._prop_listbox.insert(tk.END, p.name)
-
     def _browse_file(self) -> None:
         paths = filedialog.askopenfilenames(
             title="Selecionar propositura(s)",
-            initialdir=str(Path(PASTA_PROPOSITURAS)),
+            initialdir=str(BASE_DIR),
             filetypes=[
                 ("Documentos", "*.txt *.docx *.doc *.odt *.pdf"),
                 ("Todos os arquivos", "*.*"),
@@ -1136,6 +1210,57 @@ class AutoOficiosApp(ctk.CTk):
                         except Exception:  # noqa: BLE001
                             pass
 
+    def _confirmar_e_limpar_tudo(self) -> None:
+        if self._processing:
+            return
+
+        if not messagebox.askyesno(
+            "Confirmar Limpeza",
+            "Deseja realmente limpar todos os dados da tela, arquivos anexos e pastas de saída?\n\n"
+            "Esta ação excluirá todos os ofícios, envelopes e planilhas gerados, enviando-os para a Lixeira.",
+            parent=self,
+        ):
+            return
+
+        # 1. Clear screen inputs
+        self._num_var.set("1")
+        self._sigla_var.set("")
+        self._sigla_combo.set("")
+        self._data_var.set(datetime.now().strftime("%d/%m/%Y"))
+
+        # 2. Clear attached files
+        self._prop_paths = []
+        self._prop_listbox.delete(0, tk.END)
+
+        # 3. Clear logs
+        self._clear_log()
+
+        # 4. Reset summary
+        self._summary_label.configure(
+            text="Nenhum processamento realizado ainda.",
+            text_color=_C["dim"],
+        )
+        self._summary_color_tag = "dim"
+
+        # 5. Reset progress bar & labels
+        self._progress.set(0)
+        self._progress_color_tag = "accent"
+        self._progress.configure(progress_color=_C["accent"])
+
+        self._prog_label.configure(text="Aguardando início…", text_color=_C["dim"])
+        self._prog_label_color_tag = "dim"
+
+        self._prog_pct.configure(text="0 %", text_color=_C["accent"])
+        self._prog_pct_color_tag = "accent"
+
+        # 6. Clear output files
+        self._limpar_pastas_saida()
+
+        # 7. Persist empty state
+        self._save_session_state()
+
+        messagebox.showinfo("Limpeza Concluída", "Tudo limpo com sucesso!", parent=self)
+
     def _start_processing(self) -> None:
         if self._processing:
             return
@@ -1196,9 +1321,13 @@ class AutoOficiosApp(ctk.CTk):
         self._clear_log()
         self._progress.set(0)
         self._progress.configure(progress_color=_C["accent"])
+        self._progress_color_tag = "accent"
         self._prog_label.configure(text="Iniciando…", text_color=_C["dim"])
+        self._prog_label_color_tag = "dim"
         self._prog_pct.configure(text="0 %", text_color=_C["accent"])
+        self._prog_pct_color_tag = "accent"
         self._summary_label.configure(text="Processando…", text_color=_C["dim"])
+        self._summary_color_tag = "dim"
 
         inputs: dict[str, Any] = {
             "num_inicial":  num,
@@ -1271,8 +1400,11 @@ class AutoOficiosApp(ctk.CTk):
             color = _C["success"] if not errors else _C["warn"]
             self._progress.set(1.0)
             self._progress.configure(progress_color=color)
+            self._progress_color_tag = "success" if not errors else "warn"
             self._prog_label.configure(text=f"Concluído em {tempo}", text_color=color)
+            self._prog_label_color_tag = "success" if not errors else "warn"
             self._prog_pct.configure(text="100 %", text_color=color)
+            self._prog_pct_color_tag = "success" if not errors else "warn"
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
             tag = "success" if not errors else "warn"
             tokens_str = f"  •  🔢 {total_tokens:,} tokens" if total_tokens > 0 else ""
@@ -1287,6 +1419,7 @@ class AutoOficiosApp(ctk.CTk):
                 text=f"✔  {generated} ofício(s) gerado(s)   •   {errors} erro(s)   •   ⏱ {tempo}{summary_tokens}",
                 text_color=color,
             )
+            self._summary_color_tag = tag
             self._save_session_state()
 
         elif kind == "cancelled":
@@ -1297,10 +1430,12 @@ class AutoOficiosApp(ctk.CTk):
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
             self._progress.configure(progress_color=_C["warn"])
+            self._progress_color_tag = "warn"
             self._prog_label.configure(
                 text=f"Cancelado após {done_so_far} de {total} {label}.",
                 text_color=_C["warn"],
             )
+            self._prog_label_color_tag = "warn"
             self._log(f"\n⏹  Processamento cancelado após {done_so_far}/{total} {label}.", "warn")
             self._save_session_state()
 
@@ -1315,6 +1450,7 @@ class AutoOficiosApp(ctk.CTk):
                 text="Erro fatal — verifique o log",
                 text_color=_C["error"],
             )
+            self._prog_label_color_tag = "error"
             messagebox.showerror("Erro Fatal", msg[1])
 
     # =========================================================================

@@ -162,8 +162,11 @@ def formatar_autores(lista_autores: list[str]) -> tuple[str, str]:
         nomes_limpos.append(_resolve_casing(autor_lower, autor_n, autor))
         femininos.append(any(f in autor_lower for f in _VEREADORES_FEMININO_LOWER))
 
-    sigla_principal = next((s for s in siglas if s != "indef"), "indef")
-    sigla_final = f"{sigla_principal} e outros" if len(siglas) > 1 else sigla_principal
+    if len(siglas) == 2:
+        sigla_final = f"{siglas[0]} e {siglas[1]}"
+    else:
+        sigla_principal = next((s for s in siglas if s != "indef"), "indef")
+        sigla_final = f"{sigla_principal} e outros" if len(siglas) > 1 else sigla_principal
     todas_femininas = all(femininos)
 
     if len(nomes_limpos) == 1:

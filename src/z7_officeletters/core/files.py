@@ -16,70 +16,12 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
-from z7_officeletters.constants import (
-    FORMATOS_SUPORTADOS,
-    ORDEM_PREFERENCIA,
-    PASTA_PROPOSITURAS,
-)
-
 __all__ = [
-    "listar_proposituras",
-    "resolver_arquivo_preferencial",
     "ler_arquivo_mocoes",
 ]
 
 # ODT XML namespace for text content.
 _ODT_NS: str = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
-
-
-def resolver_arquivo_preferencial(caminho: str) -> str:
-    """Return the highest-priority variant for a file path.
-
-    Given any supported file path, checks whether sibling files with the same
-    stem exist in higher-priority formats and returns the best one found.
-    If no better variant exists the original *caminho* is returned unchanged.
-
-    Args:
-        caminho: Absolute or relative path to a supported proposition file.
-
-    Returns:
-        Path string of the highest-priority existing variant.
-    """
-    p = Path(caminho)
-    base = p.parent / p.stem
-    for ext in ORDEM_PREFERENCIA:
-        candidato = base.with_suffix(ext)
-        if candidato.exists():
-            return str(candidato)
-    return caminho
-
-
-def listar_proposituras() -> list[Path]:
-    """List all supported proposition files in ``PASTA_PROPOSITURAS``.
-
-    When two files share the same stem (e.g. ``mocoes.txt`` and
-    ``mocoes.docx``), only the higher-priority format is included so the
-    caller does not process the same content twice.
-
-    Returns:
-        Alphabetically sorted list of ``Path`` objects for unique propositions.
-        An empty list is returned (and the folder created) if it does not exist.
-    """
-    pasta = Path(PASTA_PROPOSITURAS)
-    if not pasta.is_dir():
-        pasta.mkdir(parents=True, exist_ok=True)
-        return []
-
-    vistos: dict[str, Path] = {}
-
-    for arq in sorted(pasta.iterdir()):
-        if arq.suffix.lower() not in FORMATOS_SUPORTADOS:
-            continue
-        pref = Path(resolver_arquivo_preferencial(str(arq)))
-        if pref.stem not in vistos:
-            vistos[pref.stem] = pref
-
-    return list(vistos.values())
 
 
 def _extrair_texto_odt(caminho: str) -> str:

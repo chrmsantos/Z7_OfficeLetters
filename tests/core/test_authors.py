@@ -30,7 +30,7 @@ class TestFormatarAutores:
 
     def test_dois_autores_sigla(self) -> None:
         _, sigla = formatar_autores(["Alex Dantas", "Arnaldo Alves"])
-        assert sigla == "ad e outros"
+        assert sigla == "ad e aa"
 
     def test_tres_autores_sigla(self) -> None:
         _, sigla = formatar_autores(["Alex Dantas", "Arnaldo Alves", "Cabo Dorigon"])
@@ -50,15 +50,15 @@ class TestFormatarAutores:
 
     def test_mistura_conhecido_desconhecido(self) -> None:
         _, sigla = formatar_autores(["Alex Dantas", "Vereador X"])
-        assert sigla == "ad e outros"
+        assert sigla == "ad e indef"
 
     def test_desconhecido_primeiro_usa_sigla_do_segundo(self) -> None:
         _, sigla = formatar_autores(["Vereador X", "Alex Dantas"])
-        assert sigla == "ad e outros"
+        assert sigla == "indef e ad"
 
     def test_todos_desconhecidos_sigla_indef(self) -> None:
         _, sigla = formatar_autores(["Vereador X", "Vereador Y"])
-        assert sigla == "indef e outros"
+        assert sigla == "indef e indef"
 
     def test_nome_sem_acento_resolve_sigla(self) -> None:
         _, sigla = formatar_autores(["Jose Luis Fornasari"])

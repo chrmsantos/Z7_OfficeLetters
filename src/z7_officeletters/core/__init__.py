@@ -26,7 +26,7 @@ from z7_officeletters.core.documents import (
     criar_modelo_planilha,
     normalizar_numero_mocao,
 )
-from z7_officeletters.core.files import ler_arquivo_mocoes, listar_proposituras, resolver_arquivo_preferencial
+from z7_officeletters.core.files import ler_arquivo_mocoes
 from z7_officeletters.core.logging_setup import configurar_logging
 from z7_officeletters.core.recipients import processar_destinatario
 
@@ -51,8 +51,6 @@ __all__ = [
     "normalizar_numero_mocao",
     # files
     "ler_arquivo_mocoes",
-    "listar_proposituras",
-    "resolver_arquivo_preferencial",
     # logging_setup
     "configurar_logging",
     # recipients

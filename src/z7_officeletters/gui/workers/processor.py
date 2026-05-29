@@ -435,10 +435,11 @@ def _worker_main(
             dados_planilha.append([
                 num_str,
                 inputs["data_iso"],
-                f"{info['tratamento_rodape']} {info['destinatario_nome']}".strip(),
+                f"{info['tratamento_rodape']} {_docs._titlecase_nome(info['destinatario_nome'])}".strip(),
                 assunto,
                 ", ".join(
-                    f"{a} ({_authors.sigla_autor(a)})" for a in all_autores
+                    f"{_docs._titlecase_nome(_authors._resolve_casing(a.lower(), _authors.norm(a), a))} ({_authors.sigla_autor(a)})"
+                    for a in all_autores
                 ),
                 info["envio"],
                 inputs["sigla"],

@@ -38,7 +38,6 @@ __all__ = [
     "PASTA_SAIDA",
     "PASTA_LOGS",
     "PASTA_LOG_IA",
-    "PASTA_PROPOSITURAS",
     "PASTA_PLANILHA",
     "PASTA_ENVELOPES",
     "MAX_TENTATIVAS_IA",
@@ -96,7 +95,6 @@ if getattr(sys, "frozen", False):
 else:
     PASTA_LOGS: str = str(Path(__file__).parent.parent.parent / "logs")
 PASTA_LOG_IA: str = str(Path(PASTA_LOGS) / "ia")
-PASTA_PROPOSITURAS: str = str(BASE_DIR / "proposituras")
 PASTA_PLANILHA: str = str(BASE_DIR / "planilha_gerada")
 PASTA_ENVELOPES: str = str(BASE_DIR / "envelopes_gerados")
 

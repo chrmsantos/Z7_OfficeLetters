@@ -35,7 +35,7 @@ def _ctx_mocao(
     vocativo: str = "Ilustríssimo Senhor",
     pronome_corpo: str = "Vossa Senhoria",
     tratamento_rodape: str = "Ao Ilustríssimo Senhor",
-    destinatario_nome: str = "FULANO DE TAL",
+    destinatario_nome: str = "Fulano de Tal",
     destinatario_endereco: str = "",
     designacao_propositura: str = "Moção de Aplauso",
     copia_art: str = "cópia da",
@@ -99,7 +99,7 @@ def _info_padrao(
     vocativo: str = "Ilustríssimo Senhor",
     pronome_corpo: str = "Vossa Senhoria",
     tratamento_rodape: str = "Ao Ilustríssimo Senhor",
-    destinatario_nome: str = "FULANO DE TAL",
+    destinatario_nome: str = "Fulano de Tal",
     destinatario_endereco: str = "",
     envio: str = "Em Mãos",
 ) -> dict[str, str]:
@@ -163,7 +163,7 @@ def _registro(
 def _linha_padrao(
     num_oficio: str = "001",
     data_iso: str = "2026-05-15",
-    destinatario: str = "Ao Ilustríssimo Senhor FULANO DE TAL",
+    destinatario: str = "Ao Ilustríssimo Senhor Fulano de Tal",
     assunto: str = "Encaminha Moção de Aplauso nº 124/2026",
     vereadores: str = "Alex Dantas (ad)",
     envio: str = "Em Mãos",
@@ -604,7 +604,7 @@ class TestCorrigirLinhaPlanilha:
         reg = _registro()
         linha = _linha_padrao(destinatario="Errado")
         corr = _corrigir_linha_planilha(linha, reg)
-        assert corr[2] == "Ao Ilustríssimo Senhor FULANO DE TAL"
+        assert corr[2] == "Ao Ilustríssimo Senhor Fulano de Tal"
 
     def test_corrige_assunto_mocao(self) -> None:
         reg = _registro()
@@ -647,7 +647,7 @@ class TestCorrigirLinhaPlanilha:
         corr = _corrigir_linha_planilha(linha_curta, reg)
         assert len(corr) >= 6
         assert corr[0] == reg.ctx.get("num_oficio")
-        assert corr[2] == "Ao Ilustríssimo Senhor FULANO DE TAL"
+        assert corr[2] == "Ao Ilustríssimo Senhor Fulano de Tal"
         
         linha_vazia: list[Any] = []
         corr_vazia = _corrigir_linha_planilha(linha_vazia, reg)

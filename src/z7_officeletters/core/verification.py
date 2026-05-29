@@ -31,6 +31,7 @@ from typing import Any
 
 from z7_officeletters.core.documents import formatar_lista_pt as _formatar_lista_pt
 from z7_officeletters.core.documents import frases_propositura as _frases_propositura
+from z7_officeletters.core.documents import _titlecase_nome
 
 __all__ = [
     "RegistroOficio",
@@ -468,8 +469,9 @@ def verificar_linha_planilha(
         )
 
     # destinatário
+    dest_nome_title = _titlecase_nome(info.get('destinatario_nome', ''))
     esperado_dest = (
-        f"{info.get('tratamento_rodape', '')} {info.get('destinatario_nome', '')}".strip()
+        f"{info.get('tratamento_rodape', '')} {dest_nome_title}".strip()
     )
     if dest_planilha != esperado_dest:
         erros.append(
@@ -621,8 +623,9 @@ def _corrigir_linha_planilha(
         plural_oes = "ções" if n_props > 1 else "ção"
         assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao} nº {num_mocao}/{year}"
 
+    dest_nome_title = _titlecase_nome(info.get('destinatario_nome', ''))
     destinatario = (
-        f"{info.get('tratamento_rodape', '')} {info.get('destinatario_nome', '')}".strip()
+        f"{info.get('tratamento_rodape', '')} {dest_nome_title}".strip()
     )
 
     linha_corr[0] = ctx.get("num_oficio", linha_corr[0])
