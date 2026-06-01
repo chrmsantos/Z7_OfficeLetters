@@ -134,7 +134,7 @@ def _worker_main(
             _addr_db.buscar_endereco("__warmup__", db_path=_db_path)  # prime cache
         else:
             _db_path = None  # type: ignore[assignment]
-            q.put(("log", "  ⚠  enderecam_padrao.docx não encontrado — usando apenas dados da IA.", "warn"))
+            q.put(("log", "  ⚠  enderecamentos_padrao.docx não encontrado — usando apenas dados da IA.", "warn"))
 
         if not modelo_oficio.exists():
             q.put(("error", f"Arquivo 'modelo_mocao.docx' não encontrado.\n{modelo_oficio}"))
@@ -284,7 +284,8 @@ def _worker_main(
                 if _authors.sigla_autor(a) == "indef":
                     q.put((
                         "log",
-                        f"  ⚠  Autor '{a}' não encontrado no config.json. Usando sigla 'indef'.",
+                        f"  ⚠  Autor '{a}' não encontrado no config.json. Usando sigla 'indef'.\n"
+                        f"      Para corrigir, adicione-o via Editor de Configurações (Avançado) ou no 'config.json'.",
                         "warn"
                     ))
 

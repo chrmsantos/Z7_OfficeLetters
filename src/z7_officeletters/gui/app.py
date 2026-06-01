@@ -89,6 +89,7 @@ class AutoOficiosApp(ctk.CTk):
         self._chat_history: list[dict[str, str]] = []
         self._custom_instructions: str = ""
         self._showing_chat: bool = True
+        self._update_status: str = "checking"
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -343,6 +344,16 @@ class AutoOficiosApp(ctk.CTk):
             text_color="#ffffff",
         ).pack(padx=10, pady=(2, 3))
 
+        self._update_status_badge = ctk.CTkFrame(name_row, fg_color="transparent", corner_radius=10)
+        self._update_status_badge.pack(side="left", padx=(12, 0), pady=(2, 0))
+        self._update_status_lbl = ctk.CTkLabel(
+            self._update_status_badge, text="",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#ffffff",
+        )
+        self._update_status_lbl.pack(padx=10, pady=(2, 3))
+        self._refresh_update_status_ui()
+
         ctk.CTkLabel(
             title_frame,
             text="Automatize ofícios legislativos com IA",
@@ -378,6 +389,39 @@ class AutoOficiosApp(ctk.CTk):
             command=self._toggle_theme,
         )
         self._theme_btn.grid(row=0, column=2, sticky="e", padx=20, pady=(30, 0))
+
+    def _refresh_update_status_ui(self) -> None:
+        if not hasattr(self, "_update_status"):
+            self._update_status = "checking"
+
+        status = self._update_status
+        if not hasattr(self, "_update_status_badge") or not hasattr(self, "_update_status_lbl"):
+            return
+
+        if status == "checking":
+            self._update_status_badge.configure(fg_color=_C["panel"])
+            self._update_status_lbl.configure(
+                text="⏳ Checando...",
+                text_color=_C["dim"],
+            )
+        elif status == "up_to_date":
+            self._update_status_badge.configure(fg_color=_C["success"])
+            self._update_status_lbl.configure(
+                text="✔ App atualizado",
+                text_color="#ffffff",
+            )
+        elif status == "update_available":
+            self._update_status_badge.configure(fg_color=_C["warn"])
+            self._update_status_lbl.configure(
+                text="🔄 Atualização disponível",
+                text_color="#ffffff",
+            )
+        elif status == "error":
+            self._update_status_badge.configure(fg_color=_C["error"])
+            self._update_status_lbl.configure(
+                text="⚠ Erro ao checar",
+                text_color="#ffffff",
+            )
 
     def _build_left_panel(self) -> None:
         self._left = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
@@ -1462,6 +1506,8 @@ class AutoOficiosApp(ctk.CTk):
             return
 
         self._update_btn.configure(state="disabled", text="⏳ Checando...")
+        self._update_status = "checking"
+        self._refresh_update_status_ui()
 
         def _bg_check() -> None:
             try:
@@ -1471,6 +1517,8 @@ class AutoOficiosApp(ctk.CTk):
                 def _handle_result() -> None:
                     self._update_btn.configure(state="normal", text="🔄  Atualizar")
                     if comparar_versoes(versao_limpa, APP_VERSION):
+                        self._update_status = "update_available"
+                        self._refresh_update_status_ui()
                         if messagebox.askyesno(
                             "Atualização Disponível",
                             f"Uma nova versão estável ({tag_name}) está disponível!\n\n"
@@ -1481,6 +1529,8 @@ class AutoOficiosApp(ctk.CTk):
                         ):
                             self._mostrar_janela_download(download_url, tag_name)
                     else:
+                        self._update_status = "up_to_date"
+                        self._refresh_update_status_ui()
                         messagebox.showinfo(
                             "Sem Atualizações",
                             f"Você já está utilizando a versão mais recente ({APP_VERSION}).",
@@ -1491,6 +1541,8 @@ class AutoOficiosApp(ctk.CTk):
             except Exception as exc:
                 def _handle_err() -> None:
                     self._update_btn.configure(state="normal", text="🔄  Atualizar")
+                    self._update_status = "error"
+                    self._refresh_update_status_ui()
                     messagebox.showerror(
                         "Erro de Atualização",
                         f"Não foi possível verificar atualizações:\n{exc}",
@@ -1501,12 +1553,17 @@ class AutoOficiosApp(ctk.CTk):
         threading.Thread(target=_bg_check, daemon=True).start()
 
     def _check_for_updates_startup(self) -> None:
+        self._update_status = "checking"
+        self._refresh_update_status_ui()
+
         def _bg_check() -> None:
             try:
                 tag_name, download_url = obter_ultima_versao()
                 versao_limpa = tag_name.lstrip("vV")
                 if comparar_versoes(versao_limpa, APP_VERSION):
                     def _prompt_update() -> None:
+                        self._update_status = "update_available"
+                        self._refresh_update_status_ui()
                         if messagebox.askyesno(
                             "Atualização Disponível",
                             f"Uma nova versão estável ({tag_name}) está disponível!\n\n"
@@ -1517,8 +1574,16 @@ class AutoOficiosApp(ctk.CTk):
                         ):
                             self._mostrar_janela_download(download_url, tag_name)
                     self.after(0, _prompt_update)
+                else:
+                    def _on_up_to_date() -> None:
+                        self._update_status = "up_to_date"
+                        self._refresh_update_status_ui()
+                    self.after(0, _on_up_to_date)
             except Exception:  # noqa: BLE001
-                pass
+                def _on_error() -> None:
+                    self._update_status = "error"
+                    self._refresh_update_status_ui()
+                self.after(0, _on_error)
 
         threading.Thread(target=_bg_check, daemon=True).start()
 

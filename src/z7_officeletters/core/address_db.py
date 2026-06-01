@@ -1,4 +1,4 @@
-"""Address database loaded from the ``enderecam_padrao.docx`` file.
+"""Address database loaded from the ``enderecamentos_padrao.docx`` file.
 
 The file contains one address block per recipient, each starting with a
 *tratamento* header line (e.g. ``"A Sua Excelência o Senhor"``).  The
@@ -139,7 +139,7 @@ def carregar_db(path: Path) -> list[EntradaEndereco]:
     so the caller can degrade gracefully without raising.
 
     Args:
-        path: Filesystem path to ``enderecam_padrao.docx`` (or similar).
+        path: Filesystem path to ``enderecamentos_padrao.docx`` (or similar).
 
     Returns:
         List of ``EntradaEndereco`` objects; may be empty.

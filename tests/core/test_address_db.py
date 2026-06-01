@@ -199,9 +199,9 @@ class TestCarregarDb:
 
     def test_arquivo_real_carregado(self) -> None:
         """Integration test — only runs when the real file is present."""
-        p = Path("ender/enderecam_padrao.docx")
+        p = Path("ender/enderecamentos_padrao.docx")
         if not p.exists():
-            pytest.skip("enderecam_padrao.docx not found in workspace")
+            pytest.skip("enderecamentos_padrao.docx not found in workspace")
         entries = carregar_db(p)
         assert len(entries) > 0
         # Every entry must have at least a tratamento and a nome
