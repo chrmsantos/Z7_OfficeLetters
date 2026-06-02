@@ -1505,6 +1505,7 @@ class AutoOficiosApp(ctk.CTk):
         if self._processing:
             return
 
+        logger.info("Iniciando verificação manual de atualizações...")
         self._update_btn.configure(state="disabled", text="⏳ Checando...")
         self._update_status = "checking"
         self._refresh_update_status_ui()
@@ -1513,10 +1514,12 @@ class AutoOficiosApp(ctk.CTk):
             try:
                 tag_name, download_url = obter_ultima_versao()
                 versao_limpa = tag_name.lstrip("vV")
+                logger.info("Verificação manual concluída. Versão estável mais recente no GitHub: %s (atual: %s)", tag_name, APP_VERSION)
 
                 def _handle_result() -> None:
                     self._update_btn.configure(state="normal", text="🔄  Atualizar")
                     if comparar_versoes(versao_limpa, APP_VERSION):
+                        logger.info("Nova versão %s disponível para instalação manual.", tag_name)
                         self._update_status = "update_available"
                         self._refresh_update_status_ui()
                         if messagebox.askyesno(
@@ -1529,6 +1532,7 @@ class AutoOficiosApp(ctk.CTk):
                         ):
                             self._mostrar_janela_download(download_url, tag_name)
                     else:
+                        logger.info("Nenhuma atualização disponível manualmente. Aplicativo já na última versão (%s).", APP_VERSION)
                         self._update_status = "up_to_date"
                         self._refresh_update_status_ui()
                         messagebox.showinfo(
@@ -1539,6 +1543,7 @@ class AutoOficiosApp(ctk.CTk):
 
                 self.after(0, _handle_result)
             except Exception as exc:
+                logger.error("Falha na verificação manual de atualizações: %s", exc)
                 def _handle_err() -> None:
                     self._update_btn.configure(state="normal", text="🔄  Atualizar")
                     self._update_status = "error"
@@ -1553,6 +1558,7 @@ class AutoOficiosApp(ctk.CTk):
         threading.Thread(target=_bg_check, daemon=True).start()
 
     def _check_for_updates_startup(self) -> None:
+        logger.info("Iniciando verificação de atualizações na inicialização...")
         self._update_status = "checking"
         self._refresh_update_status_ui()
 
@@ -1560,7 +1566,9 @@ class AutoOficiosApp(ctk.CTk):
             try:
                 tag_name, download_url = obter_ultima_versao()
                 versao_limpa = tag_name.lstrip("vV")
+                logger.info("Verificação na inicialização concluída. Versão estável mais recente: %s (atual: %s)", tag_name, APP_VERSION)
                 if comparar_versoes(versao_limpa, APP_VERSION):
+                    logger.info("Nova versão %s disponível. Exibindo caixa de diálogo de confirmação de inicialização.", tag_name)
                     def _prompt_update() -> None:
                         self._update_status = "update_available"
                         self._refresh_update_status_ui()
@@ -1575,11 +1583,13 @@ class AutoOficiosApp(ctk.CTk):
                             self._mostrar_janela_download(download_url, tag_name)
                     self.after(0, _prompt_update)
                 else:
+                    logger.info("O aplicativo já está atualizado na inicialização (%s).", APP_VERSION)
                     def _on_up_to_date() -> None:
                         self._update_status = "up_to_date"
                         self._refresh_update_status_ui()
                     self.after(0, _on_up_to_date)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Falha na verificação de atualizações na inicialização (ignorado): %s", exc)
                 def _on_error() -> None:
                     self._update_status = "error"
                     self._refresh_update_status_ui()
@@ -1589,6 +1599,7 @@ class AutoOficiosApp(ctk.CTk):
 
     def _mostrar_janela_download(self, download_url: str, versao: str) -> None:
         if not getattr(sys, "frozen", False):
+            logger.info("Processo de atualização automática ignorado (Modo de Desenvolvimento). Versão: %s", versao)
             messagebox.showinfo(
                 "Modo de Desenvolvimento",
                 f"Atualização {versao} está disponível, mas o processo de auto-atualização "
@@ -1598,6 +1609,7 @@ class AutoOficiosApp(ctk.CTk):
             )
             return
 
+        logger.info("Preparando para baixar atualização %s a partir de %s", versao, download_url)
         dlg = ctk.CTkToplevel(self)
         dlg.title("Baixando Atualização")
         dlg.geometry("400x180")
@@ -1640,6 +1652,7 @@ class AutoOficiosApp(ctk.CTk):
         download_cancelled = threading.Event()
 
         def _cancel() -> None:
+            logger.info("Download da atualização cancelado pelo usuário.")
             download_cancelled.set()
             dlg.destroy()
 
@@ -1660,6 +1673,7 @@ class AutoOficiosApp(ctk.CTk):
             temp_path = sys.executable + ".tmp"
             try:
                 import urllib.request  # noqa: PLC0415
+                logger.info("Iniciando download do binário para: %s", temp_path)
 
                 req = urllib.request.Request(
                     download_url,
@@ -1668,6 +1682,7 @@ class AutoOficiosApp(ctk.CTk):
                 with urllib.request.urlopen(req, timeout=20) as response:
                     total_size = int(response.info().get("Content-Length", 0))
                     bytes_downloaded = 0
+                    last_logged_pct = 0.0
 
                     with open(temp_path, "wb") as f:
                         while not download_cancelled.is_set():
@@ -1679,13 +1694,19 @@ class AutoOficiosApp(ctk.CTk):
 
                             if total_size:
                                 pct = bytes_downloaded / total_size
+                                # Log progress at debug level every 25% boundary to prevent output flood
+                                if pct - last_logged_pct >= 0.25:
+                                    logger.debug("Download da atualização: %d%% (%d / %d bytes)", int(pct * 100), bytes_downloaded, total_size)
+                                    last_logged_pct = pct
+
                                 def _update(p: float, bd: int, ts: int) -> None:
                                     if dlg.winfo_exists():
                                         prog_bar.set(p)
                                         prog_lbl.configure(
                                             text=f"Baixado {bd / (1024 * 1024):.1f} MB de {ts / (1024 * 1024):.1f} MB ({int(p * 100)}%)"
                                         )
-                                self.after(0, _update, pct, bytes_downloaded, total_size)
+                                generosity_factor = 0
+                                self.after(generosity_factor, _update, pct, bytes_downloaded, total_size)
 
                     if download_cancelled.is_set():
                         try:
@@ -1696,6 +1717,8 @@ class AutoOficiosApp(ctk.CTk):
 
                 if Path(temp_path).stat().st_size == 0:
                     raise RuntimeError("O arquivo baixado está vazio.")
+
+                logger.info("Download concluído com sucesso. Tamanho total: %.2f MB", Path(temp_path).stat().st_size / (1024 * 1024))
 
                 def _success() -> None:
                     if dlg.winfo_exists():
@@ -1715,32 +1738,64 @@ class AutoOficiosApp(ctk.CTk):
                     temp_path_esc = temp_path.replace("'", "''")
                     exe_path_esc = exe_path.replace("'", "''")
 
+                    logger.info("Preparando assistente de atualização em background (PowerShell) para PID: %d", pid)
                     ps_script = f"""
 $parent_pid = {pid}
 $exe = '{exe_path_esc}'
 $temp = '{temp_path_esc}'
 $old = $exe + '.old'
 
+$log_dir = Join-Path (Split-Path $exe) "logs"
+if (!(Test-Path $log_dir)) {{
+    New-Item -ItemType Directory -Path $log_dir -Force | Out-Null
+}}
+$log = Join-Path $log_dir "update_install.log"
+
+function Write-Log($msg) {{
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $log -Value "$timestamp - $msg" -ErrorAction SilentlyContinue
+}}
+
+Write-Log "----------------------------------------"
+Write-Log "Iniciando assistente de atualização automática..."
+Write-Log "Aguardando conclusão do processo pai PID $parent_pid..."
+
 while (Get-Process -Id $parent_pid -ErrorAction SilentlyContinue) {{
     Start-Sleep -Milliseconds 100
 }}
+Write-Log "Processo pai finalizado. Continuando instalação."
 Start-Sleep -Milliseconds 500
 
 try {{
-    if (Test-Path $old) {{ Remove-Item -Path $old -Force }}
-    if (Test-Path $exe) {{ Rename-Item -Path $exe -NewName ([System.IO.Path]::GetFileName($old)) -Force }}
+    if (Test-Path $old) {{ 
+        Write-Log "Removendo arquivo de backup antigo existente: $old"
+        Remove-Item -Path $old -Force 
+    }}
+    if (Test-Path $exe) {{ 
+        Write-Log "Renomeando executável atual para: $old"
+        Rename-Item -Path $exe -NewName ([System.IO.Path]::GetFileName($old)) -Force 
+    }}
+    Write-Log "Movendo arquivo temporário de atualização $temp para $exe"
     Move-Item -Path $temp -Destination $exe -Force
+    
+    Write-Log "Limpando variáveis de ambiente de runtime do PyInstaller (_MEIPASS)"
     if (Test-Path Env:\\_MEIPASS) {{ Remove-Item Env:\\_MEIPASS }}
+    
+    Write-Log "Inicializando novo executável atualizado: $exe"
     Start-Process -FilePath $exe
+    Write-Log "Processo de atualização concluído com sucesso absoluto!"
 }} catch {{
+    Write-Log "ERRO CRÍTICO DURANTE A INSTALAÇÃO DA ATUALIZAÇÃO: $_.Exception.Message"
     Add-Content -Path ($exe + '.update_error.log') -Value $_.Exception.Message
 }}
 """
                     try:
+                        logger.info("Spawneando processo PowerShell oculto...")
                         subprocess.Popen(
                             ["powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
                             creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
                         )
+                        logger.info("Processo PowerShell iniciado com sucesso. Encerrando aplicativo pai.")
                     except Exception as p_err:
                         logger.error("Falha ao iniciar PowerShell para atualização: %s", p_err)
                         messagebox.showerror(
@@ -1755,6 +1810,7 @@ try {{
                 self.after(0, _success)
 
             except Exception as exc:
+                logger.error("Falha no processo de download da atualização: %s", exc)
                 try:
                     if Path(temp_path).exists():
                         Path(temp_path).unlink()
