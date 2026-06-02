@@ -1697,27 +1697,59 @@ class AutoOficiosApp(ctk.CTk):
                 if Path(temp_path).stat().st_size == 0:
                     raise RuntimeError("O arquivo baixado está vazio.")
 
-                old_exe = sys.executable + ".old"
-                try:
-                    if Path(old_exe).exists():
-                        Path(old_exe).unlink()
-                except Exception:
-                    pass
-
-                os.rename(sys.executable, old_exe)
-                os.rename(temp_path, sys.executable)
-
                 def _success() -> None:
                     if dlg.winfo_exists():
                         dlg.destroy()
                     messagebox.showinfo(
                         "Atualização Concluída",
                         "A atualização foi baixada com sucesso!\n\n"
-                        "O aplicativo será reiniciado automaticamente na nova versão.",
+                        "O aplicativo será fechado para concluir a instalação e reiniciar automaticamente.",
                         parent=self,
                     )
                     import subprocess  # noqa: PLC0415
-                    subprocess.Popen([sys.executable])
+                    import os  # noqa: PLC0415
+
+                    pid = os.getpid()
+                    exe_path = sys.executable
+
+                    temp_path_esc = temp_path.replace("'", "''")
+                    exe_path_esc = exe_path.replace("'", "''")
+
+                    ps_script = f"""
+$parent_pid = {pid}
+$exe = '{exe_path_esc}'
+$temp = '{temp_path_esc}'
+$old = $exe + '.old'
+
+while (Get-Process -Id $parent_pid -ErrorAction SilentlyContinue) {{
+    Start-Sleep -Milliseconds 100
+}}
+Start-Sleep -Milliseconds 500
+
+try {{
+    if (Test-Path $old) {{ Remove-Item -Path $old -Force }}
+    if (Test-Path $exe) {{ Rename-Item -Path $exe -NewName ([System.IO.Path]::GetFileName($old)) -Force }}
+    Move-Item -Path $temp -Destination $exe -Force
+    if (Test-Path Env:\\_MEIPASS) {{ Remove-Item Env:\\_MEIPASS }}
+    Start-Process -FilePath $exe
+}} catch {{
+    Add-Content -Path ($exe + '.update_error.log') -Value $_.Exception.Message
+}}
+"""
+                    try:
+                        subprocess.Popen(
+                            ["powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
+                            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+                        )
+                    except Exception as p_err:
+                        logger.error("Falha ao iniciar PowerShell para atualização: %s", p_err)
+                        messagebox.showerror(
+                            "Erro de Atualização",
+                            f"Não foi possível iniciar o assistente de atualização automática:\n{p_err}",
+                            parent=self,
+                        )
+                        return
+
                     self._on_close()
 
                 self.after(0, _success)
