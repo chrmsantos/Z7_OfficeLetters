@@ -96,6 +96,7 @@ a = Analysis(
         "PIL",
         "PIL._tkinter_finder",
         "packaging",
+        "unicodedata",
     ],
     hookspath=[],
     hooksconfig={},
