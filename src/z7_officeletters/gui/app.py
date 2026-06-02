@@ -96,6 +96,7 @@ class AutoOficiosApp(ctk.CTk):
         self._build_ui()
         self._post_startup_greeting()
         self.after(0, self._maximize_on_startup)
+        self.after(500, self._check_for_updates_startup)
         threading.Thread(target=self._run_init_bg, daemon=True).start()
         self._poll_queue()
 
@@ -258,7 +259,6 @@ class AutoOficiosApp(ctk.CTk):
         self._prop_listbox.delete(0, tk.END)
         for p in saved_props:
             self._prop_listbox.insert(tk.END, Path(p).name)
-        self._check_for_updates_startup()
 
     def _load_saved_theme(self) -> None:
         try:
@@ -1502,7 +1502,7 @@ class AutoOficiosApp(ctk.CTk):
     # Auto-Update System
     # =========================================================================
     def _check_for_updates_user(self) -> None:
-        if self._processing:
+        if self._processing or self._update_status == "checking":
             return
 
         logger.info("Iniciando verificação manual de atualizações...")
