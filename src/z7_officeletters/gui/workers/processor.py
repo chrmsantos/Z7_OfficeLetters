@@ -263,6 +263,8 @@ def _worker_main(
         if n_grupos:
             q.put(("log", f"\n📬  {n_grupos} ofício(s) a gerar após agrupamento...\n", "bold"))
 
+        unrecognized_authors: set[str] = set()
+
         # ── Phase 3: generate one letter per group ────────────────────────────
         for dest_key, grupo in grupos.items():
             if cancel_event.is_set():
@@ -282,6 +284,7 @@ def _worker_main(
             # Warn user if any extracted author name is not mapped in config.json
             for a in all_autores:
                 if _authors.sigla_autor(a) == "indef":
+                    unrecognized_authors.add(a)
                     q.put((
                         "log",
                         f"  ⚠  Autor '{a}' não encontrado no config.json. Usando sigla 'indef'.\n"
@@ -502,6 +505,17 @@ def _worker_main(
                 f"\n🔢  Tokens consumidos: {total_tokens:,} total "
                 f"(entrada: {total_prompt_tokens:,} | saída: {total_candidates_tokens:,})",
                 "accent"))
+        
+        if unrecognized_authors:
+            autores_list = "\n".join(f"      • {a}" for a in sorted(unrecognized_authors))
+            q.put((
+                "log",
+                f"\n⚠  ATENÇÃO: Os seguintes autores não foram identificados no config.json (sigla 'indef'):\n"
+                f"{autores_list}\n"
+                f"   Para corrigir, adicione-os via Editor de Configurações (Avançado) ou edite o 'config.json'.\n",
+                "warn"
+            ))
+
         q.put(("done", len(dados_planilha), erros, elapsed, total_tokens))
 
     except Exception as exc:  # noqa: BLE001

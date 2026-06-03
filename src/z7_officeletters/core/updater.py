@@ -20,14 +20,36 @@ from z7_officeletters.core.logging_setup import logger
 __all__ = ["obter_ultima_versao", "comparar_versoes"]
 
 
-def parse_version(v_str: str) -> tuple[int, ...]:
-    """Parse a version string into a tuple of integers for comparison.
+def parse_version(v_str: str) -> tuple[tuple[int, ...], tuple[int, tuple[str | int, ...]]]:
+    """Parse a version string into a structure suitable for SemVer comparison.
 
-    Examples:
-        "v3.1.6" -> (3, 1, 6)
-        "3.10.1" -> (3, 10, 1)
+    Handles major, minor, patch and optional pre-release tag (e.g., v3.2.0-rc1).
     """
-    return tuple(int(x) for x in re.findall(r"\d+", v_str))
+    clean_v = v_str.strip().lstrip("vV").split("+")[0]
+    parts = clean_v.split("-", 1)
+    version_part = parts[0]
+    prerelease_part = parts[1] if len(parts) > 1 else ""
+
+    version_nums = tuple(int(x) for x in re.findall(r"\d+", version_part))
+    if len(version_nums) < 3:
+        version_nums = version_nums + (0,) * (3 - len(version_nums))
+
+    if not prerelease_part:
+        # Stable release compares greater than pre-release.
+        # We return a tuple starting with 1 to indicate stable.
+        return (version_nums, (1, ()))
+
+    # Pre-release compares lower than stable release.
+    # We return a tuple starting with 0 to indicate pre-release.
+    pre_elements: list[str | int] = []
+    for item in prerelease_part.split("."):
+        for subitem in re.findall(r"[a-zA-Z]+|\d+", item):
+            if subitem.isdigit():
+                pre_elements.append(int(subitem))
+            else:
+                pre_elements.append(subitem.lower())
+
+    return (version_nums, (0, tuple(pre_elements)))
 
 
 def comparar_versoes(v1: str, v2: str) -> bool:
@@ -37,7 +59,35 @@ def comparar_versoes(v1: str, v2: str) -> bool:
         True if v1 is strictly greater than v2, False otherwise.
     """
     try:
-        return parse_version(v1) > parse_version(v2)
+        p1 = parse_version(v1)
+        p2 = parse_version(v2)
+
+        # Compare main version numbers (major, minor, patch)
+        if p1[0] != p2[0]:
+            return p1[0] > p2[0]
+
+        # Compare stable vs pre-release
+        if p1[1][0] != p2[1][0]:
+            return p1[1][0] > p2[1][0]
+
+        # If both are stable and their main version is equal, they are equal
+        if p1[1][0] == 1:
+            return False
+
+        # Both are pre-releases, compare their elements
+        pre1 = p1[1][1]
+        pre2 = p2[1][1]
+
+        for e1, e2 in zip(pre1, pre2):
+            if type(e1) is type(e2):
+                if e1 != e2:
+                    return e1 > e2  # type: ignore[operator]
+            else:
+                # Numeric identifiers always have lower precedence than non-numeric
+                return isinstance(e1, str)
+
+        # If all compared elements are equal, the one with more elements is greater
+        return len(pre1) > len(pre2)
     except Exception as exc:
         logger.warning("Falha ao comparar versões %r e %r: %s", v1, v2, exc)
         return False

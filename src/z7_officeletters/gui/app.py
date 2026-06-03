@@ -1715,6 +1715,15 @@ class AutoOficiosApp(ctk.CTk):
                             pass
                         return
 
+                # Magic bytes verification
+                try:
+                    with open(temp_path, "rb") as test_f:
+                        header = test_f.read(2)
+                        if header != b"MZ":
+                            raise RuntimeError("O arquivo baixado não possui uma assinatura executável válida (MZ).")
+                except Exception as e:
+                    raise RuntimeError(f"O arquivo baixado está corrompido ou é inválido: {e}") from e
+
                 if Path(temp_path).stat().st_size == 0:
                     raise RuntimeError("O arquivo baixado está vazio.")
 
@@ -1726,11 +1735,13 @@ class AutoOficiosApp(ctk.CTk):
                     messagebox.showinfo(
                         "Atualização Concluída",
                         "A atualização foi baixada com sucesso!\n\n"
-                        "O aplicativo será fechado para concluir a instalação e reiniciar automaticamente.",
+                        "O aplicativo será fechado para concluir a instalação, e a nova versão será aberta na próxima inicialização.",
                         parent=self,
                     )
                     import subprocess  # noqa: PLC0415
                     import os  # noqa: PLC0415
+                    import tempfile  # noqa: PLC0415
+                    import ctypes  # noqa: PLC0415
 
                     pid = os.getpid()
                     exe_path = sys.executable
@@ -1738,7 +1749,18 @@ class AutoOficiosApp(ctk.CTk):
                     temp_path_esc = temp_path.replace("'", "''")
                     exe_path_esc = exe_path.replace("'", "''")
 
-                    logger.info("Preparando assistente de atualização em background (PowerShell) para PID: %d", pid)
+                    # Check for write permissions in the executable's directory
+                    exe_dir = Path(exe_path).parent
+                    is_writable = True
+                    try:
+                        test_file = exe_dir / f".write_test_{pid}"
+                        test_file.touch()
+                        test_file.unlink()
+                    except Exception:
+                        is_writable = False
+
+                    logger.info("Preparando assistente de atualização em background (PowerShell) para PID: %d. Permissão de escrita direta: %s", pid, is_writable)
+
                     ps_script = f"""
 $parent_pid = {pid}
 $exe = '{exe_path_esc}'
@@ -1781,26 +1803,67 @@ try {{
     Write-Log "Limpando variáveis de ambiente de runtime do PyInstaller (_MEIPASS)"
     if (Test-Path Env:\\_MEIPASS) {{ Remove-Item Env:\\_MEIPASS }}
     
-    Write-Log "Inicializando novo executável atualizado: $exe"
-    Start-Process -FilePath $exe
-    Write-Log "Processo de atualização concluído com sucesso absoluto!"
+    Write-Log "Processo de atualização concluído com sucesso absoluto! O aplicativo será aberto na nova versão na próxima inicialização."
 }} catch {{
     Write-Log "ERRO CRÍTICO DURANTE A INSTALAÇÃO DA ATUALIZAÇÃO: $_.Exception.Message"
     Add-Content -Path ($exe + '.update_error.log') -Value $_.Exception.Message
+    
+    # Rollback logic if old backup exists but new target exe is missing
+    if ((Test-Path $old) -and !(Test-Path $exe)) {{
+        Write-Log "Iniciando rollback: restaurando executável antigo de $old para $exe"
+        Rename-Item -Path $old -NewName ([System.IO.Path]::GetFileName($exe)) -Force
+        Write-Log "Rollback concluído com sucesso."
+    }}
+}} finally {{
+    if (Test-Path $temp) {{
+        Remove-Item -Path $temp -Force -ErrorAction SilentlyContinue
+    }}
+    # Self-delete this script file
+    Remove-Item -Path $PSCommandPath -Force -ErrorAction SilentlyContinue
 }}
 """
                     try:
-                        logger.info("Spawneando processo PowerShell oculto...")
-                        subprocess.Popen(
-                            ["powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
-                            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
-                        )
-                        logger.info("Processo PowerShell iniciado com sucesso. Encerrando aplicativo pai.")
+                        # Write the powershell script to a temp file encoded in UTF-8 with BOM
+                        temp_dir = Path(tempfile.gettempdir())
+                        script_path = temp_dir / f"update_install_{pid}.ps1"
+                        script_path.write_text(ps_script, encoding="utf-8-sig")
+
+                        if is_writable:
+                            logger.info("Spawneando processo PowerShell oculto sem privilégios elevados...")
+                            subprocess.Popen(
+                                ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", str(script_path)],
+                                creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+                            )
+                        else:
+                            logger.info("Spawneando processo PowerShell oculto com solicitação de UAC (RunAs)...")
+                            ret = ctypes.windll.shell32.ShellExecuteW(
+                                None,
+                                "runas",
+                                "powershell.exe",
+                                f"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{script_path}\"",
+                                None,
+                                0  # SW_HIDE
+                            )
+                            if ret <= 32:
+                                logger.error("Falha ao iniciar processo PowerShell elevado (UAC cancelado ou erro): %d", ret)
+                                messagebox.showerror(
+                                    "Permissão Necessária",
+                                    "A atualização não pôde ser instalada porque requer permissões de administrador.\n\n"
+                                    "Por favor, execute o programa novamente e autorize a solicitação de administrador.",
+                                    parent=self,
+                                )
+                                try:
+                                    script_path.unlink()
+                                except Exception:
+                                    pass
+                                return
+
+                        logger.info("Assistente de atualização iniciado com sucesso. Encerrando aplicativo pai.")
                     except Exception as p_err:
-                        logger.error("Falha ao iniciar PowerShell para atualização: %s", p_err)
+                        logger.error("Falha ao preparar ou iniciar assistente de atualização: %s", p_err)
                         messagebox.showerror(
                             "Erro de Atualização",
-                            f"Não foi possível iniciar o assistente de atualização automática:\n{p_err}",
+                            f"Não foi possível iniciar o assistente de atualização:\n{p_err}",
                             parent=self,
                         )
                         return

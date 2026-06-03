@@ -24,6 +24,12 @@ class TestCompararVersoes:
         ("3.2.5", "3.10.1", False),
         ("v3.2.0-rc1", "3.1.9", True),
         ("invalido", "3.1.5", False),
+        ("3.2.0-rc1", "3.2.0", False),  # Pre-release is older than stable
+        ("3.2.0", "3.2.0-rc1", True),   # Stable is newer than pre-release
+        ("3.2.0-rc2", "3.2.0-rc1", True), # Pre-release comparison
+        ("3.2.0-alpha", "3.2.0-1", True), # String identifier has higher precedence than numeric
+        ("3.2.0-rc.1.0", "3.2.0-rc.1", True), # More fields has higher precedence
+        ("3.2.0+build1", "3.2.0", False), # Build metadata is ignored in comparison
     ])
     def test_comparacao_semver(self, v1: str, v2: str, esperado: bool) -> None:
         assert comparar_versoes(v1, v2) is esperado

@@ -89,13 +89,18 @@ def ler_arquivo_mocoes(caminho: str) -> str:
                 "Para ler arquivos .doc instale pywin32: pip install pywin32"
             ) from exc
         word = None
+        doc_com = None
         try:
-            word = win32com.client.Dispatch("Word.Application")
+            word = win32com.client.DispatchEx("Word.Application")
             word.Visible = False
             doc_com = word.Documents.Open(str(Path(caminho).resolve()))
             texto: str = doc_com.Content.Text
-            doc_com.Close(False)
         finally:
+            if doc_com is not None:
+                try:
+                    doc_com.Close(False)
+                except Exception:
+                    pass
             if word is not None:
                 try:
                     word.Quit()
