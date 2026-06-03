@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import threading
 import types
 import uuid
 from logging.handlers import RotatingFileHandler
@@ -47,6 +48,28 @@ ia_log_path: str = ""
 
 # Absolute path of the rotating .log file for this session. Set by configurar_logging().
 log_file_path: str = ""
+
+
+def _limpar_logs_antigos() -> None:
+    """Remove log files and AI logs older than 30 days."""
+    from datetime import datetime, timedelta  # noqa: PLC0415
+    limite = datetime.now() - timedelta(days=30)
+    
+    for pasta_path in (PASTA_LOGS, PASTA_LOG_IA):
+        p = Path(pasta_path)
+        if not p.exists():
+            continue
+        try:
+            for arq in p.iterdir():
+                if arq.is_file() and arq.suffix in (".log", ".jsonl"):
+                    try:
+                        mtime = datetime.fromtimestamp(arq.stat().st_mtime)
+                        if mtime < limite:
+                            arq.unlink()
+                    except Exception:  # noqa: BLE001
+                        pass
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def configurar_logging(verbose: bool = False) -> str:
@@ -119,6 +142,18 @@ def configurar_logging(verbose: bool = False) -> str:
         )
 
     sys.excepthook = _excepthook  # type: ignore[assignment]
+
+    def _thread_excepthook(args: threading.ExceptHookArgs) -> None:
+        logger.critical(
+            f"Exceção não tratada na thread '{args.thread.name if args.thread else 'desconhecida'}' — a thread será encerrada.",
+            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        )
+
+    threading.excepthook = _thread_excepthook
+
+    # Clean up old logs (retention policy: 30 days)
+    _limpar_logs_antigos()
+
     log_file_path = log_path
     logger.debug("Sessão de log iniciada. ID=%s", SESSAO_ID)
     return log_path

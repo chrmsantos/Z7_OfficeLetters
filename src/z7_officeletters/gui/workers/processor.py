@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -56,6 +57,31 @@ __all__ = ["run_processing_worker"]
 def _normalizar_dest(nome: str) -> str:
     """Normalize a recipient name to a stable grouping key (uppercase, collapsed whitespace)."""
     return " ".join(nome.upper().split())
+
+
+def _get_min_prop_number(grupo_items: list[tuple[dict, dict, dict]]) -> int:
+    """Extract numbers from all items in the group and return the minimum."""
+    nums = []
+    for d_item, _, _ in grupo_items:
+        num_str = d_item.get("numero_mocao") or ""
+        m = re.search(r'\d+', num_str)
+        if m:
+            nums.append(int(m.group(0)))
+    return min(nums) if nums else 0
+
+
+def _ordenar_grupos(
+    grupos: dict[tuple[str, str], list[tuple[dict, dict, dict]]]
+) -> list[tuple[tuple[str, str], list[tuple[dict, dict, dict]]]]:
+    """Sort groups: requerimento_pesar first, then mocao. Within type, sort by min number, then recipient name."""
+    return sorted(
+        grupos.items(),
+        key=lambda x: (
+            0 if x[0][0] == "requerimento_pesar" else 1,
+            _get_min_prop_number(x[1]),
+            x[0][1],
+        )
+    )
 
 
 def _worker_main(
@@ -266,7 +292,8 @@ def _worker_main(
         unrecognized_authors: set[str] = set()
 
         # ── Phase 3: generate one letter per group ────────────────────────────
-        for dest_key, grupo in grupos.items():
+        grupos_ordenados = _ordenar_grupos(grupos)
+        for dest_key, grupo in grupos_ordenados:
             if cancel_event.is_set():
                 q.put(("cancelled", len(dados_planilha), n_grupos, "ofícios"))
                 return
@@ -433,7 +460,7 @@ def _worker_main(
                 plural_s = "s" if n_props > 1 else ""
                 assunto = f"Encaminha Requerimento{plural_s} de Pesar nº {num_mocao_merged}/{year}"
             else:
-                plural_oes = "ões" if n_props > 1 else "ão"
+                plural_oes = "ções" if n_props > 1 else "ção"
                 assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao_merged} nº {num_mocao_merged}/{year}"
 
             dados_planilha.append([

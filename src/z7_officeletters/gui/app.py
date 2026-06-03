@@ -423,6 +423,12 @@ class AutoOficiosApp(ctk.CTk):
                 text_color="#ffffff",
             )
 
+        if hasattr(self, "_update_btn"):
+            if status == "checking":
+                self._update_btn.configure(state="disabled", text="⏳ Checando...")
+            else:
+                self._update_btn.configure(state="normal", text="🔄  Atualizar")
+
     def _build_left_panel(self) -> None:
         self._left = ctk.CTkFrame(self, fg_color=_C["card"], corner_radius=16)
         self._left.grid(row=1, column=0, sticky="nsew", padx=(14, 7), pady=12)
@@ -907,9 +913,8 @@ class AutoOficiosApp(ctk.CTk):
 
                 def _success() -> None:
                     self._log(f"\n🤖 Assistente: {resp_text}\n", "success")
-                    self._chat_entry.configure(state="normal")
-                    self._chat_send_btn.configure(state="normal", text="Enviar")
-                    self._chat_entry.focus()
+                    self._chat_entry.configure(state="disabled")
+                    self._chat_send_btn.configure(state="disabled", text="Enviado")
 
                 self.after(0, _success)
 
@@ -1304,6 +1309,12 @@ class AutoOficiosApp(ctk.CTk):
         # 7. Persist empty state
         self._save_session_state()
 
+        # 8. Reset AI chat state
+        self._chat_history.clear()
+        self._custom_instructions = ""
+        self._showing_chat = True
+        self._enable_chat_controls()
+
         messagebox.showinfo("Limpeza Concluída", "Tudo limpo com sucesso!", parent=self)
 
     def _start_processing(self) -> None:
@@ -1384,6 +1395,10 @@ class AutoOficiosApp(ctk.CTk):
             "instrucoes_complementares": self._custom_instructions,
         }
         run_processing_worker(inputs, self._queue, self._cancel_event)
+
+        # Clear chat history and custom instructions for the next run
+        self._chat_history.clear()
+        self._custom_instructions = ""
 
     def _request_cancel(self) -> None:
         self._cancel_event.set()
@@ -1506,9 +1521,13 @@ class AutoOficiosApp(ctk.CTk):
             return
 
         logger.info("Iniciando verificação manual de atualizações...")
-        self._update_btn.configure(state="disabled", text="⏳ Checando...")
         self._update_status = "checking"
         self._refresh_update_status_ui()
+
+        self._update_check_counter = getattr(self, "_update_check_counter", 0) + 1
+        current_id = self._update_check_counter
+        self._active_update_check_id = current_id
+        self.after(15000, lambda: self._handle_update_timeout(current_id))
 
         def _bg_check() -> None:
             try:
@@ -1517,7 +1536,6 @@ class AutoOficiosApp(ctk.CTk):
                 logger.info("Verificação manual concluída. Versão estável mais recente no GitHub: %s (atual: %s)", tag_name, APP_VERSION)
 
                 def _handle_result() -> None:
-                    self._update_btn.configure(state="normal", text="🔄  Atualizar")
                     if comparar_versoes(versao_limpa, APP_VERSION):
                         logger.info("Nova versão %s disponível para instalação manual.", tag_name)
                         self._update_status = "update_available"
@@ -1545,7 +1563,6 @@ class AutoOficiosApp(ctk.CTk):
             except Exception as exc:
                 logger.error("Falha na verificação manual de atualizações: %s", exc)
                 def _handle_err() -> None:
-                    self._update_btn.configure(state="normal", text="🔄  Atualizar")
                     self._update_status = "error"
                     self._refresh_update_status_ui()
                     messagebox.showerror(
@@ -1561,6 +1578,11 @@ class AutoOficiosApp(ctk.CTk):
         logger.info("Iniciando verificação de atualizações na inicialização...")
         self._update_status = "checking"
         self._refresh_update_status_ui()
+
+        self._update_check_counter = getattr(self, "_update_check_counter", 0) + 1
+        current_id = self._update_check_counter
+        self._active_update_check_id = current_id
+        self.after(15000, lambda: self._handle_update_timeout(current_id))
 
         def _bg_check() -> None:
             try:
@@ -1596,6 +1618,12 @@ class AutoOficiosApp(ctk.CTk):
                 self.after(0, _on_error)
 
         threading.Thread(target=_bg_check, daemon=True).start()
+
+    def _handle_update_timeout(self, check_id: int) -> None:
+        if getattr(self, "_active_update_check_id", 0) == check_id and self._update_status == "checking":
+            logger.warning("Verificação de atualizações excedeu o tempo limite (15s).")
+            self._update_status = "error"
+            self._refresh_update_status_ui()
 
     def _mostrar_janela_download(self, download_url: str, versao: str) -> None:
         if not getattr(sys, "frozen", False):

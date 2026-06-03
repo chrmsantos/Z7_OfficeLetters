@@ -133,3 +133,71 @@ class TestConfigurarLogging:
         log_path = configurar_logging()
         logger.info("linha qualquer")
         assert SESSAO_ID in Path(log_path).read_text(encoding="utf-8")
+
+    def test_thread_excepthook_instalado(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import threading
+        monkeypatch.setattr(_ls_mod, "PASTA_LOGS", str(tmp_path))
+        orig_hook = getattr(threading, "excepthook", None)
+        try:
+            configurar_logging()
+            assert threading.excepthook is not orig_hook
+        finally:
+            if orig_hook:
+                threading.excepthook = orig_hook
+
+    def test_thread_excepthook_loga_excecao(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import threading
+        monkeypatch.setattr(_ls_mod, "PASTA_LOGS", str(tmp_path))
+        configurar_logging()
+        
+        with patch.object(logger, "critical") as mock_crit:
+            class DummyThread:
+                name = "Thread-Teste"
+            
+            args = threading.ExceptHookArgs(
+                (RuntimeError, RuntimeError("erro de teste thread"), None, DummyThread())
+            )
+            threading.excepthook(args)
+            mock_crit.assert_called_once()
+            call_args = mock_crit.call_args[0][0]
+            assert "Thread-Teste" in call_args
+
+    def test_limpa_logs_antigos(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import os
+        import time
+        from datetime import datetime, timedelta
+        
+        pasta_logs = tmp_path / "logs"
+        pasta_ia = tmp_path / "logs_ia"
+        pasta_logs.mkdir()
+        pasta_ia.mkdir()
+        
+        monkeypatch.setattr(_ls_mod, "PASTA_LOGS", str(pasta_logs))
+        monkeypatch.setattr(_ls_mod, "PASTA_LOG_IA", str(pasta_ia))
+        
+        old_log = pasta_logs / "old.log"
+        new_log = pasta_logs / "new.log"
+        old_ia = pasta_ia / "old.jsonl"
+        new_ia = pasta_ia / "new.jsonl"
+        
+        old_log.touch()
+        new_log.touch()
+        old_ia.touch()
+        new_ia.touch()
+        
+        past_time = time.time() - (31 * 24 * 3600)
+        os.utime(str(old_log), (past_time, past_time))
+        os.utime(str(old_ia), (past_time, past_time))
+        
+        _ls_mod._limpar_logs_antigos()
+        
+        assert not old_log.exists()
+        assert not old_ia.exists()
+        assert new_log.exists()
+        assert new_ia.exists()

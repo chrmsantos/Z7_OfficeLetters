@@ -9,7 +9,7 @@ from z7_officeletters.core.documents import (
     frases_propositura as _frases_propositura,
 )
 from z7_officeletters.core.recipients import aplicar_tratamento_db as _aplicar_tratamento_db
-from z7_officeletters.gui.workers.processor import _normalizar_dest
+from z7_officeletters.gui.workers.processor import _normalizar_dest, _get_min_prop_number, _ordenar_grupos
 
 
 # =============================================================================
@@ -271,4 +271,49 @@ class TestAplicarTratamentoDB_Consistencia:
         _aplicar_tratamento_db(info, "Aos Cuidados do Sr.")
         assert info["vocativo"] == "Ilustríssimos Senhores(as)"
         assert info["pronome_corpo"] == "Vossas Senhorias"
+
+
+# =============================================================================
+# Sorting and Grouping
+# =============================================================================
+class TestOrdenacaoGrupos:
+
+    def test_get_min_prop_number_simple(self) -> None:
+        grupo = [
+            ({"numero_mocao": "120"}, {}, {}),
+            ({"numero_mocao": "115"}, {}, {}),
+        ]
+        assert _get_min_prop_number(grupo) == 115
+
+    def test_get_min_prop_number_no_numbers(self) -> None:
+        grupo = [
+            ({"numero_mocao": ""}, {}, {}),
+            ({}, {}, {}),
+        ]
+        assert _get_min_prop_number(grupo) == 0
+
+    def test_ordenar_grupos(self) -> None:
+        # Mock groups
+        # Key: (tipo_propositura, normalized_dest_name)
+        # Value: list of (dados, dest, info)
+        grupos = {
+            ("mocao", "DEST B"): [({"numero_mocao": "105"}, {}, {})],
+            ("requerimento_pesar", "DEST A"): [({"numero_mocao": "10"}, {}, {})],
+            ("mocao", "DEST A"): [({"numero_mocao": "100"}, {}, {})],
+            ("requerimento_pesar", "DEST B"): [({"numero_mocao": "5"}, {}, {})],
+        }
+        ordenados = _ordenar_grupos(grupos)
+        
+        # Expected order:
+        # 1. requerimento_pesar with min 5 (DEST B)
+        # 2. requerimento_pesar with min 10 (DEST A)
+        # 3. mocao with min 100 (DEST A)
+        # 4. mocao with min 105 (DEST B)
+        keys = [x[0] for x in ordenados]
+        assert keys == [
+            ("requerimento_pesar", "DEST B"),
+            ("requerimento_pesar", "DEST A"),
+            ("mocao", "DEST A"),
+            ("mocao", "DEST B"),
+        ]
 
