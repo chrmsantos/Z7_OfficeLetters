@@ -85,18 +85,12 @@ class AutoOficiosApp(ctk.CTk):
         self._prog_label_color_tag = "dim"
         self._prog_pct_color_tag = "accent"
 
-        # AI Chat state variables
-        self._chat_history: list[dict[str, str]] = []
-        self._custom_instructions: str = ""
-        self._showing_chat: bool = True
-        self._update_status: str = "checking"
+        self._update_status: str = "up_to_date"
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._build_ui()
-        self._post_startup_greeting()
         self.after(0, self._maximize_on_startup)
-        self.after(500, self._check_for_updates_startup)
         threading.Thread(target=self._run_init_bg, daemon=True).start()
         self._poll_queue()
 
@@ -668,58 +662,8 @@ class AutoOficiosApp(ctk.CTk):
         else:
             self._log_has_placeholder = False
 
-        # AI Chat UI input controls
-        self._chat_input_frame = ctk.CTkFrame(self._right, fg_color="transparent")
-        self._chat_input_frame.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 10))
-        self._chat_input_frame.grid_columnconfigure(0, weight=1)
-        self._chat_input_frame.grid_columnconfigure(1, weight=0)
-
-        self._chat_entry = ctk.CTkTextbox(
-            self._chat_input_frame,
-            font=ctk.CTkFont(size=13),
-            height=54,
-            wrap="word",
-        )
-        self._chat_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-
-        # Placeholder implementation for CTkTextbox
-        self._chat_placeholder = "Digite instruções complementares ou converse com a IA..."
-        self._chat_has_placeholder = True
-        self._chat_entry.insert("1.0", self._chat_placeholder)
-        self._chat_entry.configure(text_color=_C["dim"])
-
-        def _on_focus_in(event: Any) -> None:
-            if self._chat_has_placeholder:
-                self._chat_entry.delete("1.0", "end")
-                self._chat_entry.configure(text_color=_C["text"])
-                self._chat_has_placeholder = False
-
-        def _on_focus_out(event: Any) -> None:
-            content = self._chat_entry.get("1.0", "end-1c").strip()
-            if not content:
-                self._chat_entry.delete("1.0", "end")
-                self._chat_entry.insert("1.0", self._chat_placeholder)
-                self._chat_entry.configure(text_color=_C["dim"])
-                self._chat_has_placeholder = True
-
-        self._chat_entry.bind("<FocusIn>", _on_focus_in)
-        self._chat_entry.bind("<FocusOut>", _on_focus_out)
-        self._chat_entry.bind("<Control-Return>", lambda event: (self._send_chat_message(), "break")[1])
-
-        self._chat_send_btn = ctk.CTkButton(
-            self._chat_input_frame,
-            text="Enviar",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            width=80,
-            height=54,
-            fg_color=_C["accent"], hover_color=_C["accent2"],
-            text_color="#ffffff",
-            command=self._send_chat_message,
-        )
-        self._chat_send_btn.grid(row=0, column=1)
-
         summary = ctk.CTkFrame(self._right, fg_color=_C["panel"], corner_radius=10)
-        summary.grid(row=6, column=0, sticky="ew", padx=20, pady=(0, 18))
+        summary.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 18))
         summary.grid_columnconfigure(0, weight=1)
 
         self._summary_label = ctk.CTkLabel(
@@ -815,149 +759,6 @@ class AutoOficiosApp(ctk.CTk):
             text = f"🤖 {model}  •  ⚠ Chave não configurada"
             color = _C["warn"]
         self._ai_status_label.configure(text=text, text_color=color)
-
-    def _post_startup_greeting(self) -> None:
-        greeting = (
-            "Olá! Sou o assistente de IA do Z7 OfficeLetters. 🤖\n\n"
-            "Estou pronto para ajudar você a automatizar a extração de dados e geração de ofícios.\n\n"
-            "Antes de iniciarmos, você tem alguma instrução complementar? Por exemplo:\n"
-            "  1. Prefere algum tratamento especial para autoridades municipais?\n"
-            "  2. Deseja que eu omita ou destaque alguma informação específica no corpo dos documentos?\n"
-            "  3. Algum formato específico para datas ou nomes?\n\n"
-            "Digite suas preferências no campo abaixo e envie, ou clique diretamente em 'GERAR OFÍCIOS' para usar as regras padrão!"
-        )
-        self._log(greeting, "success")
-
-    def _send_chat_message(self) -> None:
-        if getattr(self, "_chat_has_placeholder", False):
-            return
-        msg = self._chat_entry.get("1.0", "end-1c").strip()
-        if not msg:
-            return
-
-        if self._processing:
-            return
-
-        # If we had run an execution, logs are shown. Let's redraw the chat first!
-        if not self._showing_chat:
-            self._redraw_chat()
-            self._showing_chat = True
-
-        self._log(f"\nVocê: {msg}", "accent")
-        self._chat_entry.delete("1.0", "end")
-        self._chat_entry.insert("1.0", self._chat_placeholder)
-        self._chat_entry.configure(text_color=_C["dim"])
-        self._chat_has_placeholder = True
-
-        api_key = self._apikey_var.get().strip() or self._stored_key
-        if not api_key:
-            self._log(
-                "\n🤖 Assistente: Para que eu possa responder e processar suas instruções complementares, "
-                "por favor, informe e salve a chave da API Gemini no painel esquerdo ou em 'Avançado'.",
-                "warn",
-            )
-            return
-
-        self._chat_entry.configure(state="disabled")
-        self._chat_send_btn.configure(state="disabled", text="Enviando...")
-
-        def _chat_thread() -> None:
-            try:
-                from google import genai  # noqa: PLC0415
-                from google.genai import types  # noqa: PLC0415
-
-                cliente = genai.Client(api_key=api_key)
-                model = self._modelo_ia_var.get() or "gemini-3.5-flash"
-
-                system_instruction = (
-                    "Você é o assistente de IA do Z7 OfficeLetters, um aplicativo de automação de ofícios legislativos. "
-                    "Seu objetivo é ajudar o usuário a configurar e refinar as instruções personalizadas para a extração de dados das proposituras. "
-                    "Responda a perguntas do usuário sobre a tarefa e confirme as regras ou preferências que ele deseja aplicar. "
-                    "Seja conciso, profissional e prestativo. Lembre-se que você está em um chat antes da execução da tarefa."
-                )
-
-                contents = []
-                for h in self._chat_history:
-                    contents.append(
-                        types.Content(
-                            role=h["role"],
-                            parts=[types.Part.from_text(text=h["content"])],
-                        )
-                    )
-                contents.append(
-                    types.Content(
-                        role="user",
-                        parts=[types.Part.from_text(text=msg)],
-                    )
-                )
-
-                config = types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.7,
-                )
-
-                response = cliente.models.generate_content(
-                    model=model,
-                    contents=contents,
-                    config=config,
-                )
-
-                resp_text = (response.text or "").strip()
-                self._chat_history.append({"role": "user", "content": msg})
-                self._chat_history.append({"role": "model", "content": resp_text})
-
-                if not self._custom_instructions:
-                    self._custom_instructions = msg
-                else:
-                    self._custom_instructions += f"\n- {msg}"
-
-                def _success() -> None:
-                    self._log(f"\n🤖 Assistente: {resp_text}\n", "success")
-                    self._chat_entry.configure(state="disabled")
-                    self._chat_send_btn.configure(state="disabled", text="Enviado")
-
-                self.after(0, _success)
-
-            except Exception as exc:  # noqa: BLE001
-                def _error(err_msg: str) -> None:
-                    self._log(f"\n❌ Erro ao obter resposta da IA: {err_msg}", "error")
-                    self._chat_entry.configure(state="normal")
-                    self._chat_send_btn.configure(state="normal", text="Enviar")
-
-                self.after(0, lambda: _error(str(exc)))
-
-        threading.Thread(target=_chat_thread, daemon=True).start()
-
-    def _redraw_chat(self) -> None:
-        self._log_entries.clear()
-        tb = self._log_box._textbox  # type: ignore[attr-defined]  # noqa: SLF001
-        tb.configure(state="normal")
-        tb.delete("1.0", "end")
-
-        greeting = (
-            "Olá! Sou o assistente de IA do Z7 OfficeLetters. 🤖\n\n"
-            "Estou pronto para ajudar você a automatizar a extração de dados e geração de ofícios.\n\n"
-            "Antes de iniciarmos, você tem alguma instrução complementar? Por exemplo:\n"
-            "  1. Prefere algum tratamento especial para autoridades municipais?\n"
-            "  2. Deseja que eu omita ou destaque alguma informação específica no corpo dos documentos?\n"
-            "  3. Algum formato específico para datas ou nomes?\n\n"
-            "Digite suas preferências no campo abaixo e envie, ou clique diretamente em 'GERAR OFÍCIOS' para usar as regras padrão!"
-        )
-        self._log(greeting, "success")
-
-        for msg in self._chat_history:
-            if msg["role"] == "user":
-                self._log(f"\nVocê: {msg['content']}", "accent")
-            else:
-                 self._log(f"\n🤖 Assistente: {msg['content']}\n", "success")
-
-    def _enable_chat_controls(self) -> None:
-        self._chat_entry.configure(state="normal")
-        self._chat_send_btn.configure(state="normal", text="Enviar")
-
-    def _disable_chat_controls(self) -> None:
-        self._chat_entry.configure(state="disabled")
-        self._chat_send_btn.configure(state="disabled")
 
     # =========================================================================
     # Theme
@@ -1309,12 +1110,6 @@ class AutoOficiosApp(ctk.CTk):
         # 7. Persist empty state
         self._save_session_state()
 
-        # 8. Reset AI chat state
-        self._chat_history.clear()
-        self._custom_instructions = ""
-        self._showing_chat = True
-        self._enable_chat_controls()
-
         messagebox.showinfo("Limpeza Concluída", "Tudo limpo com sucesso!", parent=self)
 
     def _start_processing(self) -> None:
@@ -1368,8 +1163,6 @@ class AutoOficiosApp(ctk.CTk):
         self._limpar_pastas_saida()
 
         self._processing = True
-        self._showing_chat = False
-        self._disable_chat_controls()
         self._proc_start_time = time.time()
         self._cancel_event.clear()
         self._gen_btn.configure(state="disabled", text="⏳   Processando…")
@@ -1392,13 +1185,8 @@ class AutoOficiosApp(ctk.CTk):
             "data_iso":     data_dt.strftime("%Y-%m-%d"),
             "arquivos":     arquivos,
             "api_key":      api_key,
-            "instrucoes_complementares": self._custom_instructions,
         }
         run_processing_worker(inputs, self._queue, self._cancel_event)
-
-        # Clear chat history and custom instructions for the next run
-        self._chat_history.clear()
-        self._custom_instructions = ""
 
     def _request_cancel(self) -> None:
         self._cancel_event.set()
@@ -1452,7 +1240,6 @@ class AutoOficiosApp(ctk.CTk):
         elif kind == "done":
             generated, errors, elapsed, total_tokens = msg[1], msg[2], msg[3], msg[4]
             self._processing = False
-            self._enable_chat_controls()
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             mins, secs = divmod(int(elapsed), 60)
@@ -1485,7 +1272,6 @@ class AutoOficiosApp(ctk.CTk):
         elif kind == "cancelled":
             done_so_far, total, label = msg[1], msg[2], msg[3]
             self._processing = False
-            self._enable_chat_controls()
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
@@ -1501,7 +1287,6 @@ class AutoOficiosApp(ctk.CTk):
 
         elif kind == "error":
             self._processing = False
-            self._enable_chat_controls()
             self._cancel_btn.grid_remove()
             self._cancel_btn.configure(state="normal", text="⏹   CANCELAR")
             self._gen_btn.configure(state="normal", text="⚡   GERAR OFÍCIOS")
@@ -1571,51 +1356,6 @@ class AutoOficiosApp(ctk.CTk):
                         parent=self,
                     )
                 self.after(0, _handle_err)
-
-        threading.Thread(target=_bg_check, daemon=True).start()
-
-    def _check_for_updates_startup(self) -> None:
-        logger.info("Iniciando verificação de atualizações na inicialização...")
-        self._update_status = "checking"
-        self._refresh_update_status_ui()
-
-        self._update_check_counter = getattr(self, "_update_check_counter", 0) + 1
-        current_id = self._update_check_counter
-        self._active_update_check_id = current_id
-        self.after(15000, lambda: self._handle_update_timeout(current_id))
-
-        def _bg_check() -> None:
-            try:
-                tag_name, download_url = obter_ultima_versao()
-                versao_limpa = tag_name.lstrip("vV")
-                logger.info("Verificação na inicialização concluída. Versão estável mais recente: %s (atual: %s)", tag_name, APP_VERSION)
-                if comparar_versoes(versao_limpa, APP_VERSION):
-                    logger.info("Nova versão %s disponível. Exibindo caixa de diálogo de confirmação de inicialização.", tag_name)
-                    def _prompt_update() -> None:
-                        self._update_status = "update_available"
-                        self._refresh_update_status_ui()
-                        if messagebox.askyesno(
-                            "Atualização Disponível",
-                            f"Uma nova versão estável ({tag_name}) está disponível!\n\n"
-                            f"Sua versão atual: {APP_VERSION}\n"
-                            f"Nova versão: {versao_limpa}\n\n"
-                            "Deseja baixar e instalar a atualização agora?",
-                            parent=self,
-                        ):
-                            self._mostrar_janela_download(download_url, tag_name)
-                    self.after(0, _prompt_update)
-                else:
-                    logger.info("O aplicativo já está atualizado na inicialização (%s).", APP_VERSION)
-                    def _on_up_to_date() -> None:
-                        self._update_status = "up_to_date"
-                        self._refresh_update_status_ui()
-                    self.after(0, _on_up_to_date)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("Falha na verificação de atualizações na inicialização (ignorado): %s", exc)
-                def _on_error() -> None:
-                    self._update_status = "error"
-                    self._refresh_update_status_ui()
-                self.after(0, _on_error)
 
         threading.Thread(target=_bg_check, daemon=True).start()
 

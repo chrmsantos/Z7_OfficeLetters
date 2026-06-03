@@ -392,7 +392,6 @@ def extrair_dados_com_ia(
     tipo_propositura: str = "mocao",
     cancel_event: "threading.Event | None" = None,
     on_rate_limit: "Callable[[str], None] | None" = None,
-    instrucoes_complementares: str | None = None,
 ) -> dict[str, Any]:
     """Send a propositura text to Gemini and return validated structured data.
 
@@ -407,7 +406,6 @@ def extrair_dados_com_ia(
             validation function accordingly.
         cancel_event: Optional event to cancel the execution.
         on_rate_limit: Optional callback on 429 rate limit.
-        instrucoes_complementares: Optional instructions from the user to append to the prompt.
 
     Returns:
         Validated dict.  For moções: keys ``tipo_mocao``, ``numero_mocao``,
@@ -422,8 +420,6 @@ def extrair_dados_com_ia(
     _template = PROMPT_TEMPLATE_PESAR if _is_pesar else PROMPT_TEMPLATE
     _validar = validar_dados_requerimento_pesar if _is_pesar else validar_dados_mocao
     prompt = _template.replace("{texto_mocao}", texto_mocao)
-    if instrucoes_complementares:
-        prompt += f"\n\nATENÇÃO: Respeite as seguintes instruções complementares do usuário ao extrair os dados:\n{instrucoes_complementares}"
     logger.debug("Enviando %s à API Gemini.", tipo_propositura)
 
     with _chamada_lock:
