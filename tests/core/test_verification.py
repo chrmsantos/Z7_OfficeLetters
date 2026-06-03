@@ -270,6 +270,18 @@ class TestVerificarConsistenciaDados:
         erros = verificar_consistencia_dados(reg)
         assert any("falecido" in e for e in erros)
 
+    def test_placeholder_val_error(self) -> None:
+        ctx = _ctx_mocao(num_mocao="TODO")
+        reg = _registro(ctx=ctx)
+        erros = verificar_consistencia_dados(reg)
+        assert any("num_mocao" in e and "inválido/incompleto" in e for e in erros)
+
+    def test_placeholder_null_val_error(self) -> None:
+        ctx = _ctx_mocao(vocativo=None)  # type: ignore[arg-type]
+        reg = _registro(ctx=ctx)
+        erros = verificar_consistencia_dados(reg)
+        assert any("vocativo" in e and "nulo" in e for e in erros)
+
 
 # ---------------------------------------------------------------------------
 # _verificar_consistencia_pronomes
@@ -445,6 +457,46 @@ class TestVerificarConcordanciaLinguistica:
         erros = verificar_concordancia_linguistica(reg)
         assert any("Vossas Senhorias" in e for e in erros)
 
+    def test_instituicao_com_representante_singular_correto(self) -> None:
+        """PJ with representative using correct singular forms → no error."""
+        dest = {
+            "tipo": "PJ",
+            "nome": "Escola Estadual Exemplo",
+            "representante": "Magda de Moraes",
+            "funcao_representante": "Diretora",
+            "genero": "F",
+        }
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Ilustríssima Senhora",
+                pronome_corpo="Vossa Senhoria",
+                tratamento_rodape="À Ilustríssima Senhora",
+            ),
+            dest_raw=dest,
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert erros == []
+
+    def test_instituicao_com_representante_plural_errado(self) -> None:
+        """PJ with representative using plural forms → error flagged."""
+        dest = {
+            "tipo": "PJ",
+            "nome": "Escola Estadual Exemplo",
+            "representante": "Magda de Moraes",
+            "funcao_representante": "Diretora",
+            "genero": "F",
+        }
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Ilustríssimas Senhoras",  # wrong — should be singular
+                pronome_corpo="Vossas Senhorias",   # wrong — should be singular
+                tratamento_rodape="À",
+            ),
+            dest_raw=dest,
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert any("Vossa Senhoria" in e and "singular" in e for e in erros)
+
     def test_requerimento_pesar_formas_fixas_corretas(self) -> None:
         ctx = _ctx_mocao(
             tipo_propositura="requerimento_pesar",
@@ -479,6 +531,30 @@ class TestVerificarConcordanciaLinguistica:
         reg = _registro(ctx=ctx, n_props=2)
         erros = verificar_concordancia_linguistica(reg)
         assert any("Moções de Aplauso" in e for e in erros)
+
+    def test_mocao_pf_genero_f_com_termo_masculino(self) -> None:
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Ilustríssima Senhor",  # "Senhor" instead of "Senhora"
+                pronome_corpo="Vossa Senhoria",
+                tratamento_rodape="À Ilustríssima Senhora",
+            ),
+            dest_raw=_dest_raw(genero="F"),
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert any("Gênero F" in e and "senhor" in e for e in erros)
+
+    def test_mocao_pf_genero_m_com_termo_feminino(self) -> None:
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Ilustríssimo Senhor",
+                pronome_corpo="Vossa Senhoria",
+                tratamento_rodape="À Ilustríssimo Senhor",  # "À" instead of "Ao"
+            ),
+            dest_raw=_dest_raw(genero="M"),
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert any("Gênero M" in e and "à" in e for e in erros)
 
 
 # ---------------------------------------------------------------------------
@@ -669,6 +745,13 @@ class TestCorrigirLinhaPlanilha:
         corr = _corrigir_linha_planilha(linha, reg)
         assert corr[3] == "Encaminha Moções de Aplauso nº 124 e 125/2026"
 
+    def test_assunto_mocao_com_data_dd_mm_aaaa(self) -> None:
+        """Verifica que o assunto gerado extrai corretamente o ano de uma data no formato DD/MM/AAAA."""
+        reg = _registro()
+        linha = _linha_padrao(data_iso="15/05/2026", assunto="Errado")
+        corr = _corrigir_linha_planilha(linha, reg)
+        assert corr[3] == "Encaminha Moção de Aplauso nº 124/2026"
+
 
 # ---------------------------------------------------------------------------
 # ResultadoVerificacao helpers
@@ -692,3 +775,130 @@ class TestResultadoVerificacao:
             erros_planilha=["p1"],
         )
         assert r.todos_erros == ["d1", "l1", "l2", "p1"]
+
+
+class TestVerificarTagsPendentes:
+    def test_tags_pendentes_error(self, tmp_path) -> None:
+        from docx import Document
+        from z7_officeletters.core.verification import verificar_tags_pendentes
+
+        doc_path = tmp_path / "temp_doc.docx"
+        doc = Document()
+        doc.add_paragraph("Este é um texto com tag {{ TAG_PENDENTE }}")
+        doc.save(str(doc_path))
+        erros = verificar_tags_pendentes(str(doc_path))
+        assert len(erros) == 1
+        assert "parágrafo 1" in erros[0]
+
+    def test_tags_pendentes_ok(self, tmp_path) -> None:
+        from docx import Document
+        from z7_officeletters.core.verification import verificar_tags_pendentes
+
+        doc_path = tmp_path / "temp_doc.docx"
+        doc = Document()
+        doc.add_paragraph("Este é um texto limpo sem tags")
+        doc.save(str(doc_path))
+        erros = verificar_tags_pendentes(str(doc_path))
+        assert len(erros) == 0
+
+
+class TestIterativeCorrectionLoop:
+    def test_conferir_trabalho_iterative_retry(self, tmp_path) -> None:
+        from docx import Document
+        from z7_officeletters.core.verification import conferir_trabalho
+
+        tmpl_path = tmp_path / "modelo.docx"
+        doc_path = tmp_path / "generated.docx"
+
+        # Write template with placeholder
+        doc = Document()
+        doc.add_paragraph("Moção nº {{ num_mocao }}")
+        doc.save(str(tmpl_path))
+
+        # Generate docx with error (num_mocao is 999 instead of expected 124)
+        doc2 = Document()
+        doc2.add_paragraph("Moção nº 999")
+        doc2.save(str(doc_path))
+
+        ctx = _ctx_mocao(num_mocao="999")
+        reg = _registro(
+            ctx=ctx,
+            dados_grupo=[_dados_mocao(numero="124")],
+            caminho=str(doc_path),
+            template_path=str(tmpl_path),
+            linha_planilha_idx=0,
+        )
+
+        q = queue.Queue()
+        linha = _linha_padrao(assunto="Encaminha Moção de Aplauso nº 999/2026")
+        dados_planilha = [linha]
+
+        # Call conferir_trabalho which will run the iterative correction loop
+        rel = conferir_trabalho([reg], dados_planilha, q)
+
+        # Verify it corrected the error, re-rendered, and re-verified successfully
+        assert rel.total_com_erros == 1
+        assert rel.total_corrigidos == 1
+        assert rel.total_fail_or_unresolved == 0 if hasattr(rel, "total_fail_or_unresolved") else True
+        assert reg.ctx["num_mocao"] == "124"
+        assert dados_planilha[0][3] == "Encaminha Moção de Aplauso nº 124/2026"
+
+        # Read corrected docx to verify it got the new value
+        doc_corr = Document(str(doc_path))
+        assert "Moção nº 124" in doc_corr.paragraphs[0].text
+
+
+class TestVerificationClergy:
+    def test_clerigo_pj_representante_sem_erro(self) -> None:
+        dest = {
+            "tipo": "PJ",
+            "nome": "Paróquia Imaculada Conceição",
+            "representante": "Pe. Kleber Fernandes Danelon",
+            "funcao_representante": "Pároco",
+            "genero": "M",
+        }
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Reverendíssimo Senhor",
+                pronome_corpo="Vossa Reverendíssima",
+                tratamento_rodape="Ao Reverendíssimo Senhor",
+            ),
+            dest_raw=dest,
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert erros == []
+
+    def test_clerigo_pj_representante_com_erro_ilustrissimo(self) -> None:
+        dest = {
+            "tipo": "PJ",
+            "nome": "Paróquia Imaculada Conceição",
+            "representante": "Pe. Kleber Fernandes Danelon",
+            "funcao_representante": "Pároco",
+            "genero": "M",
+        }
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Ilustríssimo Senhor",
+                pronome_corpo="Vossa Senhoria",
+                tratamento_rodape="Ao Ilustríssimo Senhor",
+            ),
+            dest_raw=dest,
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert any("Vossa Reverendíssima" in e or "Reverendíssimo Senhor" in e for e in erros)
+
+    def test_clerigo_pf_sem_erro(self) -> None:
+        dest = _dest_raw(nome="Rev. João Silva", genero="M")
+        dest["funcao_profissao"] = "Pastor"
+        reg = _registro(
+            ctx=_ctx_mocao(
+                vocativo="Reverendíssimo Senhor",
+                pronome_corpo="Vossa Reverendíssima",
+                tratamento_rodape="Ao Reverendíssimo Senhor",
+            ),
+            dest_raw=dest,
+        )
+        erros = verificar_concordancia_linguistica(reg)
+        assert erros == []
+
+

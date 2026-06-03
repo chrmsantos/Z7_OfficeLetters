@@ -463,9 +463,16 @@ def _worker_main(
                 plural_oes = "ções" if n_props > 1 else "ção"
                 assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao_merged} nº {num_mocao_merged}/{year}"
 
+            # Convert YYYY-MM-DD to DD/MM/AAAA format for the spreadsheet
+            data_planilha = inputs["data_iso"]
+            if "-" in inputs["data_iso"]:
+                partes_data = inputs["data_iso"].split("-")
+                if len(partes_data) == 3:
+                    data_planilha = f"{partes_data[2]}/{partes_data[1]}/{partes_data[0]}"
+
             dados_planilha.append([
                 num_str,
-                inputs["data_iso"],
+                data_planilha,
                 f"{info['tratamento_rodape']} {_docs._titlecase_nome(info['destinatario_nome'])}".strip(),
                 assunto,
                 ", ".join(

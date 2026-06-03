@@ -146,6 +146,29 @@ class TestProcessarDestinatario:
         )
         assert "Engenheiro" in r["destinatario_endereco"]
 
+    def test_cargo_igual_ao_nome_nao_duplica_endereco(self) -> None:
+        """When nome IS the cargo, the address block must not repeat it.
+
+        Real-world case: AI extracts nome='Comandante da Guarda Civil Municipal'
+        and funcao_profissao='Comandante da Guarda Civil Municipal'.  The footer
+        must show only 'COMANDANTE DA GUARDA CIVIL MUNICIPAL', not a second line
+        with the same title in title-case.
+        """
+        r = processar_destinatario(make_dest_simples(
+            nome="Comandante da Guarda Civil Municipal",
+            funcao_profissao="Comandante da Guarda Civil Municipal",
+        ))
+        # The address block must be empty (no cargo appended)
+        assert r["destinatario_endereco"] == ""
+
+    def test_cargo_diferente_do_nome_mantem_endereco(self) -> None:
+        """When cargo differs from nome, cargo must still appear in the address block."""
+        r = processar_destinatario(make_dest_simples(
+            nome="Carlos Silva",
+            funcao_profissao="Secretário Municipal de Saúde",
+        ))
+        assert "Secretário Municipal de Saúde" in r["destinatario_endereco"]
+
 
 class TestNivelProtocolo:
 
@@ -332,6 +355,94 @@ class TestProcessarDestinatarioColetivo:
         assert "Torcida Organizada" in r["destinatario_endereco"]
 
 
+class TestProcessarDestinatarioComRepresentante:
+    """When an institution has a named representative, honorifics must be singular."""
+
+    def test_pj_representante_masculino_honorifico_singular(self) -> None:
+        """Diretor Geral (masculine role) → singular masculine honorifics."""
+        r = processar_destinatario(make_dest_pj(
+            representante="Carlos Souza",
+            funcao_representante="Diretor Geral",
+        ))
+        assert r["vocativo"] == "Ilustríssimo Senhor"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+
+    def test_pj_representante_feminino_honorifico_singular(self) -> None:
+        """Diretora (feminine role ending in 'a') → singular feminine honorifics."""
+        r = processar_destinatario(make_dest_pj(
+            nome="Escola Estadual Professora Maria José",
+            representante="Magda de Moraes",
+            funcao_representante="Diretora",
+        ))
+        assert r["vocativo"] == "Ilustríssima Senhora"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora"
+
+    def test_escola_com_diretora_reflete_caso_real(self) -> None:
+        """Real-world case: Escola Estadual com Diretora nomeada → formas singulares femininas."""
+        r = processar_destinatario(make_dest_pj(
+            nome="Escola Estadual Professora Benedicta Aranha de Oliveira Lino",
+            representante="Magda de Moraes",
+            funcao_representante="Diretora",
+            genero="F",
+        ))
+        assert r["vocativo"] == "Ilustríssima Senhora"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora"
+        assert "Diretora: Magda de Moraes" in r["destinatario_endereco"]
+
+    def test_pj_representante_sem_funcao_usa_genero_ai_masculino(self) -> None:
+        """No funcao_representante → falls back to AI-supplied genero (M)."""
+        r = processar_destinatario(make_dest_pj(
+            representante="Carlos Souza",
+            genero="M",
+        ))
+        assert r["vocativo"] == "Ilustríssimo Senhor"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_pj_representante_sem_funcao_usa_genero_ai_feminino(self) -> None:
+        """No funcao_representante → falls back to AI-supplied genero (F)."""
+        r = processar_destinatario(make_dest_pj(
+            representante="Ana Lima",
+            genero="F",
+        ))
+        assert r["vocativo"] == "Ilustríssima Senhora"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_pj_representante_reitora_feminino(self) -> None:
+        """Reitora (feminine role ending in 'a') → singular feminine."""
+        r = processar_destinatario(make_dest_pj(
+            nome="Universidade Estadual de São Paulo",
+            representante="Profa. Dra. Maria Helena",
+            funcao_representante="Reitora",
+        ))
+        assert r["vocativo"] == "Ilustríssima Senhora"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_coletivo_representante_presidente_masculino(self) -> None:
+        """Presidente (ends in 'e', not 'a') → defaults to masculine (M)."""
+        r = processar_destinatario(make_dest_coletivo(
+            representante="Pedro Alves",
+            funcao_representante="Presidente",
+            genero="M",
+        ))
+        assert r["vocativo"] == "Ilustríssimo Senhor"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+
+    def test_pj_sem_representante_ainda_usa_plural(self) -> None:
+        """Backward compat: institutions WITHOUT a representative still use plural."""
+        r = processar_destinatario(make_dest_pj())
+        assert r["pronome_corpo"] == "Vossas Senhorias"
+        assert "Senhores" in r["vocativo"] or "Senhoras" in r["vocativo"]
+
+    def test_coletivo_sem_representante_ainda_usa_plural(self) -> None:
+        """Backward compat: Coletivo WITHOUT a representative still uses plural."""
+        r = processar_destinatario(make_dest_coletivo())
+        assert r["pronome_corpo"] == "Vossas Senhorias"
+
+
 # =============================================================================
 # Consistency: tratamento_rodape, vocativo, and pronome_corpo must always match
 # =============================================================================
@@ -433,8 +544,57 @@ class TestDeterminarGeneroInstituicao:
         ("CPFL Paulista", "F"),
         ("Ministério Público", "M"),
         ("Departamento de Obras", "M"),
+        ("Cidade Mirim de Trânsito", "F"),
+        ("Cidades Históricas", "F"),
     ])
     def test_generos_instituicao(self, nome: str, genero_esperado: str) -> None:
         assert determinar_genero_instituicao(nome) == genero_esperado
+
+
+class TestProcessarDestinatarioClero:
+    def test_pj_representante_paroco_masculino(self) -> None:
+        r = processar_destinatario(make_dest_pj(
+            nome="Paróquia Imaculada Conceição",
+            representante="Pe. Kleber Fernandes Danelon",
+            funcao_representante="Pároco",
+        ))
+        assert r["vocativo"] == "Reverendíssimo Senhor"
+        assert r["pronome_corpo"] == "Vossa Reverendíssima"
+        assert r["tratamento_rodape"] == "Ao Reverendíssimo Senhor"
+
+    def test_pj_representante_pastora_feminino(self) -> None:
+        r = processar_destinatario(make_dest_pj(
+            nome="Igreja Presbiteriana",
+            representante="Ana Souza",
+            funcao_representante="Pastora",
+        ))
+        assert r["vocativo"] == "Reverendíssima Senhora"
+        assert r["pronome_corpo"] == "Vossa Reverendíssima"
+        assert r["tratamento_rodape"] == "À Reverendíssima Senhora"
+
+    def test_pf_clerigo_masculino(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Rev. João Silva",
+            funcao_profissao="Pastor",
+        ))
+        assert r["vocativo"] == "Reverendíssimo Senhor"
+        assert r["pronome_corpo"] == "Vossa Reverendíssima"
+        assert r["tratamento_rodape"] == "Ao Reverendíssimo Senhor"
+
+    def test_database_override_clerigo(self) -> None:
+        from z7_officeletters.core.recipients import aplicar_tratamento_db
+        info = {
+            "tratamento_rodape": "Ao Ilustríssimo Senhor",
+            "vocativo": "Ilustríssimo Senhor",
+            "pronome_corpo": "Vossa Senhoria",
+            "destinatario_nome": "KLEBER FERNANDES DANELON",
+            "destinatario_endereco": "",
+            "envio": "Em Mãos",
+        }
+        aplicar_tratamento_db(info, "Ao Reverendíssimo Senhor")
+        assert info["tratamento_rodape"] == "Ao Reverendíssimo Senhor"
+        assert info["vocativo"] == "Reverendíssimo Senhor"
+        assert info["pronome_corpo"] == "Vossa Reverendíssima"
+
 
 

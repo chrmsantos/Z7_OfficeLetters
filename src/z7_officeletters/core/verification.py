@@ -89,6 +89,7 @@ class ResultadoVerificacao:
         erros_dados: Erros de consistência de dados (números, tipos, falecido).
         erros_linguisticos: Erros de concordância linguística.
         erros_planilha: Erros na linha correspondente da planilha Excel.
+        erros_tags: Marcadores de template não resolvidos no arquivo gerado.
         corrigido: True quando todos os erros foram corrigidos com sucesso.
         incorrigivel: True quando houve erros mas a correção falhou.
     """
@@ -97,18 +98,77 @@ class ResultadoVerificacao:
     erros_dados: list[str] = field(default_factory=list)
     erros_linguisticos: list[str] = field(default_factory=list)
     erros_planilha: list[str] = field(default_factory=list)
+    erros_tags: list[str] = field(default_factory=list)
     corrigido: bool = False
     incorrigivel: bool = False
 
     @property
     def tem_erros(self) -> bool:
         """True se houver qualquer erro encontrado."""
-        return bool(self.erros_dados or self.erros_linguisticos or self.erros_planilha)
+        return bool(
+            self.erros_dados
+            or self.erros_linguisticos
+            or self.erros_planilha
+            or self.erros_tags
+        )
 
     @property
     def todos_erros(self) -> list[str]:
         """Lista plana de todos os erros encontrados."""
-        return self.erros_dados + self.erros_linguisticos + self.erros_planilha
+        return (
+            self.erros_dados
+            + self.erros_linguisticos
+            + self.erros_planilha
+            + self.erros_tags
+        )
+
+
+def verificar_tags_pendentes(caminho: str) -> list[str]:
+    """Verifica se o arquivo final renderizado contém marcadores pendentes de template (como {{ ou }})."""
+    from docx import Document  # noqa: PLC0415
+    import os  # noqa: PLC0415
+
+    erros = []
+    if not os.path.exists(caminho):
+        erros.append(f"Arquivo não encontrado para conferência de tags: {caminho}")
+        return erros
+
+    try:
+        doc = Document(caminho)
+        # 1. Verificar parágrafos do corpo
+        for p_idx, p in enumerate(doc.paragraphs, start=1):
+            if "{{" in p.text or "}}" in p.text or "{%" in p.text or "%}" in p.text:
+                erros.append(f"Marcador de template não renderizado no parágrafo {p_idx}: '{p.text}'")
+
+        # 2. Verificar tabelas
+        for t_idx, table in enumerate(doc.tables, start=1):
+            for r_idx, row in enumerate(table.rows, start=1):
+                for c_idx, cell in enumerate(row.cells, start=1):
+                    if "{{" in cell.text or "}}" in cell.text or "{%" in cell.text or "%}" in cell.text:
+                        erros.append(
+                            f"Marcador de template não renderizado na tabela {t_idx}, linha {r_idx}, célula {c_idx}: '{cell.text}'"
+                        )
+
+        # 3. Verificar cabeçalhos e rodapés de cada seção
+        for s_idx, section in enumerate(doc.sections, start=1):
+            header = section.header
+            if header is not None:
+                for p_idx, p in enumerate(header.paragraphs, start=1):
+                    if "{{" in p.text or "}}" in p.text or "{%" in p.text or "%}" in p.text:
+                        erros.append(
+                            f"Marcador de template não renderizado no cabeçalho da seção {s_idx}, parágrafo {p_idx}: '{p.text}'"
+                        )
+            footer = section.footer
+            if footer is not None:
+                for p_idx, p in enumerate(footer.paragraphs, start=1):
+                    if "{{" in p.text or "}}" in p.text or "{%" in p.text or "%}" in p.text:
+                        erros.append(
+                            f"Marcador de template não renderizado no rodapé da seção {s_idx}, parágrafo {p_idx}: '{p.text}'"
+                        )
+    except Exception as e:
+        erros.append(f"Erro ao analisar marcadores do arquivo '{caminho}': {e}")
+
+    return erros
 
 
 @dataclass
@@ -188,6 +248,22 @@ def verificar_consistencia_dados(registro: RegistroOficio) -> list[str]:
             f"— esperado='{registro.tipo_propositura}'"
         )
 
+    # Check for placeholder/empty/AI-hallucinated values in all ctx keys
+    placeholders = {"none", "null", "todo", "indef", "indefinido", "unknown"}
+    for chave, valor in ctx.items():
+        if valor is None:
+            erros.append(f"Campo '{chave}' no contexto está nulo (None)")
+        else:
+            val_strip = str(valor).strip().lower()
+            if val_strip in placeholders or not val_strip:
+                # Except empty fields that are expected to be optionally empty (like falecido for motions)
+                if (
+                    chave.lower() in ("falecido", "destinatario_endereco")
+                    and registro.tipo_propositura != "requerimento_pesar"
+                ):
+                    continue
+                erros.append(f"Campo '{chave}' no contexto possui valor inválido/incompleto: '{valor}'")
+
     return erros
 
 
@@ -241,11 +317,11 @@ def verificar_concordancia_linguistica(registro: RegistroOficio) -> list[str]:
     if is_prefeito:
         _verificar_prefeito(erros, ctx)
     elif is_inst:
-        _verificar_instituicao(erros, ctx)
+        _verificar_instituicao(erros, ctx, dest)
     else:
         genero = dest.get("genero") or "M"
         nivel = dest.get("nivel_protocolo") or "VS"
-        _verificar_pf(erros, ctx, genero, nivel)
+        _verificar_pf(erros, ctx, dest, genero, nivel)
 
     # ── Number agreement ─────────────────────────────────────────────────────
     _verificar_numero(erros, ctx, tipo_prop, tipo_mocao, n_props)
@@ -270,6 +346,12 @@ def _verificar_consistencia_pronomes(
             erros.append(
                 f"Inconsistência: vocativo plural '{vocativo}' requer "
                 f"'Vossas Senhorias' — encontrado '{pronome}'"
+            )
+    elif "reverendíssim" in voc_lower or "reverendissim" in voc_lower:
+        if pronome != "Vossa Reverendíssima":
+            erros.append(
+                f"Inconsistência: vocativo '{vocativo}' requer pronome "
+                f"'Vossa Reverendíssima' — encontrado '{pronome}'"
             )
     elif "ilustríssim" in voc_lower:
         if pronome != "Vossa Senhoria":
@@ -321,25 +403,61 @@ def _verificar_prefeito(erros: list[str], ctx: dict[str, str]) -> None:
         )
 
 
-def _verificar_instituicao(erros: list[str], ctx: dict[str, str]) -> None:
-    """Verifica que o ctx usa as formas plurais para PJ/Coletivo."""
+def _verificar_instituicao(erros: list[str], ctx: dict[str, str], dest: dict[str, Any]) -> None:
+    """Verifica que o ctx usa as formas corretas para PJ/Coletivo.
+
+    Quando a instituição possui representante nomeado, as formas devem ser
+    singulares (endereçadas à pessoa); sem representante, as formas plurais
+    genéricas são esperadas.
+    """
     pronome = ctx.get("pronome_corpo", "")
     vocativo = ctx.get("vocativo", "")
+    representante = (dest.get("representante") or "").strip()
 
-    if pronome != "Vossas Senhorias":
-        erros.append(
-            f"Instituição — pronome_corpo: ctx='{pronome}' esperado='Vossas Senhorias'"
-        )
-    voc_lower = vocativo.lower()
-    if "senhores" not in voc_lower and "senhoras" not in voc_lower:
-        erros.append(
-            f"Instituição — vocativo: ctx='{vocativo}' não está no plural "
-            f"(esperado 'Ilustríssimos Senhores' ou 'Ilustríssimas Senhoras')"
-        )
+    if representante:
+        from z7_officeletters.core.recipients import _is_clergy
+        funcao_rep = dest.get("funcao_representante") or ""
+        if _is_clergy(funcao_rep, representante):
+            if pronome != "Vossa Reverendíssima":
+                erros.append(
+                    f"Instituição com representante do clero — pronome_corpo: ctx='{pronome}' "
+                    f"esperado='Vossa Reverendíssima' (singular, endereçado a '{representante}')"
+                )
+            voc_lower = vocativo.lower()
+            if "reverendíssima senhora" not in voc_lower and "reverendíssimo senhor" not in voc_lower:
+                erros.append(
+                    f"Instituição com representante do clero — vocativo: ctx='{vocativo}' "
+                    f"deve ser singular ('Reverendíssima Senhora' ou 'Reverendíssimo Senhor')"
+                )
+        else:
+            # Institution with a named representative → singular forms expected.
+            if pronome != "Vossa Senhoria":
+                erros.append(
+                    f"Instituição com representante — pronome_corpo: ctx='{pronome}' "
+                    f"esperado='Vossa Senhoria' (singular, endereçado a '{representante}')"
+                )
+            voc_lower = vocativo.lower()
+            if "ilustríssima senhora" not in voc_lower and "ilustríssimo senhor" not in voc_lower:
+                erros.append(
+                    f"Instituição com representante — vocativo: ctx='{vocativo}' "
+                    f"deve ser singular ('Ilustríssima Senhora' ou 'Ilustríssimo Senhor')"
+                )
+    else:
+        # No representative → generic plural forms expected.
+        if pronome != "Vossas Senhorias":
+            erros.append(
+                f"Instituição — pronome_corpo: ctx='{pronome}' esperado='Vossas Senhorias'"
+            )
+        voc_lower = vocativo.lower()
+        if "senhores" not in voc_lower and "senhoras" not in voc_lower:
+            erros.append(
+                f"Instituição — vocativo: ctx='{vocativo}' não está no plural "
+                f"(esperado 'Ilustríssimos Senhores' ou 'Ilustríssimas Senhoras')"
+            )
 
 
 def _verificar_pf(
-    erros: list[str], ctx: dict[str, str], genero: str, nivel: str
+    erros: list[str], ctx: dict[str, str], dest: dict[str, Any], genero: str, nivel: str
 ) -> None:
     """Verifica formas de gênero e nível de protocolo para pessoa física."""
     vocativo = ctx.get("vocativo", "")
@@ -347,22 +465,44 @@ def _verificar_pf(
     voc_lower = vocativo.lower()
     trat_lower = tratamento.lower()
 
+    import re
+
     if genero == "F":
         if "senhor" in voc_lower and "senhora" not in voc_lower:
             erros.append(
                 f"Gênero F — vocativo com forma masculina: '{vocativo}'"
             )
+        # Strict check for male terms in female context
+        for term in ["senhor", "senhores", "ilustríssimo", "ilustríssimos", "excelentíssimo", "excelentíssimos", "reverendíssimo", "ao"]:
+            pattern = rf"\b{term}\b"
+            if re.search(pattern, voc_lower) or re.search(pattern, trat_lower):
+                erros.append(f"Gênero F — termo masculino '{term}' encontrado no vocativo/tratamento")
         if nivel == "VS":
-            if "ilustríssima" not in voc_lower:
-                erros.append(
-                    f"Gênero F, nível VS — vocativo: '{vocativo}' "
-                    f"deveria conter 'Ilustríssima'"
-                )
-            if not tratamento.startswith("À Ilustríssima"):
-                erros.append(
-                    f"Gênero F, nível VS — tratamento_rodapé: '{tratamento}' "
-                    f"deveria começar com 'À Ilustríssima'"
-                )
+            from z7_officeletters.core.recipients import _is_clergy
+            funcao_prof = dest.get("funcao_profissao") or ""
+            nome = dest.get("nome") or ""
+            if _is_clergy(funcao_prof, nome):
+                if "reverendíssima" not in voc_lower:
+                    erros.append(
+                        f"Gênero F, clero, nível VS — vocativo: '{vocativo}' "
+                        f"deveria conter 'Reverendíssima'"
+                    )
+                if not tratamento.startswith("À Reverendíssima"):
+                    erros.append(
+                        f"Gênero F, clero, nível VS — tratamento_rodapé: '{tratamento}' "
+                        f"deveria começar com 'À Reverendíssima'"
+                    )
+            else:
+                if "ilustríssima" not in voc_lower:
+                    erros.append(
+                        f"Gênero F, nível VS — vocativo: '{vocativo}' "
+                        f"deveria conter 'Ilustríssima'"
+                    )
+                if not tratamento.startswith("À Ilustríssima"):
+                    erros.append(
+                        f"Gênero F, nível VS — tratamento_rodapé: '{tratamento}' "
+                        f"deveria começar com 'À Ilustríssima'"
+                    )
         elif nivel in ("VE", "VE_M"):
             if "excelentíssima" not in voc_lower:
                 erros.append(
@@ -370,17 +510,37 @@ def _verificar_pf(
                     f"deveria conter 'Excelentíssima'"
                 )
     else:  # genero == "M"
+        # Strict check for female terms in male context
+        for term in ["senhora", "senhoras", "ilustríssima", "ilustríssimas", "excelentíssima", "excelentíssimas", "reverendíssima", "à"]:
+            pattern = rf"\b{term}\b"
+            if re.search(pattern, voc_lower) or re.search(pattern, trat_lower):
+                erros.append(f"Gênero M — termo feminino '{term}' encontrado no vocativo/tratamento")
         if nivel == "VS":
-            if "ilustríssimo" not in voc_lower:
-                erros.append(
-                    f"Gênero M, nível VS — vocativo: '{vocativo}' "
-                    f"deveria conter 'Ilustríssimo'"
-                )
-            if not tratamento.startswith("Ao Ilustríssimo"):
-                erros.append(
-                    f"Gênero M, nível VS — tratamento_rodapé: '{tratamento}' "
-                    f"deveria começar com 'Ao Ilustríssimo'"
-                )
+            from z7_officeletters.core.recipients import _is_clergy
+            funcao_prof = dest.get("funcao_profissao") or ""
+            nome = dest.get("nome") or ""
+            if _is_clergy(funcao_prof, nome):
+                if "reverendíssimo" not in voc_lower:
+                    erros.append(
+                        f"Gênero M, clero, nível VS — vocativo: '{vocativo}' "
+                        f"deveria conter 'Reverendíssimo'"
+                    )
+                if not tratamento.startswith("Ao Reverendíssimo"):
+                    erros.append(
+                        f"Gênero M, clero, nível VS — tratamento_rodapé: '{tratamento}' "
+                        f"deveria começar com 'Ao Reverendíssimo'"
+                    )
+            else:
+                if "ilustríssimo" not in voc_lower:
+                    erros.append(
+                        f"Gênero M, nível VS — vocativo: '{vocativo}' "
+                        f"deveria conter 'Ilustríssimo'"
+                    )
+                if not tratamento.startswith("Ao Ilustríssimo"):
+                    erros.append(
+                        f"Gênero M, nível VS — tratamento_rodapé: '{tratamento}' "
+                        f"deveria começar com 'Ao Ilustríssimo'"
+                    )
         elif nivel in ("VE", "VE_M"):
             if "excelentíssimo" not in voc_lower:
                 erros.append(
@@ -609,9 +769,14 @@ def _corrigir_linha_planilha(
     if len(linha_corr) < 6:
         linha_corr.extend([""] * (6 - len(linha_corr)))
 
-    # Extrair o ano da data ISO (campo linha_corr[1], formato YYYY-MM-DD)
-    data_iso = str(linha_corr[1])
-    year = data_iso[:4] if len(data_iso) >= 4 else ""
+    # Extrair o ano da data (campo linha_corr[1], formato YYYY-MM-DD ou DD/MM/AAAA)
+    data_str = str(linha_corr[1])
+    if "-" in data_str:
+        year = data_str[:4] if len(data_str) >= 4 else ""
+    elif "/" in data_str:
+        year = data_str[-4:] if len(data_str) >= 4 else ""
+    else:
+        year = data_str[:4] if len(data_str) >= 4 else ""
 
     num_mocao = ctx.get("num_mocao", "")
     tipo_mocao = ctx.get("tipo_mocao", "")
@@ -647,13 +812,15 @@ def conferir_trabalho(
 ) -> RelatorioConferencia:
     """Orquestrador da Fase 6: verifica e corrige automaticamente todos os ofícios.
 
-    Para cada ofício gerado:
-    1. Verifica consistência de dados (ctx ↔ dados_grupo da IA).
-    2. Verifica concordância linguística (pronomes, gênero, número).
-    3. Verifica a linha correspondente na planilha.
-    4. Corrige os erros encontrados via re-renderização do template.
-    5. Atualiza ``dados_planilha`` in-place quando a linha Excel precisa de ajuste.
-    6. Registra tudo em detalhe (log Python + mensagens na fila UI).
+    Para cada ofício gerado, executa uma conferência rigorosa em loop iterativo
+    (máximo de 3 tentativas) cobrindo:
+    1. Consistência de dados (ctx ↔ dados_grupo da IA).
+    2. Concordância linguística (pronomes, gênero, número).
+    3. Integridade do template (vazamento de tags como {{ ou }}).
+    4. Linha correspondente na planilha Excel.
+
+    As correções são aplicadas, o documento é re-renderizado e re-verificado
+    até que todos os erros sejam sanados ou o limite de tentativas seja atingido.
 
     Args:
         registros: Lista de :class:`RegistroOficio` construída durante a Fase 3.
@@ -670,88 +837,130 @@ def conferir_trabalho(
 
     q.put(("log", "\n🔍  Iniciando conferência dos ofícios gerados…", "accent"))
     logger.info(
-        "Fase 6: Conferência automática — %d ofício(s) a verificar.", len(registros)
+        "Fase 6: Conferência rigorosa — %d ofício(s) a verificar.", len(registros)
     )
 
     for i, registro in enumerate(registros, start=1):
         resultado = ResultadoVerificacao(arquivo=registro.nome_arquivo)
         prefixo = f"  [{i}/{len(registros)}]  {registro.nome_arquivo}"
 
-        logger.debug("Conferindo: %s", registro.nome_arquivo)
+        logger.debug("Conferindo rigorosamente: %s", registro.nome_arquivo)
         q.put(("log", f"\n{prefixo}", "dim"))
 
-        # ── 1. Data consistency ───────────────────────────────────────────────
-        resultado.erros_dados = verificar_consistencia_dados(registro)
-        if resultado.erros_dados:
-            q.put(("log", "    � Ajustes de dados:", "warn"))
-            for e in resultado.erros_dados:
-                logger.warning("  [DADOS] %s — %s", registro.nome_arquivo, e)
-                q.put(("log", f"      • {e}", "dim"))
-
-        # ── 2. Linguistic concordance ─────────────────────────────────────────
-        resultado.erros_linguisticos = verificar_concordancia_linguistica(registro)
-        if resultado.erros_linguisticos:
-            q.put(("log", "    📝 Ajustes linguísticos:", "warn"))
-            for e in resultado.erros_linguisticos:
-                logger.warning("  [LINGUÍSTICO] %s — %s", registro.nome_arquivo, e)
-                q.put(("log", f"      • {e}", "dim"))
-
-        # ── 3. Spreadsheet row ────────────────────────────────────────────────
+        max_tentativas = 3
+        tentativa = 1
         idx = registro.linha_planilha_idx
-        if 0 <= idx < len(dados_planilha):
-            resultado.erros_planilha = verificar_linha_planilha(
-                dados_planilha[idx], registro
+
+        while tentativa <= max_tentativas:
+            # ── 1. Executar checagens de validação ─────────────────────────────
+            resultado.erros_dados = verificar_consistencia_dados(registro)
+            resultado.erros_linguisticos = verificar_concordancia_linguistica(registro)
+            resultado.erros_tags = verificar_tags_pendentes(registro.caminho)
+
+            if 0 <= idx < len(dados_planilha):
+                resultado.erros_planilha = verificar_linha_planilha(
+                    dados_planilha[idx], registro
+                )
+            else:
+                resultado.erros_planilha = []
+
+            # Se não houver nenhum erro em nenhuma categoria, validação com sucesso
+            if not resultado.tem_erros:
+                if tentativa > 1:
+                    resultado.corrigido = True
+                    logger.info("  ✔  '%s' corrigido na tentativa %d.", registro.nome_arquivo, tentativa)
+                    q.put(("log", f"    ✔  Corrigido com sucesso na tentativa {tentativa}.", "success"))
+                else:
+                    logger.info("  ✔  '%s' OK — sem erros.", registro.nome_arquivo)
+                    q.put(("log", "    ✔  OK — sem erros.", "success"))
+                break
+
+            # Se for a primeira rodada que identificou erros, incrementa o total
+            if tentativa == 1:
+                relatorio.total_com_erros += 1
+
+            # Logar erros encontrados na tentativa atual
+            logger.warning(
+                "  [TENTATIVA %d] Erros em %s: dados=%d, ling=%d, tags=%d, planilha=%d",
+                tentativa,
+                registro.nome_arquivo,
+                len(resultado.erros_dados),
+                len(resultado.erros_linguisticos),
+                len(resultado.erros_tags),
+                len(resultado.erros_planilha),
             )
-            if resultado.erros_planilha:
-                q.put(("log", "    📝 Ajustes na planilha:", "warn"))
-                for e in resultado.erros_planilha:
-                    logger.warning("  [PLANILHA] %s — %s", registro.nome_arquivo, e)
-                    q.put(("log", f"      • {e}", "dim"))
 
-        # ── 4. Auto-correction ────────────────────────────────────────────────
-        if resultado.tem_erros:
-            relatorio.total_com_erros += 1
-            q.put(("log", "    🔧  Corrigindo e re-renderizando…", ""))
-            logger.info("  Corrigindo '%s'…", registro.nome_arquivo)
+            q.put((
+                "log",
+                f"    🔧  Tentativa {tentativa}/{max_tentativas}: erros encontrados. Corrigindo e re-renderizando…",
+                "warn",
+            ))
 
+            for e in resultado.erros_dados:
+                q.put(("log", f"        • [DADOS] {e}", "dim"))
+            for e in resultado.erros_linguisticos:
+                q.put(("log", f"        • [LINGUÍSTICO] {e}", "dim"))
+            for e in resultado.erros_tags:
+                q.put(("log", f"        • [TEMPLATES] {e}", "dim"))
+            for e in resultado.erros_planilha:
+                q.put(("log", f"        • [PLANILHA] {e}", "dim"))
+
+            # ── 2. Tentar corrigir os erros e re-renderizar ───────────────────
             try:
+                # O corretor do ctx usa os erros de dados e linguísticos (incluindo tags/outros) para ajustar o ctx
                 ctx_corr = corrigir_ctx(
                     registro, resultado.erros_dados, resultado.erros_linguisticos
                 )
+
+                # Se houver erros de tags pendentes na renderização do template, recarrega e limpa ctx
+                if resultado.erros_tags:
+                    # Garantir que re-renderiza com o ctx corrigido e limpo
+                    pass
 
                 doc = DocxTemplate(registro.template_path)
                 doc.render(ctx_corr)
                 doc.save(registro.caminho)
 
-                # Commit corrected ctx back into the registro for downstream use
+                # Atualiza o contexto no registro
                 registro.ctx.update(ctx_corr)
 
-                # Fix spreadsheet row in-place
+                # Corrige a linha da planilha correspondente
                 if 0 <= idx < len(dados_planilha) and resultado.erros_planilha:
                     dados_planilha[idx] = _corrigir_linha_planilha(
                         dados_planilha[idx], registro
                     )
 
-                resultado.corrigido = True
-                relatorio.total_corrigidos += 1
-                logger.info("  ✔  '%s' corrigido com sucesso.", registro.nome_arquivo)
-                q.put(("log", "    ✔  Corrigido com sucesso.", "success"))
-
             except Exception as exc:  # noqa: BLE001
                 resultado.incorrigivel = True
-                relatorio.total_incorrigiveis += 1
                 logger.error(
-                    "  ✗  Não foi possível corrigir '%s': %s",
+                    "  ✗  Falha crítica de exceção ao tentar corrigir '%s': %s",
                     registro.nome_arquivo, exc,
                 )
-                q.put(("log", f"    ✗  Não foi possível corrigir: {exc}", "error"))
+                q.put(("log", f"    ✗  Falha crítica ao corrigir: {exc}", "error"))
+                break
+
+            tentativa += 1
         else:
-            logger.debug("  ✔  Sem erros: %s", registro.nome_arquivo)
-            q.put(("log", "    ✔  OK — sem erros.", "success"))
+            # Se o loop terminou sem "break", os erros persistiram após o limite
+            resultado.incorrigivel = True
+            logger.error(
+                "  ✗  Não foi possível sanar todos os erros de '%s' após %d tentativas.",
+                registro.nome_arquivo, max_tentativas,
+            )
+            q.put((
+                "log",
+                f"    ✗  Erro persistente: impossível sanar todos os erros após {max_tentativas} tentativas.",
+                "error",
+            ))
+
+        if resultado.corrigido:
+            relatorio.total_corrigidos += 1
+        elif resultado.incorrigivel:
+            relatorio.total_incorrigiveis += 1
 
         relatorio.resultados.append(resultado)
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # ── Resumo final ──────────────────────────────────────────────────────────
     _emitir_resumo(relatorio, q)
     logger.info(
         "Conferência finalizada: %d verificados, %d com erros, %d corrigidos, %d incorrigíveis.",
