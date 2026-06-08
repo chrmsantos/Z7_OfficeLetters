@@ -81,7 +81,8 @@ def carregar_config() -> ConfigData:
         try:
             logger.warning("Falha ao carregar configuração de '%s': %s. Usando fallback.", config_path, exc)
         except Exception:
-            print(f"Falha ao carregar configuração de '{config_path}': {exc}. Usando fallback.", file=sys.stderr)
+            if sys.stderr is not None:
+                print(f"Falha ao carregar configuração de '{config_path}': {exc}. Usando fallback.", file=sys.stderr)
         
         return {
             "_comentario": "Configuração padrão de fallback devido a erro de leitura.",
