@@ -120,13 +120,14 @@ def configurar_logging(verbose: bool = False) -> str:
     file_handler.setFormatter(fmt)
 
     console_level = logging.INFO if verbose else logging.WARNING
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(console_level)
-    console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-
     logger.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+
+    if sys.stderr is not None:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(console_level)
+        console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+        logger.addHandler(console_handler)
 
     def _excepthook(
         exc_type: type[BaseException],
