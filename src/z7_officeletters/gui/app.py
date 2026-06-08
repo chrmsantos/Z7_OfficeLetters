@@ -18,6 +18,7 @@ import queue
 import re
 import shutil
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime
@@ -342,8 +343,8 @@ class AutoOficiosApp(ctk.CTk):
         self._update_status_badge.pack(side="left", padx=(12, 0), pady=(2, 0))
         self._update_status_lbl = ctk.CTkLabel(
             self._update_status_badge, text="",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="#ffffff",
+            font=ctk.CTkFont(size=11),
+            text_color=_C["dim"],
         )
         self._update_status_lbl.pack(padx=10, pady=(2, 3))
         self._refresh_update_status_ui()
@@ -393,28 +394,28 @@ class AutoOficiosApp(ctk.CTk):
             return
 
         if status == "checking":
-            self._update_status_badge.configure(fg_color=_C["panel"])
+            self._update_status_badge.configure(fg_color="transparent")
             self._update_status_lbl.configure(
                 text="⏳ Checando...",
                 text_color=_C["dim"],
             )
         elif status == "up_to_date":
-            self._update_status_badge.configure(fg_color=_C["success"])
+            self._update_status_badge.configure(fg_color="transparent")
             self._update_status_lbl.configure(
                 text="✔ App atualizado",
-                text_color="#ffffff",
+                text_color=_C["success"],
             )
         elif status == "update_available":
-            self._update_status_badge.configure(fg_color=_C["warn"])
+            self._update_status_badge.configure(fg_color="transparent")
             self._update_status_lbl.configure(
                 text="🔄 Atualização disponível",
-                text_color="#ffffff",
+                text_color=_C["warn"],
             )
         elif status == "error":
-            self._update_status_badge.configure(fg_color=_C["error"])
+            self._update_status_badge.configure(fg_color="transparent")
             self._update_status_lbl.configure(
                 text="⚠ Erro ao checar",
-                text_color="#ffffff",
+                text_color=_C["error"],
             )
 
         if hasattr(self, "_update_btn"):
@@ -1321,6 +1322,8 @@ class AutoOficiosApp(ctk.CTk):
                 logger.info("Verificação manual concluída. Versão estável mais recente no GitHub: %s (atual: %s)", tag_name, APP_VERSION)
 
                 def _handle_result() -> None:
+                    if getattr(self, "_active_update_check_id", 0) != current_id:
+                        return
                     if comparar_versoes(versao_limpa, APP_VERSION):
                         logger.info("Nova versão %s disponível para instalação manual.", tag_name)
                         self._update_status = "update_available"
@@ -1348,6 +1351,8 @@ class AutoOficiosApp(ctk.CTk):
             except Exception as exc:
                 logger.error("Falha na verificação manual de atualizações: %s", exc)
                 def _handle_err() -> None:
+                    if getattr(self, "_active_update_check_id", 0) != current_id:
+                        return
                     self._update_status = "error"
                     self._refresh_update_status_ui()
                     messagebox.showerror(
@@ -1438,10 +1443,10 @@ class AutoOficiosApp(ctk.CTk):
         ).pack(pady=(5, 10))
 
         def _bg_download() -> None:
-            temp_path = sys.executable + ".tmp"
+            temp_path = os.path.join(tempfile.gettempdir(), f"Z7_OfficeLetters_update_{os.getpid()}.exe.tmp")
             try:
                 import urllib.request  # noqa: PLC0415
-                logger.info("Iniciando download do binário para: %s", temp_path)
+                logger.info("Iniciando download do binário para pasta temporária: %s", temp_path)
 
                 req = urllib.request.Request(
                     download_url,
@@ -1624,6 +1629,10 @@ try {{
                                     script_path.unlink()
                                 except Exception:
                                     pass
+                                try:
+                                    Path(temp_path).unlink()
+                                except Exception:
+                                    pass
                                 return
 
                         logger.info("Assistente de atualização iniciado com sucesso. Encerrando aplicativo pai.")
@@ -1634,6 +1643,10 @@ try {{
                             f"Não foi possível iniciar o assistente de atualização:\n{p_err}",
                             parent=self,
                         )
+                        try:
+                            Path(temp_path).unlink()
+                        except Exception:
+                            pass
                         return
 
                     self._on_close()

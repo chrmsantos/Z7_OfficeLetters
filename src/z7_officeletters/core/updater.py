@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.error
 import urllib.request
 from typing import Tuple
 
@@ -113,6 +114,14 @@ def obter_ultima_versao() -> tuple[str, str]:
             if status != 200:
                 raise RuntimeError(f"Servidor respondeu com código HTTP {status}")
             data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as http_exc:
+        if http_exc.code == 403:
+            logger.error("Limite de requisições da API do GitHub excedido.")
+            raise RuntimeError(
+                "Limite de requisições da API do GitHub excedido para o seu IP. "
+                "Por favor, aguarde alguns minutos e tente novamente."
+            ) from http_exc
+        raise RuntimeError(f"Servidor respondeu com código HTTP {http_exc.code}") from http_exc
     except Exception as exc:
         logger.error("Falha ao consultar a API do GitHub: %s", exc)
         raise RuntimeError(f"Erro ao conectar com o servidor de atualizações: {exc}") from exc

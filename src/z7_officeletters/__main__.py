@@ -110,6 +110,19 @@ def main() -> None:
     splash.mainloop()  # blocks until splash.destroy() is called
 
     if "error" in _result:
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror(
+                "Erro de Inicialização",
+                f"Ocorreu um erro crítico ao carregar o aplicativo:\n\n{_result['error']}\n\n"
+                "Verifique os logs ou a integridade dos arquivos do sistema.",
+            )
+            root.destroy()
+        except Exception:
+            pass
         raise _result["error"]
 
     app = _result["cls"]()

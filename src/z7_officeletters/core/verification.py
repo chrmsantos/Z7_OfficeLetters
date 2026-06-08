@@ -149,21 +149,37 @@ def verificar_tags_pendentes(caminho: str) -> list[str]:
                             f"Marcador de template não renderizado na tabela {t_idx}, linha {r_idx}, célula {c_idx}: '{cell.text}'"
                         )
 
-        # 3. Verificar cabeçalhos e rodapés de cada seção
+        # 3. Verificar cabeçalhos e rodapés de cada seção (incluindo primeira página e páginas pares)
         for s_idx, section in enumerate(doc.sections, start=1):
-            header = section.header
-            if header is not None:
-                for p_idx, p in enumerate(header.paragraphs, start=1):
+            headers = []
+            footers = []
+            
+            if hasattr(section, "header") and section.header is not None:
+                headers.append(("cabeçalho padrão", section.header))
+            if hasattr(section, "first_page_header") and section.first_page_header is not None:
+                headers.append(("cabeçalho da primeira página", section.first_page_header))
+            if hasattr(section, "even_page_header") and section.even_page_header is not None:
+                headers.append(("cabeçalho de página par", section.even_page_header))
+                
+            if hasattr(section, "footer") and section.footer is not None:
+                footers.append(("rodapé padrão", section.footer))
+            if hasattr(section, "first_page_footer") and section.first_page_footer is not None:
+                footers.append(("rodapé da primeira página", section.first_page_footer))
+            if hasattr(section, "even_page_footer") and section.even_page_footer is not None:
+                footers.append(("rodapé de página par", section.even_page_footer))
+
+            for tipo_lbl, h in headers:
+                for p_idx, p in enumerate(h.paragraphs, start=1):
                     if "{{" in p.text or "}}" in p.text or "{%" in p.text or "%}" in p.text:
                         erros.append(
-                            f"Marcador de template não renderizado no cabeçalho da seção {s_idx}, parágrafo {p_idx}: '{p.text}'"
+                            f"Marcador de template não renderizado no {tipo_lbl} da seção {s_idx}, parágrafo {p_idx}: '{p.text}'"
                         )
-            footer = section.footer
-            if footer is not None:
-                for p_idx, p in enumerate(footer.paragraphs, start=1):
+
+            for tipo_lbl, f in footers:
+                for p_idx, p in enumerate(f.paragraphs, start=1):
                     if "{{" in p.text or "}}" in p.text or "{%" in p.text or "%}" in p.text:
                         erros.append(
-                            f"Marcador de template não renderizado no rodapé da seção {s_idx}, parágrafo {p_idx}: '{p.text}'"
+                            f"Marcador de template não renderizado no {tipo_lbl} da seção {s_idx}, parágrafo {p_idx}: '{p.text}'"
                         )
     except Exception as e:
         erros.append(f"Erro ao analisar marcadores do arquivo '{caminho}': {e}")
@@ -228,15 +244,15 @@ def verificar_consistencia_dados(registro: RegistroOficio) -> list[str]:
         )
 
     # Check tipo_mocao (only for moções)
-    if registro.tipo_propositura != "requerimento_pesar" and tipo_esperado:
-        if ctx.get("tipo_mocao") != tipo_esperado:
+    if registro.tipo_propositura != "requerimento_pesar":
+        if ctx.get("tipo_mocao", "") != tipo_esperado:
             erros.append(
                 f"tipo_mocao: ctx='{ctx.get('tipo_mocao')}' — esperado='{tipo_esperado}'"
             )
 
     # Check falecido (only for requerimentos de pesar)
-    if registro.tipo_propositura == "requerimento_pesar" and falecido_esperado:
-        if ctx.get("falecido") != falecido_esperado:
+    if registro.tipo_propositura == "requerimento_pesar":
+        if ctx.get("falecido", "") != falecido_esperado:
             erros.append(
                 f"falecido: ctx='{ctx.get('falecido')}' — esperado='{falecido_esperado}'"
             )

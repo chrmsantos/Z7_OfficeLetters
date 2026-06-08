@@ -61,10 +61,6 @@ def carregar_config() -> ConfigData:
 
     Returns:
         Parsed configuration dictionary.
-
-    Raises:
-        FileNotFoundError: If no config file is found in either location.
-        json.JSONDecodeError: If the file contains invalid JSON.
     """
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).parent
@@ -77,9 +73,26 @@ def carregar_config() -> ConfigData:
     else:
         config_path = Path(__file__).parent.parent.parent.parent / "config.json"
 
-    with config_path.open(encoding="utf-8") as fh:
-        data: ConfigData = json.load(fh)
-    return data
+    try:
+        with config_path.open(encoding="utf-8") as fh:
+            data: ConfigData = json.load(fh)
+        return data
+    except Exception as exc:
+        try:
+            logger.warning("Falha ao carregar configuração de '%s': %s. Usando fallback.", config_path, exc)
+        except Exception:
+            print(f"Falha ao carregar configuração de '{config_path}': {exc}. Usando fallback.", file=sys.stderr)
+        
+        return {
+            "_comentario": "Configuração padrão de fallback devido a erro de leitura.",
+            "prefeito": {
+                "nome": "Prefeito Municipal",
+                "endereco": "Praça Central, s/n - Centro"
+            },
+            "autores": {},
+            "vereadores_feminino": [],
+            "redatores": {}
+        }
 
 
 # ── Module-level state (mutated by reload_config) ────────────────────────────
