@@ -87,7 +87,6 @@ class AutoOficiosApp(ctk.CTk):
         self._prog_pct_color_tag = "accent"
 
         self._update_status: str = "up_to_date"
-        self._has_checked_updates: bool = False
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -391,7 +390,12 @@ class AutoOficiosApp(ctk.CTk):
             self._update_status = "checking"
 
         status = self._update_status
-        if not hasattr(self, "_update_status_badge") or not hasattr(self, "_update_status_lbl"):
+        if (
+            not hasattr(self, "_update_status_badge")
+            or not self._update_status_badge.winfo_exists()
+            or not hasattr(self, "_update_status_lbl")
+            or not self._update_status_lbl.winfo_exists()
+        ):
             return
 
         if status == "checking":
@@ -419,7 +423,7 @@ class AutoOficiosApp(ctk.CTk):
                 text_color=_C["error"],
             )
 
-        if hasattr(self, "_update_btn"):
+        if hasattr(self, "_update_btn") and self._update_btn.winfo_exists():
             if status == "checking":
                 self._update_btn.configure(state="disabled", text="⏳ Checando...")
             else:
@@ -1307,14 +1311,6 @@ class AutoOficiosApp(ctk.CTk):
         if self._processing or self._update_status == "checking":
             return
 
-        if self._update_status == "up_to_date" and self._has_checked_updates:
-            messagebox.showinfo(
-                "Sem Atualizações",
-                f"Você já está utilizando a versão mais recente ({APP_VERSION}).",
-                parent=self,
-            )
-            return
-
         logger.info("Iniciando verificação manual de atualizações...")
         self._update_status = "checking"
         self._refresh_update_status_ui()
@@ -1349,7 +1345,6 @@ class AutoOficiosApp(ctk.CTk):
                     else:
                         logger.info("Nenhuma atualização disponível manualmente. Aplicativo já na última versão (%s).", APP_VERSION)
                         self._update_status = "up_to_date"
-                        self._has_checked_updates = True
                         self._refresh_update_status_ui()
                         messagebox.showinfo(
                             "Sem Atualizações",
