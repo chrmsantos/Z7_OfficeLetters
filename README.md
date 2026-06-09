@@ -73,6 +73,7 @@ CONTROLE_OFICIOS_FINAL.xlsx  # Planilha de controle consolidada
 Z7_OfficeLetters/
 ├── auto_oficios.py           # Código principal
 ├── ui.py                     # Interface gráfica
+├── build.py                  # Script de compilação segura
 ├── config.json               # Configuração (autores, prefeito)
 ├── auto_oficios.spec         # Spec PyInstaller
 ├── tests/
@@ -85,6 +86,16 @@ Z7_OfficeLetters/
 ```bash
 pytest tests/ -v
 ```
+
+## Compilação (Geração do Executável)
+
+Para gerar o arquivo executável standalone (`.exe`) para Windows de forma segura (evitando erros de travamento de arquivo), execute o script de compilação:
+
+```bash
+python build.py
+```
+
+O executável final será gerado no diretório `dist/Z7_OfficeLetters.exe`.
 
 ## Licença
 
