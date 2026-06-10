@@ -361,11 +361,10 @@ class AutoOficiosApp(ctk.CTk):
         self._update_btn = ctk.CTkButton(
             hdr,
             text="🔄  Atualizar",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(size=12, weight="bold"),
             width=110, height=32, corner_radius=8,
-            fg_color=_C["panel"], hover_color=_C["border"],
-            text_color=_C["dim"],
-            border_width=1, border_color=_C["border"],
+            fg_color=_C["accent"], hover_color=_C["accent2"],
+            text_color="#ffffff",
             command=self._check_for_updates_user,
         )
         self._update_btn.grid(row=0, column=1, sticky="e", padx=(0, 10), pady=(30, 0))
