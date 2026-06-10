@@ -19,7 +19,7 @@ def _read_version() -> str:
         from importlib.metadata import version
         return version("z7-officeletters")
     except Exception:
-        return "4.2.3"  # fallback para builds congelados sem metadados
+        return "4.2.4"  # fallback para builds congelados sem metadados
 
 
 APP_NAME: str = "Z7 OfficeLetters"

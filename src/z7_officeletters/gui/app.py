@@ -47,7 +47,7 @@ from z7_officeletters.constants import (
 from z7_officeletters.core import config as _config
 from z7_officeletters.core.documents import criar_modelo_planilha, criar_modelo_envelope
 from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia
-from z7_officeletters.core.logging_setup import configurar_logging
+from z7_officeletters.core.logging_setup import configurar_logging, logger
 from z7_officeletters.gui.constants import _C, _DARK, _LIGHT
 from z7_officeletters.gui.workers.processor import run_processing_worker
 from z7_officeletters.core.updater import obter_ultima_versao, comparar_versoes
