@@ -272,12 +272,14 @@ def verificar_consistencia_dados(registro: RegistroOficio) -> list[str]:
         else:
             val_strip = str(valor).strip().lower()
             if val_strip in placeholders or not val_strip:
-                # Except empty fields that are expected to be optionally empty (like falecido for motions)
-                if (
-                    chave.lower() in ("falecido", "destinatario_endereco")
-                    and registro.tipo_propositura != "requerimento_pesar"
-                ):
-                    continue
+                # Except empty fields that are expected to be optionally empty
+                chave_lower = chave.lower()
+                if registro.tipo_propositura == "requerimento_pesar":
+                    if chave_lower in ("tipo_mocao", "destinatario_endereco"):
+                        continue
+                else:
+                    if chave_lower in ("falecido", "destinatario_endereco"):
+                        continue
                 erros.append(f"Campo '{chave}' no contexto possui valor inválido/incompleto: '{valor}'")
 
     return erros

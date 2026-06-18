@@ -259,16 +259,35 @@ class TestVerificarConsistenciaDados:
 
     def test_falecido_incorreto_requerimento(self) -> None:
         dados = [_dados_pesar(falecido="Maria Silva")]
-        ctx_pesar = _ctx_mocao(tipo_propositura="requerimento_pesar")
-        ctx_pesar["falecido"] = "João Silva"
-        ctx_pesar["FALECIDO"] = "João Silva"
+        ctx_sonar = _ctx_mocao(tipo_propositura="requerimento_pesar")
+        ctx_sonar["falecido"] = "João Silva"
+        ctx_sonar["FALECIDO"] = "João Silva"
         reg = _registro(
-            ctx=ctx_pesar,
+            ctx=ctx_sonar,
             dados_grupo=dados,
             tipo_propositura="requerimento_pesar",
         )
         erros = verificar_consistencia_dados(reg)
         assert any("falecido" in e for e in erros)
+
+    def test_requerimento_pesar_campos_vazios_permitidos(self) -> None:
+        dados = [_dados_pesar(falecido="Maria Silva")]
+        ctx_pesar = _ctx_mocao(tipo_propositura="requerimento_pesar")
+        ctx_pesar["num_mocao"] = "45"
+        ctx_sonar = ctx_pesar
+        ctx_sonar["NUM_MOCAO"] = "45"
+        ctx_sonar["tipo_mocao"] = ""
+        ctx_sonar["TIPO_MOCAO"] = ""
+        ctx_sonar["destinatario_endereco"] = ""
+        ctx_sonar["DESTINATARIO_ENDERECO"] = ""
+        ctx_sonar["falecido"] = "Maria Silva"
+        ctx_sonar["FALECIDO"] = "Maria Silva"
+        reg = _registro(
+            ctx=ctx_sonar,
+            dados_grupo=dados,
+            tipo_propositura="requerimento_pesar",
+        )
+        assert verificar_consistencia_dados(reg) == []
 
     def test_placeholder_val_error(self) -> None:
         ctx = _ctx_mocao(num_mocao="TODO")
