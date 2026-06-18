@@ -32,3 +32,6 @@ CONTROLE_OFICIOS_FINAL.xlsx
 # OS
 .DS_Store
 Thumbs.db
+
+# EXAMPLES
+examples/

@@ -210,7 +210,7 @@ def construir_nome_arquivo(
     if tipo_propositura == "requerimento_pesar":
         nome = (
             f"Of. {num_oficio_str} - {sigla_servidor} - "
-            f"Req. de Pesar nº {num_mocao}-{ano_2d} - "
+            f"Req. Pesar nº {num_mocao}-{ano_2d} - "
             f"{envio.lower()} - {nome_dest_trim} - {sigla_autores}.docx"
         )
     else:

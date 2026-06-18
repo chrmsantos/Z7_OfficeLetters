@@ -84,6 +84,37 @@ def _ordenar_grupos(
     )
 
 
+def _detectar_genero_falecido(nome: str, texto: str) -> str:
+    """Detect the gender of the deceased person from their name and motion text.
+
+    Returns:
+        "F" for female, "M" for male.
+    """
+    texto_lower = texto.lower()
+    nome_parts = nome.split()
+    first_name = nome_parts[0].lower() if nome_parts else ""
+
+    # Look for "sra", "senhora" or "dona" near/in the text
+    if re.search(r'\b(sra|senhora|dona)\b', texto_lower):
+        return "F"
+    if re.search(r'\b(sr|senhor)\b', texto_lower):
+        return "M"
+
+    if first_name.endswith('a'):
+        return "F"
+
+    female_names = {
+        "neide", "irene", "cleide", "gisele", "marize", "elisete", "elizete",
+        "lourdes", "beatriz", "elis", "regine", "solange", "viviane", "rosangela",
+        "rosângela", "terezinha", "theresinha", "sueli", "suely", "dirce", "salete",
+        "ivone", "eliane", "rose"
+    }
+    if first_name in female_names:
+        return "F"
+
+    return "M"
+
+
 def _worker_main(
     inputs: dict[str, Any],
     q: "queue.Queue[tuple[Any, ...]]",
@@ -234,6 +265,7 @@ def _worker_main(
             # Normalise motion/requerimento number to just the numeric part.
             num_raw = dados.get("numero_requerimento") or dados.get("numero_mocao", "")
             dados["numero_mocao"] = _docs.normalizar_numero_mocao(str(num_raw))
+            dados["texto_original"] = texto
             extracted.append((tipo_propositura, dados))
 
             _num_extr = dados.get("numero_mocao") or "–"
@@ -299,6 +331,17 @@ def _worker_main(
 
             tipo_propositura = dest_key[0]
             n_props = len(grupo)
+
+            # Determine gender of the deceased if this is a requerimento_pesar
+            gender = "M"
+            if tipo_propositura == "requerimento_pesar":
+                genders = []
+                for d_item, _, _ in grupo:
+                    f_name = d_item.get("falecido", "")
+                    f_text = d_item.get("texto_original", "")
+                    if f_name:
+                        genders.append(_detectar_genero_falecido(f_name, f_text))
+                gender = "F" if "F" in genders else "M"
 
             # Merge proposition data from every item in the group.
             all_autores: list[str] = []
@@ -404,8 +447,18 @@ def _worker_main(
                 ctx["VOCATIVO"]           = "Ilustríssimos Senhores(as)"
                 ctx["pronome_corpo"]      = "Vossas Senhorias"
                 ctx["PRONOME_CORPO"]      = "Vossas Senhorias"
-                ctx["tratamento_rodape"]  = "Aos familiares do Sr.(ª),"
-                ctx["TRATAMENTO_RODAPE"]  = "Aos familiares do Sr.(ª),"
+
+                if gender == "F":
+                    trat_falecido = "da SRA."
+                    trat_rodape = "À Família da Senhora"
+                else:
+                    trat_falecido = "do SR."
+                    trat_rodape = "À Família do Senhor"
+
+                ctx["tratamento_falecido"] = trat_falecido
+                ctx["TRATAMENTO_FALECIDO"] = trat_falecido
+                ctx["tratamento_rodape"]  = trat_rodape
+                ctx["TRATAMENTO_RODAPE"]  = trat_rodape
                 ctx["destinatario_nome"]  = falecido_merged.upper()
                 ctx["DESTINATARIO_NOME"]  = falecido_merged.upper()
 
@@ -422,13 +475,19 @@ def _worker_main(
             doc = DocxTemplate(str(_tmpl))
             doc.render(ctx)
 
+            if tipo_propositura == "requerimento_pesar":
+                prefix = "Sra. " if gender == "F" else "Sr. "
+                nome_para_arquivo = prefix + falecido_merged
+            else:
+                nome_para_arquivo = dest0["nome"]
+
             nome = _docs.construir_nome_arquivo(
                 num_str,
                 inputs["sigla"],
                 tipo_mocao_merged,
                 num_mocao_merged,
                 info["envio"],
-                dest0["nome"],
+                nome_para_arquivo,
                 sigla_autores,
                 ano=year,
                 tipo_propositura=tipo_propositura,

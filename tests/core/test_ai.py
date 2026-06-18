@@ -358,7 +358,7 @@ class TestConstruirNomeArquivoTipoPropositura:
             "001", "ajc", "", "45", "Em Mãos", "João Silva", "ad", 2026,
             tipo_propositura="requerimento_pesar",
         )
-        assert "Req. de Pesar" in nome
+        assert "Req. Pesar" in nome
         assert "Moção" not in nome
 
     def test_requerimento_pesar_ano_2d(self) -> None:
