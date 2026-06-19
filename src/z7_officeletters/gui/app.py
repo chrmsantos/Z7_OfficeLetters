@@ -254,6 +254,8 @@ class AutoOficiosApp(ctk.CTk):
         self._prop_listbox.delete(0, tk.END)
         for p in saved_props:
             self._prop_listbox.insert(tk.END, Path(p).name)
+        # Check for updates silently on startup
+        self._check_for_updates_silent()
 
     def _load_saved_theme(self) -> None:
         try:
@@ -1364,6 +1366,48 @@ class AutoOficiosApp(ctk.CTk):
                         f"Não foi possível verificar atualizações:\n{exc}",
                         parent=self,
                     )
+                self.after(0, _handle_err)
+
+        threading.Thread(target=_bg_check, daemon=True).start()
+
+    def _check_for_updates_silent(self) -> None:
+        if self._processing or self._update_status == "checking":
+            return
+
+        logger.info("Iniciando verificação automática de atualizações...")
+        self._update_status = "checking"
+        self._refresh_update_status_ui()
+
+        self._update_check_counter = getattr(self, "_update_check_counter", 0) + 1
+        current_id = self._update_check_counter
+        self._active_update_check_id = current_id
+        self.after(15000, lambda: self._handle_update_timeout(current_id))
+
+        def _bg_check() -> None:
+            try:
+                tag_name, download_url = obter_ultima_versao()
+                versao_limpa = tag_name.lstrip("vV")
+                logger.info("Verificação automática concluída. Versão estável mais recente no GitHub: %s (atual: %s)", tag_name, APP_VERSION)
+
+                def _handle_result() -> None:
+                    if getattr(self, "_active_update_check_id", 0) != current_id:
+                        return
+                    if comparar_versoes(versao_limpa, APP_VERSION):
+                        logger.info("Nova versão %s disponível.", tag_name)
+                        self._update_status = "update_available"
+                    else:
+                        logger.info("Nenhuma atualização disponível. Aplicativo já na última versão (%s).", APP_VERSION)
+                        self._update_status = "up_to_date"
+                    self._refresh_update_status_ui()
+
+                self.after(0, _handle_result)
+            except Exception as exc:
+                logger.error("Falha na verificação automática de atualizações: %s", exc)
+                def _handle_err() -> None:
+                    if getattr(self, "_active_update_check_id", 0) != current_id:
+                        return
+                    self._update_status = "error"
+                    self._refresh_update_status_ui()
                 self.after(0, _handle_err)
 
         threading.Thread(target=_bg_check, daemon=True).start()
