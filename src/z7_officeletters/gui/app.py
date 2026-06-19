@@ -1588,15 +1588,15 @@ $exe = '{exe_path_esc}'
 $temp = '{temp_path_esc}'
 $old = $exe + '.old'
 
-$log_dir = Join-Path (Split-Path $exe) "logs"
-if (!(Test-Path $log_dir)) {{
-    New-Item -ItemType Directory -Path $log_dir -Force | Out-Null
+$log_dir = Join-Path (Split-Path -LiteralPath $exe) "logs"
+if (!(Test-Path -LiteralPath $log_dir)) {{
+    New-Item -ItemType Directory -LiteralPath $log_dir -Force | Out-Null
 }}
 $log = Join-Path $log_dir "update_install.log"
 
 function Write-Log($msg) {{
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $log -Value "$timestamp - $msg" -ErrorAction SilentlyContinue
+    Add-Content -LiteralPath $log -Value "$timestamp - $msg" -ErrorAction SilentlyContinue
 }}
 
 Write-Log "----------------------------------------"
@@ -1610,37 +1610,37 @@ Write-Log "Processo pai finalizado. Continuando instalação."
 Start-Sleep -Milliseconds 500
 
 try {{
-    if (Test-Path $old) {{ 
+    if (Test-Path -LiteralPath $old) {{ 
         Write-Log "Removendo arquivo de backup antigo existente: $old"
-        Remove-Item -Path $old -Force 
+        Remove-Item -LiteralPath $old -Force 
     }}
-    if (Test-Path $exe) {{ 
+    if (Test-Path -LiteralPath $exe) {{ 
         Write-Log "Renomeando executável atual para: $old"
-        Rename-Item -Path $exe -NewName ([System.IO.Path]::GetFileName($old)) -Force 
+        Rename-Item -LiteralPath $exe -NewName ([System.IO.Path]::GetFileName($old)) -Force 
     }}
     Write-Log "Movendo arquivo temporário de atualização $temp para $exe"
-    Move-Item -Path $temp -Destination $exe -Force
+    Move-Item -LiteralPath $temp -Destination $exe -Force
     
     Write-Log "Limpando variáveis de ambiente de runtime do PyInstaller (_MEIPASS)"
-    if (Test-Path Env:\\_MEIPASS) {{ Remove-Item Env:\\_MEIPASS }}
+    if (Test-Path -LiteralPath Env:\\_MEIPASS) {{ Remove-Item -LiteralPath Env:\\_MEIPASS }}
     
     Write-Log "Processo de atualização concluído com sucesso absoluto! O aplicativo será aberto na nova versão na próxima inicialização."
 }} catch {{
     Write-Log "ERRO CRÍTICO DURANTE A INSTALAÇÃO DA ATUALIZAÇÃO: $_.Exception.Message"
-    Add-Content -Path ($exe + '.update_error.log') -Value $_.Exception.Message
+    Add-Content -LiteralPath ($exe + '.update_error.log') -Value $_.Exception.Message
     
     # Rollback logic if old backup exists but new target exe is missing
-    if ((Test-Path $old) -and !(Test-Path $exe)) {{
+    if ((Test-Path -LiteralPath $old) -and !(Test-Path -LiteralPath $exe)) {{
         Write-Log "Iniciando rollback: restaurando executável antigo de $old para $exe"
-        Rename-Item -Path $old -NewName ([System.IO.Path]::GetFileName($exe)) -Force
+        Rename-Item -LiteralPath $old -NewName ([System.IO.Path]::GetFileName($exe)) -Force
         Write-Log "Rollback concluído com sucesso."
     }}
 }} finally {{
-    if (Test-Path $temp) {{
-        Remove-Item -Path $temp -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $temp) {{
+        Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue
     }}
     # Self-delete this script file
-    Remove-Item -Path $PSCommandPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 }}
 """
                     try:
