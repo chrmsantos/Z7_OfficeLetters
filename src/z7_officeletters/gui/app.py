@@ -503,7 +503,7 @@ class AutoOficiosApp(ctk.CTk):
         )
         self._data_btn.grid(row=1, column=2, sticky="ew", padx=(8, 0))
 
-        self._field_label(self._left, 9, "Propositura(s)")
+        self._field_label(self._left, 9, "Arquivos das Proposituras (PDF, DOCX e/ou TXT)")
 
         _list_outer = ctk.CTkFrame(self._left, fg_color=_C["border"], corner_radius=8)
         _list_outer.grid(row=10, column=0, sticky="ew", padx=20, pady=(0, 6))
