@@ -436,7 +436,7 @@ class AutoOficiosApp(ctk.CTk):
         self._left.grid_columnconfigure(0, weight=1)
         self._left.grid_rowconfigure(14, weight=1)
 
-        self._section_title(self._left, 0, "CONFIGURAÇÃO")
+        self._section_title(self._left, 0, "DADOS DOS OFÍCIOS")
         self._divider(self._left, 1)
 
         top_frame = ctk.CTkFrame(self._left, fg_color="transparent")
