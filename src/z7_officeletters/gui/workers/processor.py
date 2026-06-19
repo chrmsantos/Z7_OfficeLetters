@@ -378,7 +378,7 @@ def _worker_main(
                 for d_item, _, __ in grupo
                 if d_item.get("falecido")
             ]
-            falecido_merged = _docs.formatar_lista_pt(falecidos) if falecidos else ""
+            falecido_merged = _docs.formatar_lista_pt(falecidos).upper() if falecidos else ""
 
             # Recipient info is identical for all items in the group
             # (they share the same destination); use the first entry.

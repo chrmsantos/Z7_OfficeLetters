@@ -323,10 +323,6 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
     p_dest.paragraph_format.space_after = Pt(0)
     p_dest.paragraph_format.line_spacing = 1.15
 
-    r_dest_title = p_dest.add_run("DESTINATÁRIO:\n")
-    r_dest_title.font.size = Pt(9.5)
-    r_dest_title.font.bold = True
-    r_dest_title.font.name = "Arial"
 
     r_dest_body = p_dest.add_run("{{ TRATAMENTO_RODAPE }} {{ DESTINATARIO_NOME }}\n{{ DESTINATARIO_ENDERECO }}")
     r_dest_body.font.size = Pt(11)

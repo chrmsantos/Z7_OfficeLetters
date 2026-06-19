@@ -280,8 +280,8 @@ class TestVerificarConsistenciaDados:
         ctx_sonar["TIPO_MOCAO"] = ""
         ctx_sonar["destinatario_endereco"] = ""
         ctx_sonar["DESTINATARIO_ENDERECO"] = ""
-        ctx_sonar["falecido"] = "Maria Silva"
-        ctx_sonar["FALECIDO"] = "Maria Silva"
+        ctx_sonar["falecido"] = "MARIA SILVA"
+        ctx_sonar["FALECIDO"] = "MARIA SILVA"
         reg = _registro(
             ctx=ctx_sonar,
             dados_grupo=dados,

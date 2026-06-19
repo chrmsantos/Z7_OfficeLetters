@@ -1512,7 +1512,7 @@ class AutoOficiosApp(ctk.CTk):
                     messagebox.showinfo(
                         "Atualização Concluída",
                         "A atualização foi baixada com sucesso!\n\n"
-                        "O aplicativo será fechado para concluir a instalação, e a nova versão será aberta na próxima inicialização.",
+                        "O aplicativo será aberto na nova versão na próxima inicialização.",
                         parent=self,
                     )
                     import subprocess  # noqa: PLC0415
@@ -1639,7 +1639,9 @@ try {{
                                     pass
                                 return
 
-                        logger.info("Assistente de atualização iniciado com sucesso. Encerrando aplicativo pai.")
+                        logger.info("Assistente de atualização iniciado com sucesso.")
+                        self._update_status = "up_to_date"
+                        self._refresh_update_status_ui()
                     except Exception as p_err:
                         logger.error("Falha ao preparar ou iniciar assistente de atualização: %s", p_err)
                         messagebox.showerror(
@@ -1653,7 +1655,8 @@ try {{
                             pass
                         return
 
-                    self._on_close()
+                    # Keep the application open as requested
+                    pass
 
                 self.after(0, _success)
 

@@ -235,7 +235,7 @@ def verificar_consistencia_dados(registro: RegistroOficio) -> list[str]:
     tipo_esperado = _formatar_lista_pt(tipos_lista) if tipos_lista else ""
 
     falecidos_lista = [str(d.get("falecido", "")) for d in dados if d.get("falecido")]
-    falecido_esperado = _formatar_lista_pt(falecidos_lista) if falecidos_lista else ""
+    falecido_esperado = _formatar_lista_pt(falecidos_lista).upper() if falecidos_lista else ""
 
     # Check num_mocao
     if nums_esperados and ctx.get("num_mocao") != nums_esperados:
@@ -729,7 +729,7 @@ def corrigir_ctx(
     if any("falecido" in e for e in erros_dados_lower):
         falecidos = [str(d.get("falecido", "")) for d in dados if d.get("falecido")]
         if falecidos:
-            merged = _formatar_lista_pt(falecidos)
+            merged = _formatar_lista_pt(falecidos).upper()
             ctx["falecido"] = merged
             ctx["FALECIDO"] = merged
 
