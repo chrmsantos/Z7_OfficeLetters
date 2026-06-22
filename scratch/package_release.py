@@ -1,9 +1,15 @@
+import sys
 import zipfile
 from pathlib import Path
 
 def main():
     project_dir = Path(__file__).resolve().parent.parent
-    zip_path = project_dir / "dist" / "Z7_OfficeLetters_v4.2.8.zip"
+    
+    # Import version dynamically
+    sys.path.insert(0, str(project_dir / "src"))
+    from z7_officeletters import APP_VERSION
+    
+    zip_path = project_dir / "dist" / f"Z7_OfficeLetters_v{APP_VERSION}.zip"
     
     print(f"[*] Criando arquivo ZIP em {zip_path}...")
     

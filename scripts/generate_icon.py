@@ -142,34 +142,7 @@ def draw_frame(size: int) -> Image.Image:
     s = size / 256.0
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
 
-    # Background with rounded-rectangle mask
-    bg = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    _draw_background(bg, size)
-
-    mask = Image.new("L", (size, size), 0)
-    md = ImageDraw.Draw(mask)
-    pad = max(1, int(3 * s))
-    rad = int(44 * s)
-    try:
-        md.rounded_rectangle([pad, pad, size - pad, size - pad], radius=rad, fill=255)
-    except AttributeError:
-        md.ellipse([pad, pad, size - pad, size - pad], fill=255)
-
-    img.paste(bg, mask=mask)
     d = ImageDraw.Draw(img)
-
-    _rr(d, (pad, pad, size - pad, size - pad),
-        radius=rad, outline=BORDER_C, width=max(1, int(2 * s)))
-
-    # Upper-left corner shine
-    if size >= 48:
-        shine_pts = _sp([(14, 14), (80, 14), (14, 80)], s)
-        shine_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        sd = ImageDraw.Draw(shine_layer)
-        sd.polygon(shine_pts, fill=BG_SHINE)
-        shine_layer = shine_layer.filter(ImageFilter.GaussianBlur(radius=max(1, int(6 * s))))
-        img = Image.alpha_composite(img, shine_layer)
-        d = ImageDraw.Draw(img)
 
     # Paper shadow
     if size >= 32:
@@ -351,7 +324,7 @@ def build_ico(out_path: Path) -> None:
         sizes=[(sz, sz) for sz in sizes],
         append_images=frames[1:],
     )
-    print(f"✓  {out_path}  ({out_path.stat().st_size // 1024} KB, {len(sizes)} sizes)")
+    print(f"OK: {out_path} ({out_path.stat().st_size // 1024} KB, {len(sizes)} sizes)")
 
 
 if __name__ == "__main__":
