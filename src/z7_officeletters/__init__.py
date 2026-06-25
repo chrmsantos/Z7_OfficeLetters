@@ -15,5 +15,5 @@ __all__ = ["APP_NAME", "APP_VERSION", "APP_AUTHOR"]
 
 
 APP_NAME: str = "Z7 OfficeLetters"
-APP_VERSION: str = "4.3.0"
+APP_VERSION: str = "4.4.0"
 APP_AUTHOR: str = "CMS"
