@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 __all__ = [
     "formatar_lista_pt",
@@ -25,6 +26,7 @@ __all__ = [
     "construir_nome_arquivo",
     "criar_modelo_planilha",
     "criar_modelo_envelope",
+    "ajustar_posicao_rodape",
 ]
 
 # ── Pre-compiled regex patterns ───────────────────────────────────────────────
@@ -330,3 +332,136 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
 
     doc.save(str(destino))
     return destino
+
+
+def ajustar_posicao_rodape(caminho_doc: str, word_app: Any = None) -> None:
+    """Ajusta o espaçamento antes do bloco de destinatário (rodapé do ofício)
+    para que ele termine exatamente na penúltima linha da primeira página.
+    
+    Usa o Word COM Automation (win32com). Se `word_app` não for fornecido,
+    cria uma instância temporária do Word.
+    """
+    import os
+    from pathlib import Path
+    
+    path = Path(caminho_doc)
+    if not path.exists():
+        return
+        
+    try:
+        import win32com.client
+    except ImportError:
+        return
+        
+    temp_word = False
+    doc = None
+    try:
+        if word_app is None:
+            try:
+                word_app = win32com.client.DispatchEx("Word.Application")
+                word_app.Visible = False
+                temp_word = True
+            except Exception:
+                return
+                
+        doc = word_app.Documents.Open(str(path.resolve()))
+        
+        def get_page(p: Any) -> int:
+            try:
+                return int(p.Range.Information(3))  # 3 represents wdActiveEndPageNumber
+            except Exception:
+                return 1
+                
+        n_paragraphs = doc.paragraphs.Count
+        if n_paragraphs < 1:
+            return
+            
+        # Identificar o bloco de destinatário (parágrafos não vazios no final)
+        p_idx = n_paragraphs
+        while p_idx >= 1:
+            try:
+                text = doc.paragraphs(p_idx).Range.Text.strip()
+            except Exception:
+                text = ""
+            if not text:
+                break
+            p_idx -= 1
+            
+        idx_recip_start = p_idx + 1
+        
+        if idx_recip_start > n_paragraphs:
+            return
+            
+        insert_idx = idx_recip_start - 1
+        if insert_idx < 1:
+            return
+            
+        p_last = doc.paragraphs(n_paragraphs)
+        
+        # 1. Se estiver na página 2+, remove parágrafos vazios anteriores para tentar caber na página 1
+        max_deletes = 100
+        while get_page(p_last) > 1 and insert_idx > 1 and max_deletes > 0:
+            prev_p = doc.paragraphs(insert_idx)
+            try:
+                p_text = prev_p.Range.Text.strip()
+            except Exception:
+                p_text = "error"
+            if not p_text:
+                prev_p.Range.Delete()
+                n_paragraphs = doc.paragraphs.Count
+                p_last = doc.paragraphs(n_paragraphs)
+                insert_idx -= 1
+            else:
+                break
+            max_deletes -= 1
+            
+        # 2. Se estiver na página 1, insere parágrafos vazios até que transpasse para a página 2
+        if get_page(p_last) == 1:
+            spilled = False
+            added_count = 0
+            max_inserts = 100
+            
+            while get_page(p_last) == 1 and max_inserts > 0:
+                p_recip = doc.paragraphs(idx_recip_start + added_count)
+                p_recip.Range.InsertParagraphBefore()
+                added_count += 1
+                
+                n_paragraphs = doc.paragraphs.Count
+                p_last = doc.paragraphs(n_paragraphs)
+                
+                if get_page(p_last) > 1:
+                    spilled = True
+                    break
+                max_inserts -= 1
+                
+            # 3. Uma vez que transpassou, remove exatamente 2 parágrafos vazios
+            # (1 para voltar à página 1 na última linha, e mais 1 para ficar na penúltima linha)
+            if spilled:
+                for _ in range(2):
+                    n_paragraphs = doc.paragraphs.Count
+                    empty_idx = idx_recip_start + added_count - 1
+                    if empty_idx >= 1:
+                        p_to_del = doc.paragraphs(empty_idx)
+                        try:
+                            p_to_del_text = p_to_del.Range.Text.strip()
+                        except Exception:
+                            p_to_del_text = "error"
+                        if not p_to_del_text:
+                            p_to_del.Range.Delete()
+                            added_count -= 1
+                            
+        doc.Save()
+    except Exception:
+        pass
+    finally:
+        if doc is not None:
+            try:
+                doc.Close(False)
+            except Exception:
+                pass
+        if temp_word and word_app is not None:
+            try:
+                word_app.Quit()
+            except Exception:
+                pass
+

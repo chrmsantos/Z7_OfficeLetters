@@ -39,7 +39,7 @@ KEYRING_SERVICE: str = "z7_officeletters"
 KEYRING_USERNAME: str = "gemini_api_key"
 KEYRING_MODEL_USERNAME: str = "gemini_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
-DEFAULT_MODELO_IA: str = "gemini-3.5-flash"
+DEFAULT_MODELO_IA: str = "gemini-2.5-flash"
 DEFAULT_CONTA: str = "sentineltray"
 DEFAULT_API_KEY: str = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
 
@@ -76,7 +76,7 @@ def salvar_modelo_ia(modelo: str) -> None:
     """Persist the AI model name in the Windows Credential Manager.
 
     Args:
-        modelo: The Gemini model name string to store (e.g. ``"gemini-3.5-flash"``).
+        modelo: The Gemini model name string to store (e.g. ``"gemini-2.5-flash"``).
     """
     import keyring  # noqa: PLC0415
 

@@ -9,6 +9,7 @@ from z7_officeletters.core.documents import (
     construir_nome_arquivo,
     normalizar_numero_mocao,
     criar_modelo_envelope,
+    ajustar_posicao_rodape,
 )
 
 
@@ -185,3 +186,61 @@ class TestCriarModeloEnvelope:
         # Verify paragraph count and left alignment
         assert len(doc.paragraphs) == 1
         assert doc.paragraphs[0].paragraph_format.left_indent is None
+
+
+# =============================================================================
+# ajustar_posicao_rodape
+# =============================================================================
+try:
+    import win32com.client
+    # Try to dispatch Word to see if it is registered/installed on this system
+    word_test = win32com.client.DispatchEx("Word.Application")
+    word_test.Quit()
+    has_word_app = True
+except Exception:
+    has_word_app = False
+
+
+class TestAjustarPosicaoRodape:
+
+    @pytest.mark.skipif(not has_word_app, reason="Microsoft Word is not installed/working on this system")
+    def test_ajustar_posicao_rodape_valid(self, tmp_path: Path) -> None:
+        from docx import Document  # type: ignore[import-untyped]
+        
+        caminho_doc = tmp_path / "test_doc.docx"
+        doc = Document()
+        doc.add_paragraph("Ofício nº 001/2026")
+        doc.add_paragraph("")
+        doc.add_paragraph("Assunto: Encaminha Moção")
+        doc.add_paragraph("")
+        doc.add_paragraph("Prezado Senhor,")
+        doc.add_paragraph("Encaminhamos a cópia da Moção...")
+        doc.add_paragraph("Atenciosamente,")
+        doc.add_paragraph("")
+        doc.add_paragraph("Presidente")
+        # Empty space to adjust
+        doc.add_paragraph("")
+        doc.add_paragraph("")
+        doc.add_paragraph("")
+        # Recipient block
+        doc.add_paragraph("Ao")
+        doc.add_paragraph("Ilmo. Sr. Secretário")
+        doc.add_paragraph("Rua do Destinatário, 123")
+        
+        doc.save(str(caminho_doc))
+        
+        # Adjust footer position
+        ajustar_posicao_rodape(str(caminho_doc))
+        
+        # Read the file back and verify it still has the recipient block at the end
+        doc_adjusted = Document(caminho_doc)
+        paragraphs_text = [p.text for p in doc_adjusted.paragraphs]
+        
+        # The last three paragraphs must be the recipient block
+        assert paragraphs_text[-1] == "Rua do Destinatário, 123"
+        assert paragraphs_text[-2] == "Ilmo. Sr. Secretário"
+        assert paragraphs_text[-3] == "Ao"
+        
+        # Verify that there are some empty paragraphs before "Ao"
+        assert paragraphs_text[-4] == ""
+

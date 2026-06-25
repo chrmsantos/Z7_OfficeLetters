@@ -128,6 +128,7 @@ def _worker_main(
 
         q.put(("log", f"📋  Log: {log_file_path}", "dim"))
 
+        word_app = None
         salvar_api_key(inputs["api_key"])
         cliente = genai.Client(api_key=inputs["api_key"])
 
@@ -323,6 +324,14 @@ def _worker_main(
         unrecognized_authors: set[str] = set()
 
         # ── Phase 3: generate one letter per group ────────────────────────────
+        try:
+            import win32com.client  # noqa: PLC0415
+            word_app = win32com.client.DispatchEx("Word.Application")
+            word_app.Visible = False
+        except Exception as exc:
+            q.put(("log", f"  ⚠  Não foi possível iniciar o Microsoft Word para ajustar os rodapés: {exc}", "warn"))
+            word_app = None
+
         grupos_ordenados = _ordenar_grupos(grupos)
         for dest_key, grupo in grupos_ordenados:
             if cancel_event.is_set():
@@ -496,6 +505,12 @@ def _worker_main(
             doc.save(caminho_oficio)
             q.put(("log", f"  ✔  {nome}", "success"))
 
+            if word_app is not None:
+                try:
+                    _docs.ajustar_posicao_rodape(caminho_oficio, word_app)
+                except Exception as exc:
+                    q.put(("log", f"  ⚠  Erro ao ajustar rodapé de {nome}: {exc}", "warn"))
+
             # Generate envelope if delivery method is "Carta"
             if info["envio"] == "Carta":
                 Path(PASTA_ENVELOPES).mkdir(parents=True, exist_ok=True)
@@ -612,6 +627,12 @@ def _worker_main(
 
     except Exception as exc:  # noqa: BLE001
         q.put(("error", str(exc)))
+    finally:
+        if word_app is not None:
+            try:
+                word_app.Quit()
+            except Exception:
+                pass
 
 
 def run_processing_worker(
