@@ -1,6 +1,6 @@
 [project]
 name = "z7-officeletters"
-version = "4.4.0"
+version = "4.5.0"
 requires-python = ">=3.12"
 description = "Z7 OfficeLetters — Gerador de Ofícios Legislativos"
 authors = [{ name = "CMS" }]
