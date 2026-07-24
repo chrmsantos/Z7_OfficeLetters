@@ -195,6 +195,30 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
 # Pre-compiled patterns used in retry logic.
 _RE_RETRY_DELAY: re.Pattern[str] = re.compile(r"retry_delay\s*\{\s*seconds:\s*(\d+)")
 
+# Base wait (seconds) for the exponential back-off used on transient server
+# errors (HTTP 503 UNAVAILABLE / model overloaded).  The actual wait for
+# attempt ``n`` is ``min(RETRY_503_BASE_S * 2**n, RETRY_DELAY_PADRAO_S)``.
+RETRY_503_BASE_S: int = 10
+
+
+def _classificar_erro_transitorio(msg: str) -> str | None:
+    """Classify a Gemini API error message as retriable or not.
+
+    Args:
+        msg: String representation of the raised exception.
+
+    Returns:
+        ``"rate_limit"`` for HTTP 429 errors, ``"indisponivel"`` for
+        transient server-side errors (HTTP 503 UNAVAILABLE / overloaded),
+        or ``None`` for errors that should be re-raised immediately.
+    """
+    if "429" in msg:
+        return "rate_limit"
+    msg_lower = msg.lower()
+    if "503" in msg or "unavailable" in msg_lower or "overloaded" in msg_lower:
+        return "indisponivel"
+    return None
+
 # Thread-safe counter so each AI call gets a unique sequential number in the log.
 _chamada_lock: threading.Lock = threading.Lock()
 _chamada_n: list[int] = [0]
@@ -441,23 +465,42 @@ def extrair_dados_com_ia(
                 logger.debug("Resposta recebida (tentativa %d).", tentativa + 1)
             except Exception as exc:  # noqa: BLE001
                 msg = str(exc)
-                match = _RE_RETRY_DELAY.search(msg)
-                espera = int(match.group(1)) + 2 if match else RETRY_DELAY_PADRAO_S
-                if "429" in msg:
+                tipo_erro = _classificar_erro_transitorio(msg)
+                if tipo_erro is not None:
+                    match = _RE_RETRY_DELAY.search(msg)
+                    if match:
+                        espera = int(match.group(1)) + 2
+                    elif tipo_erro == "rate_limit":
+                        espera = RETRY_DELAY_PADRAO_S
+                    else:
+                        espera = min(
+                            RETRY_503_BASE_S * (2 ** tentativa), RETRY_DELAY_PADRAO_S
+                        )
                     _tentativa_info.update(
-                        {"status": "rate_limit", "erro": msg, "espera_s": espera}
+                        {"status": tipo_erro, "erro": msg, "espera_s": espera}
                     )
                     _tentativas_log.append(_tentativa_info)
-                    logger.warning(
-                        "Rate limit atingido. Aguardando %ds (tentativa %d/%d).",
-                        espera,
-                        tentativa + 1,
-                        MAX_TENTATIVAS_IA,
-                    )
-                    if on_rate_limit is not None:
-                        on_rate_limit(
-                            f"⏳  Rate limit atingido. Aguardando {espera}s (tentativa {tentativa + 1}/{MAX_TENTATIVAS_IA})…"
+                    if tipo_erro == "rate_limit":
+                        _aviso = (
+                            f"Rate limit atingido. Aguardando {espera}s "
+                            f"(tentativa {tentativa + 1}/{MAX_TENTATIVAS_IA})."
                         )
+                        _aviso_gui = (
+                            f"⏳  Rate limit atingido. Aguardando {espera}s "
+                            f"(tentativa {tentativa + 1}/{MAX_TENTATIVAS_IA})…"
+                        )
+                    else:
+                        _aviso = (
+                            f"Modelo indisponível (erro transitório do servidor). "
+                            f"Aguardando {espera}s (tentativa {tentativa + 1}/{MAX_TENTATIVAS_IA})."
+                        )
+                        _aviso_gui = (
+                            f"⏳  Modelo indisponível (alta demanda). Aguardando {espera}s "
+                            f"(tentativa {tentativa + 1}/{MAX_TENTATIVAS_IA})…"
+                        )
+                    logger.warning("%s Detalhe: %s", _aviso, msg)
+                    if on_rate_limit is not None:
+                        on_rate_limit(_aviso_gui)
                     for _ in range(espera):
                         if cancel_event is not None and cancel_event.is_set():
                             raise RuntimeError("Processamento cancelado.")

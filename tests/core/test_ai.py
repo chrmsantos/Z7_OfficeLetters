@@ -195,6 +195,65 @@ class TestExtrairDadosComIA:
             extrair_dados_com_ia("MOÇÃO", client)
         assert client.models.generate_content.call_count == 1
 
+    # --- Modelo indisponível (503 UNAVAILABLE) ---
+    def test_retenta_em_503_unavailable(self) -> None:
+        good = make_ai_response(make_dados_mocao_validos())
+        client = self._client(
+            Exception(
+                "503 UNAVAILABLE. {'error': {'code': 503, 'message': "
+                "'This model is currently experiencing high demand.', "
+                "'status': 'UNAVAILABLE'}}"
+            ),
+            good,
+        )
+        with patch("time.sleep") as mock_sleep:
+            r = extrair_dados_com_ia("MOÇÃO", client)
+        assert mock_sleep.call_count >= 1
+        assert all(args == (1,) for args, _ in mock_sleep.call_args_list)
+        assert r["tipo_mocao"] == "Aplauso"
+        assert client.models.generate_content.call_count == 2
+
+    def test_503_usa_backoff_exponencial(self) -> None:
+        good = make_ai_response(make_dados_mocao_validos())
+        client = self._client(
+            Exception("503 UNAVAILABLE"),
+            Exception("503 UNAVAILABLE"),
+            Exception("503 UNAVAILABLE"),
+            good,
+        )
+        with patch("time.sleep") as mock_sleep:
+            extrair_dados_com_ia("MOÇÃO", client)
+        total_slept = sum(args[0] for args, _ in mock_sleep.call_args_list)
+        # 10s + 20s + 40s = 70s (backoff exponencial, base 10s)
+        assert total_slept == 70
+
+    def test_503_chama_callback_com_mensagem_indisponivel(self) -> None:
+        mensagens: list[str] = []
+        good = make_ai_response(make_dados_mocao_validos())
+        client = self._client(Exception("503 UNAVAILABLE"), good)
+        with patch("time.sleep"):
+            extrair_dados_com_ia("MOÇÃO", client, on_rate_limit=mensagens.append)
+        assert len(mensagens) == 1
+        assert "indisponível" in mensagens[0].lower()
+
+    def test_503_respeita_retry_delay_se_presente(self) -> None:
+        good = make_ai_response(make_dados_mocao_validos())
+        client = self._client(
+            Exception("503 UNAVAILABLE: retry_delay { seconds: 5 }"),
+            good,
+        )
+        with patch("time.sleep") as mock_sleep:
+            extrair_dados_com_ia("MOÇÃO", client)
+        total_slept = sum(args[0] for args, _ in mock_sleep.call_args_list)
+        assert total_slept == 7
+
+    def test_levanta_apos_todas_as_tentativas_503(self) -> None:
+        client = self._client(*([Exception("503 UNAVAILABLE")] * 5))
+        with patch("time.sleep"):
+            with pytest.raises(RuntimeError, match="tentativas"):
+                extrair_dados_com_ia("MOÇÃO", client)
+        assert client.models.generate_content.call_count == 5
+
     # --- Logging ---
     def test_loga_resposta_bruta_em_debug(self, caplog: pytest.LogCaptureFixture) -> None:
         client = self._client(make_ai_response(make_dados_mocao_validos()))
