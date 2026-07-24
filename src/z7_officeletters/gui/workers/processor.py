@@ -502,6 +502,7 @@ def _worker_main(
                 tipo_propositura=tipo_propositura,
             )
             caminho_oficio = os.path.join(PASTA_SAIDA, nome)
+            _docs.remover_quebras_manuais(doc)
             doc.save(caminho_oficio)
             q.put(("log", f"  ✔  {nome}", "success"))
 
@@ -518,6 +519,7 @@ def _worker_main(
                     try:
                         doc_env = DocxTemplate(str(modelo_envelope))
                         doc_env.render(ctx)
+                        _docs.remover_quebras_manuais(doc_env)
                         nome_dest_safe = _docs._RE_NOME_INVALIDO.sub("", _docs._titlecase_nome(dest0["nome"]))
                         nome_envelope = f"Envelope - Of. {num_str} - {nome_dest_safe}.docx"
                         caminho_envelope = os.path.join(PASTA_ENVELOPES, nome_envelope)

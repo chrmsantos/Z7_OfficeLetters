@@ -10,6 +10,7 @@ from z7_officeletters.core.documents import (
     normalizar_numero_mocao,
     criar_modelo_envelope,
     ajustar_posicao_rodape,
+    remover_quebras_manuais,
 )
 
 
@@ -184,7 +185,7 @@ class TestCriarModeloEnvelope:
         assert "REMETENTE" not in texto_completo
 
         # Verify paragraph count and left alignment
-        assert len(doc.paragraphs) == 1
+        assert len(doc.paragraphs) == 2
         assert doc.paragraphs[0].paragraph_format.left_indent is None
 
 
@@ -243,4 +244,67 @@ class TestAjustarPosicaoRodape:
         
         # Verify that there are some empty paragraphs before "Ao"
         assert paragraphs_text[-4] == ""
+
+
+# =============================================================================
+# remover_quebras_manuais
+# =============================================================================
+class TestRemoverQuebrasManuais:
+
+    def test_remover_quebras_manuais_sem_quebras(self) -> None:
+        from docx import Document  # type: ignore[import-untyped]
+
+        doc = Document()
+        doc.add_paragraph("Linha 1")
+        doc.add_paragraph("Linha 2")
+        remover_quebras_manuais(doc)
+
+        assert len(doc.paragraphs) == 2
+        assert [p.text for p in doc.paragraphs] == ["Linha 1", "Linha 2"]
+        assert len(doc.element.xpath("//w:br")) == 0
+
+    def test_remover_quebras_manuais_com_soft_breaks(self) -> None:
+        from docx import Document  # type: ignore[import-untyped]
+        from docx.shared import Pt  # type: ignore[import-untyped]
+
+        doc = Document()
+        p = doc.add_paragraph()
+        p.paragraph_format.line_spacing = 1.15
+        r = p.add_run("Rua X, 123\nBairro Centro\nSanta Bárbara d'Oeste - SP")
+        r.font.name = "Arial"
+        r.font.size = Pt(11)
+        r.font.bold = True
+
+        remover_quebras_manuais(doc)
+
+        assert len(doc.paragraphs) == 3
+        assert len(doc.element.xpath("//w:br")) == 0
+        textos = [p_i.text for p_i in doc.paragraphs]
+        assert textos == ["Rua X, 123", "Bairro Centro", "Santa Bárbara d'Oeste - SP"]
+
+        for p_i in doc.paragraphs:
+            assert len(p_i.runs) == 1
+            assert p_i.runs[0].font.name == "Arial"
+            assert p_i.runs[0].font.bold is True
+
+    def test_remover_quebras_manuais_multiplas_runs(self) -> None:
+        from docx import Document  # type: ignore[import-untyped]
+
+        doc = Document()
+        p = doc.add_paragraph()
+        r1 = p.add_run("Texto 1 ")
+        r1.bold = True
+        r2 = p.add_run("Texto 2\nTexto 3")
+        r2.italic = True
+
+        remover_quebras_manuais(doc)
+
+        assert len(doc.paragraphs) == 2
+        assert len(doc.element.xpath("//w:br")) == 0
+        assert doc.paragraphs[0].text == "Texto 1 Texto 2"
+        assert doc.paragraphs[1].text == "Texto 3"
+        assert doc.paragraphs[0].runs[0].bold is True
+        assert doc.paragraphs[0].runs[1].italic is True
+        assert doc.paragraphs[1].runs[0].italic is True
+
 

@@ -27,6 +27,7 @@ __all__ = [
     "criar_modelo_planilha",
     "criar_modelo_envelope",
     "ajustar_posicao_rodape",
+    "remover_quebras_manuais",
 ]
 
 # ── Pre-compiled regex patterns ───────────────────────────────────────────────
@@ -320,18 +321,133 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
     section.right_margin = Cm(2.0)
 
     # Add Recipient (Destinatário) aligned to the left
-    p_dest = doc.add_paragraph()
-    p_dest.paragraph_format.space_before = Pt(36)  # Add some spacing from the top
-    p_dest.paragraph_format.space_after = Pt(0)
-    p_dest.paragraph_format.line_spacing = 1.15
+    p_dest1 = doc.add_paragraph()
+    p_dest1.paragraph_format.space_before = Pt(36)  # Add some spacing from the top
+    p_dest1.paragraph_format.space_after = Pt(0)
+    p_dest1.paragraph_format.line_spacing = 1.15
 
+    r_dest1 = p_dest1.add_run("{{ TRATAMENTO_RODAPE }} {{ DESTINATARIO_NOME }}")
+    r_dest1.font.size = Pt(11)
+    r_dest1.font.name = "Arial"
 
-    r_dest_body = p_dest.add_run("{{ TRATAMENTO_RODAPE }} {{ DESTINATARIO_NOME }}\n{{ DESTINATARIO_ENDERECO }}")
-    r_dest_body.font.size = Pt(11)
-    r_dest_body.font.name = "Arial"
+    p_dest2 = doc.add_paragraph()
+    p_dest2.paragraph_format.space_before = Pt(0)
+    p_dest2.paragraph_format.space_after = Pt(0)
+    p_dest2.paragraph_format.line_spacing = 1.15
 
+    r_dest2 = p_dest2.add_run("{{ DESTINATARIO_ENDERECO }}")
+    r_dest2.font.size = Pt(11)
+    r_dest2.font.name = "Arial"
+
+    remover_quebras_manuais(doc)
     doc.save(str(destino))
     return destino
+
+
+def remover_quebras_manuais(doc: Any) -> None:
+    """Substitui todas as quebras de linha manuais (Shift + Enter / <w:br/>) por parágrafos autônomos (<w:p>).
+
+    Inspeciona todos os parágrafos do documento no corpo principal, cabeçalhos e rodapés.
+    Cada parágrafo que contenha elementos <w:br/> ou quebras de linha em suas corridas
+    é desmembrado em parágrafos separados (<w:p>), clonando as propriedades do parágrafo
+    (<w:pPr>) e das corridas (<w:rPr>), garantindo a eliminação total de Shift + Enter.
+    """
+    from copy import deepcopy  # noqa: PLC0415
+    from docx.oxml import OxmlElement  # type: ignore[import-untyped]  # noqa: PLC0415
+    from docx.oxml.ns import qn  # type: ignore[import-untyped]  # noqa: PLC0415
+
+    containers = [doc]
+    for s in list(getattr(doc, "sections", [])):
+        if getattr(s, "header", None):
+            containers.append(s.header)
+        if getattr(s, "footer", None):
+            containers.append(s.footer)
+
+    for container in containers:
+        paragraphs = list(getattr(container, "paragraphs", []))
+        for p in paragraphs:
+            p_elem = p._p
+            brs = p_elem.xpath(".//w:br")
+            has_newline = False
+            if not brs:
+                for t_elem in p_elem.xpath(".//w:t"):
+                    if t_elem.text and "\n" in t_elem.text:
+                        has_newline = True
+                        break
+
+            if not brs and not has_newline:
+                continue
+
+            parent = p_elem.getparent()
+            if parent is None:
+                continue
+            p_idx = parent.index(p_elem)
+            pPr = p_elem.find(qn("w:pPr"))
+
+            current_p = OxmlElement("w:p")
+            if pPr is not None:
+                current_p.append(deepcopy(pPr))
+
+            new_paragraphs = [current_p]
+
+            for child in list(p_elem):
+                if child.tag.endswith("pPr"):
+                    continue
+                if child.tag.endswith("r"):
+                    current_r = OxmlElement("w:r")
+                    rPr = child.find(qn("w:rPr"))
+                    if rPr is not None:
+                        current_r.append(deepcopy(rPr))
+
+                    for r_child in list(child):
+                        if r_child.tag.endswith("rPr"):
+                            continue
+                        if r_child.tag.endswith("br"):
+                            if len(current_r) > (1 if rPr is not None else 0):
+                                current_p.append(current_r)
+
+                            current_p = OxmlElement("w:p")
+                            if pPr is not None:
+                                current_p.append(deepcopy(pPr))
+                            new_paragraphs.append(current_p)
+
+                            current_r = OxmlElement("w:r")
+                            if rPr is not None:
+                                current_r.append(deepcopy(rPr))
+                        elif r_child.tag.endswith("t"):
+                            text = r_child.text or ""
+                            if "\n" in text:
+                                parts = text.split("\n")
+                                for i, part in enumerate(parts):
+                                    if i > 0:
+                                        if len(current_r) > (1 if rPr is not None else 0):
+                                            current_p.append(current_r)
+                                        current_p = OxmlElement("w:p")
+                                        if pPr is not None:
+                                            current_p.append(deepcopy(pPr))
+                                        new_paragraphs.append(current_p)
+                                        current_r = OxmlElement("w:r")
+                                        if rPr is not None:
+                                            current_r.append(deepcopy(rPr))
+                                    if part:
+                                        t_elem = OxmlElement("w:t")
+                                        t_elem.text = part
+                                        if part.startswith(" ") or part.endswith(" "):
+                                            t_elem.set(qn("xml:space"), "preserve")
+                                        current_r.append(t_elem)
+                            else:
+                                current_r.append(deepcopy(r_child))
+                        else:
+                            current_r.append(deepcopy(r_child))
+
+                    if len(current_r) > (1 if rPr is not None else 0):
+                        current_p.append(current_r)
+                else:
+                    current_p.append(deepcopy(child))
+
+            for offset, new_p in enumerate(new_paragraphs):
+                parent.insert(p_idx + offset, new_p)
+            parent.remove(p_elem)
 
 
 def ajustar_posicao_rodape(caminho_doc: str, word_app: Any = None) -> None:

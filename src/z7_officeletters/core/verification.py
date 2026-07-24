@@ -31,7 +31,7 @@ from typing import Any
 
 from z7_officeletters.core.documents import formatar_lista_pt as _formatar_lista_pt
 from z7_officeletters.core.documents import frases_propositura as _frases_propositura
-from z7_officeletters.core.documents import _titlecase_nome
+from z7_officeletters.core.documents import _titlecase_nome, remover_quebras_manuais
 
 __all__ = [
     "RegistroOficio",
@@ -937,6 +937,7 @@ def conferir_trabalho(
 
                 doc = DocxTemplate(registro.template_path)
                 doc.render(ctx_corr)
+                remover_quebras_manuais(doc)
                 doc.save(registro.caminho)
 
                 # Atualiza o contexto no registro
