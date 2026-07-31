@@ -714,7 +714,7 @@ class AutoOficiosApp(ctk.CTk):
             footer,
             text=(
                 f"Z7 OfficeLetters v{APP_VERSION}  •  Licenced under GPLv3  •  "
-                "Powered by Gemini AI  •  Câmara Municipal de Santa Bárbara d'Oeste/SP"
+                "Powered by DeepSeek / OpenRouter  •  Câmara Municipal de Santa Bárbara d'Oeste/SP"
             ),
             font=ctk.CTkFont(size=10), text_color=_C["dim"],
         ).grid(row=0, column=0, sticky="w", padx=16, pady=6)
@@ -757,7 +757,7 @@ class AutoOficiosApp(ctk.CTk):
     # AI status
     # =========================================================================
     def _update_ai_status(self) -> None:
-        model = self._modelo_ia_var.get() or "gemini-2.5-flash"
+        model = self._modelo_ia_var.get() or "deepseek/deepseek-chat"
         has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
         if has_key:
             text = f"🤖 {model}  •  ✔ Validado"

@@ -1,6 +1,6 @@
-"""Gemini API key dialog.
+"""OpenRouter API key dialog.
 
-Shows a secure entry field for the user to paste their Gemini API key, with
+Shows a secure entry field for the user to paste their OpenRouter API key, with
 a toggle to reveal/hide the key and a Save button that persists the key to
 the Windows Credential Manager.
 
@@ -26,7 +26,7 @@ def show_api_key_dialog(
     has_key: Callable[[], bool],
     on_saved: Callable[[str], None],
 ) -> None:
-    """Open the Gemini API key editor dialog.
+    """Open the OpenRouter API key editor dialog.
 
     Args:
         parent: The root window (used to centre the dialog).
@@ -39,7 +39,7 @@ def show_api_key_dialog(
     apikey_visible: list[bool] = [False]
 
     dlg = ctk.CTkToplevel(parent)
-    dlg.title("Chave de API")
+    dlg.title("Chave de API (OpenRouter)")
     dlg.geometry("460x220")
     dlg.resizable(False, False)
     dlg.grab_set()
@@ -51,7 +51,7 @@ def show_api_key_dialog(
     dlg.geometry(f"460x220+{px + (pw - 460) // 2}+{py + (ph - 220) // 2}")
 
     ctk.CTkLabel(
-        dlg, text="CHAVE GEMINI API",
+        dlg, text="CHAVE OPENROUTER API",
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=_C["accent"], anchor="w",
     ).pack(fill="x", padx=20, pady=(18, 2))

@@ -1,4 +1,4 @@
-"""Gemini AI integration and prompt management.
+"""OpenRouter AI integration and prompt management.
 
 Handles the full lifecycle of a single AI extraction call:
 loading the prompt template, sending the request with exponential-back-off
@@ -13,7 +13,7 @@ Public exports:
     carregar_prompt_template: Load the template from disk or return the default.
     limpar_json_da_resposta: Strip Markdown code fences from an AI response.
     validar_dados_mocao: Validate required fields in the AI response dict.
-    extrair_dados_com_ia: Send a motion text to Gemini and return parsed data.
+    extrair_dados_com_ia: Send a motion text to OpenRouter/DeepSeek and return parsed data.
 """
 
 from __future__ import annotations
@@ -202,20 +202,26 @@ RETRY_503_BASE_S: int = 10
 
 
 def _classificar_erro_transitorio(msg: str) -> str | None:
-    """Classify a Gemini API error message as retriable or not.
+    """Classify an OpenRouter/AI API error message as retriable or not.
 
     Args:
         msg: String representation of the raised exception.
 
     Returns:
         ``"rate_limit"`` for HTTP 429 errors, ``"indisponivel"`` for
-        transient server-side errors (HTTP 503 UNAVAILABLE / overloaded),
+        transient server-side errors (HTTP 502/503/504 / overloaded),
         or ``None`` for errors that should be re-raised immediately.
     """
     if "429" in msg:
         return "rate_limit"
     msg_lower = msg.lower()
-    if "503" in msg or "unavailable" in msg_lower or "overloaded" in msg_lower:
+    if (
+        "502" in msg
+        or "503" in msg
+        or "504" in msg
+        or "unavailable" in msg_lower
+        or "overloaded" in msg_lower
+    ):
         return "indisponivel"
     return None
 
@@ -347,7 +353,7 @@ def limpar_json_da_resposta(texto: str) -> str:
     Handles both ````json ... ```` and generic ```` ``` ... ``` ```` fences.
 
     Args:
-        texto: Raw text from the Gemini API response.
+        texto: Raw text from the AI API response.
 
     Returns:
         JSON string with surrounding whitespace and fences removed.
@@ -364,7 +370,7 @@ def validar_dados_requerimento_pesar(dados: dict[str, Any]) -> None:
     """Validate required fields in the AI-returned *requerimento de pesar* dict.
 
     Args:
-        dados: Parsed JSON dict from the Gemini response.
+        dados: Parsed JSON dict from the AI response.
 
     Raises:
         ValueError: If any required field is missing, empty, or has an
@@ -388,7 +394,7 @@ def validar_dados_mocao(dados: dict[str, Any]) -> None:
     """Validate required fields in the AI-returned motion dictionary.
 
     Args:
-        dados: Parsed JSON dict from the Gemini response.
+        dados: Parsed JSON dict from the AI response.
 
     Raises:
         ValueError: If any required field is missing, empty, or has an
@@ -412,39 +418,45 @@ def validar_dados_mocao(dados: dict[str, Any]) -> None:
 
 def extrair_dados_com_ia(
     texto_mocao: str,
-    cliente_genai: Any,
+    cliente_ai: Any = None,
     tipo_propositura: str = "mocao",
     cancel_event: "threading.Event | None" = None,
     on_rate_limit: "Callable[[str], None] | None" = None,
+    cliente_genai: Any = None,
 ) -> dict[str, Any]:
-    """Send a propositura text to Gemini and return validated structured data.
+    """Send a propositura text to OpenRouter / DeepSeek and return validated structured data.
 
     Retries up to ``MAX_TENTATIVAS_IA`` times on rate-limit (HTTP 429) errors,
     honouring the ``retry_delay`` value in the error response when available.
 
     Args:
         texto_mocao: Raw text of one propositura extracted from the input file.
-        cliente_genai: Initialised ``google.genai.Client`` instance.
+        cliente_ai: Initialised ``openai.OpenAI`` instance (targeting OpenRouter).
         tipo_propositura: Either ``"mocao"`` (default) or
-            ``"requerimento_pesar"``.  Selects the prompt template and
+            ``"requerimento_pesar"``. Selects the prompt template and
             validation function accordingly.
         cancel_event: Optional event to cancel the execution.
         on_rate_limit: Optional callback on 429 rate limit.
+        cliente_genai: Legacy alias for ``cliente_ai``.
 
     Returns:
-        Validated dict.  For moções: keys ``tipo_mocao``, ``numero_mocao``,
-        ``autores``, ``destinatarios``.  For requerimentos de pesar: keys
+        Validated dict. For moções: keys ``tipo_mocao``, ``numero_mocao``,
+        ``autores``, ``destinatarios``. For requerimentos de pesar: keys
         ``numero_requerimento``, ``falecido``, ``autores``, ``destinatarios``.
 
     Raises:
         Exception: After ``MAX_TENTATIVAS_IA`` consecutive failures, or
             immediately on non-rate-limit API errors.
     """
+    client = cliente_ai if cliente_ai is not None else cliente_genai
+    if client is None:
+        raise ValueError("Um cliente de API de IA válido deve ser fornecido.")
+
     _is_pesar = tipo_propositura == "requerimento_pesar"
     _template = PROMPT_TEMPLATE_PESAR if _is_pesar else PROMPT_TEMPLATE
     _validar = validar_dados_requerimento_pesar if _is_pesar else validar_dados_mocao
     prompt = _template.replace("{texto_mocao}", texto_mocao)
-    logger.debug("Enviando %s à API Gemini.", tipo_propositura)
+    logger.debug("Enviando %s à API OpenRouter (%s).", tipo_propositura, MODELO_IA)
 
     with _chamada_lock:
         _chamada_n[0] += 1
@@ -458,9 +470,10 @@ def extrair_dados_com_ia(
         for tentativa in range(MAX_TENTATIVAS_IA):
             _tentativa_info: dict[str, Any] = {"tentativa": tentativa + 1}
             try:
-                response = cliente_genai.models.generate_content(
+                response = client.chat.completions.create(
                     model=MODELO_IA,
-                    contents=prompt,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
                 )
                 logger.debug("Resposta recebida (tentativa %d).", tentativa + 1)
             except Exception as exc:  # noqa: BLE001
@@ -508,11 +521,16 @@ def extrair_dados_com_ia(
                     continue
                 _tentativa_info.update({"status": "erro_api", "erro": msg})
                 _tentativas_log.append(_tentativa_info)
-                logger.error("Erro na API Gemini: %s", exc, exc_info=True)
+                logger.error("Erro na API OpenRouter: %s", exc, exc_info=True)
                 _erro_final = msg
                 raise
 
-            raw_text: str = response.text  # type: ignore[union-attr]
+            raw_text: str = ""
+            if getattr(response, "choices", None) and len(response.choices) > 0:
+                raw_text = response.choices[0].message.content or ""
+            elif hasattr(response, "text"):
+                raw_text = str(response.text)
+
             _tentativa_info["resposta_bruta"] = raw_text
             _preview = raw_text[:500] + ("…" if len(raw_text) > 500 else "")
             logger.debug("Resposta bruta da IA (tentativa %d): %r", tentativa + 1, _preview)
@@ -556,11 +574,14 @@ def extrair_dados_com_ia(
                 )
 
             try:
-                um = response.usage_metadata
+                usage = getattr(response, "usage", None)
+                p_tokens = int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0
+                c_tokens = int(getattr(usage, "completion_tokens", 0) or getattr(usage, "candidates_token_count", 0) or 0) if usage else 0
+                t_tokens = int(getattr(usage, "total_tokens", 0) or (p_tokens + c_tokens)) if usage else 0
                 resultado["_usage"] = {
-                    "prompt_tokens":     int(um.prompt_token_count),
-                    "candidates_tokens": int(um.candidates_token_count),
-                    "total_tokens":      int(um.total_token_count),
+                    "prompt_tokens":     p_tokens,
+                    "candidates_tokens": c_tokens,
+                    "total_tokens":      t_tokens,
                 }
             except Exception:  # noqa: BLE001
                 resultado["_usage"] = {
@@ -573,6 +594,7 @@ def extrair_dados_com_ia(
             return resultado
 
         _erro_final = "Número máximo de tentativas excedido."
+
         raise RuntimeError(_erro_final)
 
     finally:

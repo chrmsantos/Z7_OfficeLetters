@@ -122,7 +122,7 @@ def _worker_main(
 ) -> None:
     """Main worker body — executed in a daemon thread."""
     try:
-        from google import genai  # noqa: PLC0415
+        from openai import OpenAI  # noqa: PLC0415
         from docxtpl import DocxTemplate  # noqa: PLC0415
         from openpyxl import Workbook, load_workbook  # noqa: PLC0415
 
@@ -130,14 +130,12 @@ def _worker_main(
 
         word_app = None
         salvar_api_key(inputs["api_key"])
-        cliente = genai.Client(api_key=inputs["api_key"])
+        cliente = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=inputs["api_key"],
+        )
 
         model_input_limit = 0
-        try:
-            _model_info = cliente.models.get(model=_ai.MODELO_IA)
-            model_input_limit = int(_model_info.input_token_limit or 0)
-        except Exception:  # noqa: BLE001
-            pass
 
         arquivos_proc: list[str] = inputs["arquivos"]
         todos_textos: list[tuple[str, str]] = []

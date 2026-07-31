@@ -79,11 +79,17 @@ def make_dest_coletivo(**overrides: Any) -> dict[str, Any]:
 
 
 def make_ai_response(payload: dict[str, Any]) -> MagicMock:
-    """Return a fake Gemini response whose ``.text`` is compact JSON."""
+    """Return a fake AI response whose content is compact JSON."""
     import json
 
+    json_str = json.dumps(payload)
     mock = MagicMock()
-    mock.text = json.dumps(payload)
+    mock.text = json_str
+    mock.choices = [MagicMock()]
+    mock.choices[0].message.content = json_str
+    mock.usage.prompt_tokens = 10
+    mock.usage.completion_tokens = 5
+    mock.usage.total_tokens = 15
     mock.usage_metadata.prompt_token_count = 10
     mock.usage_metadata.candidates_token_count = 5
     mock.usage_metadata.total_token_count = 15

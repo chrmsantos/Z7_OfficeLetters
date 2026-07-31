@@ -1,4 +1,4 @@
-"""Gemini prompt template editor dialog.
+"""AI prompt template editor dialog.
 
 Displays the current prompt templates in a tabbed editor so the user can
 customise both the moção template and the requerimento de pesar template.
@@ -22,7 +22,7 @@ __all__ = ["show_prompt_editor"]
 
 
 def show_prompt_editor(parent: ctk.CTk) -> None:
-    """Open the Gemini prompt template editor dialog.
+    """Open the AI prompt template editor dialog.
 
     Args:
         parent: The root window (used to centre the dialog).

@@ -56,11 +56,15 @@ a = Analysis(
         # PDF
         "pypdf",
         "pypdf._reader",
-        # Google GenAI
-        "google.genai",
-        "google.auth",
-        "google.auth.transport",
-        "google.auth.transport.requests",
+        # OpenAI / OpenRouter
+        "openai",
+        "httpx",
+        "httpcore",
+        "anyio",
+        "pydantic",
+        "jiter",
+        "tqdm",
+        "sniffio",
         # Windows
         "winreg",
         # Credential Manager (API key encryption)

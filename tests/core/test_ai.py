@@ -112,10 +112,11 @@ class TestValidarDadosMocao:
 # extrair_dados_com_ia
 # =============================================================================
 class TestExtrairDadosComIA:
-    """All Gemini calls are mocked."""
+    """All AI calls are mocked."""
 
     def _client(self, *responses: Any) -> MagicMock:
         client = MagicMock()
+        client.chat.completions.create.side_effect = list(responses)
         client.models.generate_content.side_effect = list(responses)
         return client
 
@@ -130,12 +131,17 @@ class TestExtrairDadosComIA:
         payload = make_dados_mocao_validos()
         mock_resp = MagicMock()
         mock_resp.text = f"```json\n{json.dumps(payload)}\n```"
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].message.content = f"```json\n{json.dumps(payload)}\n```"
         client = self._client(mock_resp)
         assert extrair_dados_com_ia("MOÇÃO", client)["tipo_mocao"] == "Aplauso"
 
     def test_aceita_resposta_em_lista(self) -> None:
         mock_resp = MagicMock()
-        mock_resp.text = json.dumps([make_dados_mocao_validos()])
+        json_str = json.dumps([make_dados_mocao_validos()])
+        mock_resp.text = json_str
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].message.content = json_str
         client = self._client(mock_resp)
         assert extrair_dados_com_ia("MOÇÃO", client)["tipo_mocao"] == "Aplauso"
 
@@ -143,11 +149,13 @@ class TestExtrairDadosComIA:
     def test_retenta_quando_json_invalido(self) -> None:
         bad = MagicMock()
         bad.text = "não é json"
+        bad.choices = [MagicMock()]
+        bad.choices[0].message.content = "não é json"
         good = make_ai_response(make_dados_mocao_validos())
         client = self._client(bad, good)
         r = extrair_dados_com_ia("MOÇÃO", client)
         assert r["tipo_mocao"] == "Aplauso"
-        assert client.models.generate_content.call_count == 2
+        assert client.chat.completions.create.call_count == 2
 
     def test_retenta_quando_tipo_mocao_invalido(self) -> None:
         bad = make_ai_response(make_dados_mocao_validos(tipo_mocao="Homenagem"))
@@ -155,15 +163,17 @@ class TestExtrairDadosComIA:
         client = self._client(bad, good)
         r = extrair_dados_com_ia("MOÇÃO", client)
         assert r["tipo_mocao"] == "Aplauso"
-        assert client.models.generate_content.call_count == 2
+        assert client.chat.completions.create.call_count == 2
 
     def test_levanta_apos_todas_as_tentativas_falharem(self) -> None:
         bad = MagicMock()
         bad.text = "não é json"
+        bad.choices = [MagicMock()]
+        bad.choices[0].message.content = "não é json"
         client = self._client(*([bad] * 5))
         with pytest.raises((ValueError, json.JSONDecodeError)):
             extrair_dados_com_ia("MOÇÃO", client)
-        assert client.models.generate_content.call_count == 5
+        assert client.chat.completions.create.call_count == 5
 
     # --- Rate limit (429) ---
     def test_aguarda_e_retenta_em_rate_limit(self) -> None:
@@ -193,7 +203,7 @@ class TestExtrairDadosComIA:
         client = self._client(ConnectionError("falha de rede"))
         with pytest.raises(ConnectionError):
             extrair_dados_com_ia("MOÇÃO", client)
-        assert client.models.generate_content.call_count == 1
+        assert client.chat.completions.create.call_count == 1
 
     # --- Modelo indisponível (503 UNAVAILABLE) ---
     def test_retenta_em_503_unavailable(self) -> None:
@@ -211,7 +221,7 @@ class TestExtrairDadosComIA:
         assert mock_sleep.call_count >= 1
         assert all(args == (1,) for args, _ in mock_sleep.call_args_list)
         assert r["tipo_mocao"] == "Aplauso"
-        assert client.models.generate_content.call_count == 2
+        assert client.chat.completions.create.call_count == 2
 
     def test_503_usa_backoff_exponencial(self) -> None:
         good = make_ai_response(make_dados_mocao_validos())
@@ -252,7 +262,7 @@ class TestExtrairDadosComIA:
         with patch("time.sleep"):
             with pytest.raises(RuntimeError, match="tentativas"):
                 extrair_dados_com_ia("MOÇÃO", client)
-        assert client.models.generate_content.call_count == 5
+        assert client.chat.completions.create.call_count == 5
 
     # --- Logging ---
     def test_loga_resposta_bruta_em_debug(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -264,6 +274,8 @@ class TestExtrairDadosComIA:
     def test_loga_warning_em_resposta_invalida(self, caplog: pytest.LogCaptureFixture) -> None:
         bad = MagicMock()
         bad.text = "não é json"
+        bad.choices = [MagicMock()]
+        bad.choices[0].message.content = "não é json"
         good = make_ai_response(make_dados_mocao_validos())
         client = self._client(bad, good)
         with caplog.at_level(logging.WARNING, logger="z7_officeletters"):
@@ -276,6 +288,8 @@ class TestExtrairDadosComIA:
         long_text = "x" * 2000
         bad = MagicMock()
         bad.text = long_text
+        bad.choices = [MagicMock()]
+        bad.choices[0].message.content = long_text
         good = make_ai_response(make_dados_mocao_validos())
         client = self._client(bad, good)
         with caplog.at_level(logging.DEBUG, logger="z7_officeletters"):
@@ -382,6 +396,7 @@ class TestExtrairDadosComIARequerimento:
 
     def _client(self, *responses: Any) -> MagicMock:
         client = MagicMock()
+        client.chat.completions.create.side_effect = list(responses)
         client.models.generate_content.side_effect = list(responses)
         return client
 
@@ -399,7 +414,7 @@ class TestExtrairDadosComIARequerimento:
         client = self._client(bad, good)
         r = extrair_dados_com_ia("REQUERIMENTO", client, tipo_propositura="requerimento_pesar")
         assert r["numero_requerimento"] == "45"
-        assert client.models.generate_content.call_count == 2
+        assert client.chat.completions.create.call_count == 2
 
 
 # =============================================================================

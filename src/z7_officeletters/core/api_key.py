@@ -1,19 +1,19 @@
 """Secure API key persistence using Windows Credential Manager.
 
-Provides functions to store, retrieve, and migrate the Gemini API key.
+Provides functions to store, retrieve, and migrate the OpenRouter API key.
 The key is stored encrypted in the Windows Credential Manager via the
-``keyring`` library, replacing the legacy plain-text Windows Registry entry.
+``keyring`` library.
 
 Public exports:
     KEYRING_SERVICE: Service name used as the Credential Manager namespace.
-    KEYRING_USERNAME: Username key within the service.
+    KEYRING_USERNAME: Username key within the service for OpenRouter API key.
     KEYRING_MODEL_USERNAME: Username key for the AI model name.
-    DEFAULT_MODELO_IA: Default Gemini model name.
+    DEFAULT_MODELO_IA: Default OpenRouter AI model name.
     salvar_api_key: Persist an API key to the Credential Manager.
     carregar_api_key: Retrieve the stored API key.
     salvar_modelo_ia: Persist the AI model name to the Credential Manager.
     carregar_modelo_ia: Retrieve the stored AI model name.
-    migrar_chave_do_registro: One-time migration from the legacy Registry entry.
+    migrar_chave_do_registro: One-time migration from legacy storage entries.
 """
 
 from __future__ import annotations
@@ -36,47 +36,54 @@ __all__ = [
 ]
 
 KEYRING_SERVICE: str = "z7_officeletters"
-KEYRING_USERNAME: str = "gemini_api_key"
-KEYRING_MODEL_USERNAME: str = "gemini_model"
+KEYRING_USERNAME: str = "openrouter_api_key"
+KEYRING_MODEL_USERNAME: str = "openrouter_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
-DEFAULT_MODELO_IA: str = "gemini-2.5-flash"
+DEFAULT_MODELO_IA: str = "deepseek/deepseek-chat"
 DEFAULT_CONTA: str = "sentineltray"
-DEFAULT_API_KEY: str = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
+DEFAULT_API_KEY: str = ""
 
 
 def salvar_api_key(chave: str) -> None:
-    """Persist the Gemini API key in the Windows Credential Manager.
+    """Persist the OpenRouter API key in the Windows Credential Manager.
 
-    Also sets the ``GEMINI_API_KEY`` environment variable in the current
+    Also sets the ``OPENROUTER_API_KEY`` environment variable in the current
     process so that libraries that read ``os.environ`` pick it up immediately.
 
     Args:
-        chave: The Gemini API key string to store.
+        chave: The OpenRouter API key string to store.
     """
     import keyring  # noqa: PLC0415 — lazy: avoids ~500 ms startup cost
     import os  # noqa: PLC0415
 
     keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, chave)
-    os.environ["GEMINI_API_KEY"] = chave
-    logger.info("GEMINI_API_KEY persistida no Credential Manager do Windows.")
+    os.environ["OPENROUTER_API_KEY"] = chave
+    logger.info("OPENROUTER_API_KEY persistida no Credential Manager do Windows.")
 
 
 def carregar_api_key() -> str:
-    """Retrieve the Gemini API key from the Windows Credential Manager.
+    """Retrieve the OpenRouter API key from the Windows Credential Manager.
 
     Returns:
         The stored API key, or the default API key if none is found.
     """
     import keyring  # noqa: PLC0415
 
-    return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME) or DEFAULT_API_KEY
+    key = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+    if not key:
+        # Fallback for legacy key name
+        legacy_key = keyring.get_password(KEYRING_SERVICE, "gemini_api_key")
+        if legacy_key:
+            salvar_api_key(legacy_key)
+            return legacy_key
+    return key or DEFAULT_API_KEY
 
 
 def salvar_modelo_ia(modelo: str) -> None:
     """Persist the AI model name in the Windows Credential Manager.
 
     Args:
-        modelo: The Gemini model name string to store (e.g. ``"gemini-2.5-flash"``).
+        modelo: The model name string to store (e.g. ``"deepseek/deepseek-chat"``).
     """
     import keyring  # noqa: PLC0415
 
@@ -92,18 +99,21 @@ def carregar_modelo_ia() -> str:
     """
     import keyring  # noqa: PLC0415
 
-    return keyring.get_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME) or DEFAULT_MODELO_IA
+    modelo = keyring.get_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME)
+    if not modelo or modelo == "gemini-2.5-flash":
+        return DEFAULT_MODELO_IA
+    return modelo
 
 
 def salvar_conta(conta: str) -> None:
-    """Persist the Google account e-mail in the Windows Credential Manager."""
+    """Persist the user account e-mail in the Windows Credential Manager."""
     import keyring  # noqa: PLC0415
 
     keyring.set_password(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME, conta)
 
 
 def carregar_conta() -> str:
-    """Retrieve the stored Google account e-mail, or the default account."""
+    """Retrieve the stored user account e-mail, or the default account."""
     import keyring  # noqa: PLC0415
 
     return keyring.get_password(KEYRING_SERVICE, KEYRING_ACCOUNT_USERNAME) or DEFAULT_CONTA
@@ -112,8 +122,8 @@ def carregar_conta() -> str:
 def migrar_chave_do_registro() -> None:
     """Migrate a plain-text API key from the Windows Registry to Credential Manager.
 
-    This one-time migration reads the ``GEMINI_API_KEY`` value stored in
-    ``HKCU\\Environment`` (the legacy storage location), saves it securely via
+    This one-time migration reads the ``GEMINI_API_KEY`` or ``OPENROUTER_API_KEY``
+    value stored in ``HKCU\\Environment`` (the legacy storage location), saves it securely via
     ``salvar_api_key()``, then deletes the plain-text registry value.
 
     The function is a no-op if the registry value does not exist or has already
@@ -127,20 +137,22 @@ def migrar_chave_do_registro() -> None:
             "Environment",
             access=winreg.KEY_READ | winreg.KEY_SET_VALUE,
         ) as reg:
-            try:
-                value, _ = winreg.QueryValueEx(reg, "GEMINI_API_KEY")
-            except FileNotFoundError:
-                return  # Nothing to migrate.
+            for reg_var in ("OPENROUTER_API_KEY", "GEMINI_API_KEY"):
+                try:
+                    value, _ = winreg.QueryValueEx(reg, reg_var)
+                except FileNotFoundError:
+                    continue
 
-            if value:
-                salvar_api_key(value)
-                logger.info("GEMINI_API_KEY migrada do registro para o Credential Manager.")
+                if value:
+                    salvar_api_key(value)
+                    logger.info("%s migrada do registro para o Credential Manager.", reg_var)
 
-            try:
-                winreg.DeleteValue(reg, "GEMINI_API_KEY")
-                logger.info("Valor GEMINI_API_KEY removido do registro do Windows.")
-            except FileNotFoundError:
-                pass
+                try:
+                    winreg.DeleteValue(reg, reg_var)
+                    logger.info("Valor %s removido do registro do Windows.", reg_var)
+                except FileNotFoundError:
+                    pass
 
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Falha ao migrar GEMINI_API_KEY do registro: %s", exc)
+        logger.warning("Falha ao migrar chave do registro: %s", exc)
+

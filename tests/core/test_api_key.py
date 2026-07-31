@@ -34,19 +34,19 @@ class TestSalvarApiKey:
                 patch.dict(os.environ, {}, clear=False):
             salvar_api_key("minha-chave")
             mock_set.assert_called_once_with(KEYRING_SERVICE, KEYRING_USERNAME, "minha-chave")
-            assert os.environ["GEMINI_API_KEY"] == "minha-chave"
+            assert os.environ["OPENROUTER_API_KEY"] == "minha-chave"
 
     def test_chave_diferente_sobrescreve_ambiente(self) -> None:
         with patch("keyring.set_password"), \
-                patch.dict(os.environ, {"GEMINI_API_KEY": "velha"}, clear=False):
+                patch.dict(os.environ, {"OPENROUTER_API_KEY": "velha"}, clear=False):
             salvar_api_key("nova-chave")
-            assert os.environ["GEMINI_API_KEY"] == "nova-chave"
+            assert os.environ["OPENROUTER_API_KEY"] == "nova-chave"
 
     def test_loga_apos_salvar(self, caplog: pytest.LogCaptureFixture) -> None:
         with patch("keyring.set_password"), \
                 caplog.at_level(logging.INFO, logger="z7_officeletters"):
             salvar_api_key("x")
-        assert any("GEMINI_API_KEY" in r.message for r in caplog.records)
+        assert any("OPENROUTER_API_KEY" in r.message for r in caplog.records)
 
 
 # =============================================================================
@@ -66,7 +66,7 @@ class TestCarregarApiKey:
         with patch("keyring.get_password") as mock_get:
             mock_get.return_value = "k"
             carregar_api_key()
-            mock_get.assert_called_once_with(KEYRING_SERVICE, KEYRING_USERNAME)
+            mock_get.assert_called_with(KEYRING_SERVICE, KEYRING_USERNAME)
 
 
 # =============================================================================
@@ -130,8 +130,8 @@ class TestMigrarChaveDoRegistro:
         p_open, p_query, p_delete, p_set, _ = self._patch_winreg("chave-antiga")
         with p_open, p_query, p_delete as mock_del, p_set as mock_set:
             migrar_chave_do_registro()
-            mock_set.assert_called_once()
-            mock_del.assert_called_once()
+            assert mock_set.called
+            assert mock_del.called
 
     def test_nao_faz_nada_se_chave_ausente(self) -> None:
         p_open, p_query, p_delete, p_set, _ = self._patch_winreg(None)

@@ -1,6 +1,6 @@
 """AI API settings dialog.
 
-Shows fields for the Gemini API key and AI model name. A single "Salvar"
+Shows fields for the OpenRouter API key and AI model name. A single "Salvar"
 button persists both values and immediately performs a live connection test,
 displaying the result in an output area within the dialog.
 
@@ -22,7 +22,7 @@ from z7_officeletters.gui.constants import _C
 
 __all__ = ["show_ai_api_dialog"]
 
-_RE_API_KEY: re.Pattern[str] = re.compile(r"^AIza[0-9A-Za-z\-_]{35}$")
+_RE_API_KEY: re.Pattern[str] = re.compile(r"^(sk-or-v1-[0-9a-zA-F]{64}|sk-[0-9A-Za-z\-_]{16,}|[0-9A-Za-z\-_]{16,})$")
 
 
 def show_ai_api_dialog(
@@ -50,7 +50,7 @@ def show_ai_api_dialog(
         apikey_var.set(_stored_key)
 
     dlg = ctk.CTkToplevel(parent)
-    dlg.title("API de IA")
+    dlg.title("API de IA (OpenRouter)")
     dlg.geometry("480x610")
     dlg.resizable(False, False)
     dlg.grab_set()
@@ -63,7 +63,7 @@ def show_ai_api_dialog(
 
     # ── Section: API Key ───────────────────────────────────────────────────────
     ctk.CTkLabel(
-        dlg, text="CHAVE GEMINI API",
+        dlg, text="CHAVE OPENROUTER API",
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=_C["accent"], anchor="w",
     ).pack(fill="x", padx=20, pady=(18, 2))
@@ -102,7 +102,7 @@ def show_ai_api_dialog(
 
     api_entry = ctk.CTkEntry(
         api_frame, textvariable=apikey_var,
-        placeholder_text="Cole sua chave aqui…",
+        placeholder_text="Cole sua chave sk-or-v1-… aqui",
         font=ctk.CTkFont(size=13), height=36,
         show="•",
     )
@@ -188,12 +188,12 @@ def show_ai_api_dialog(
 
     ctk.CTkButton(
         dlg,
-        text="🌐  Google AI Studio",
+        text="🌐  OpenRouter Keys",
         font=ctk.CTkFont(size=12),
         height=32, corner_radius=8,
         fg_color="transparent", hover_color=_C["border"],
         text_color=_C["dim"], border_width=1, border_color=_C["border"],
-        command=lambda: webbrowser.open("https://aistudio.google.com/welcome"),
+        command=lambda: webbrowser.open("https://openrouter.ai/keys"),
     ).pack(fill="x", padx=20, pady=(0, 20))
 
     def _on_save() -> None:
@@ -211,7 +211,7 @@ def show_ai_api_dialog(
         if api_key and not _RE_API_KEY.match(api_key):
             _append(
                 "✘  Formato de chave inválido.\n"
-                '   Chaves Gemini começam com "AIza" + 35 caracteres.',
+                '   Chaves OpenRouter costumam ter o formato "sk-or-v1-…".',
                 "error",
             )
             return
@@ -232,16 +232,21 @@ def show_ai_api_dialog(
                 salvar_modelo_ia(modelo)
                 _ai.MODELO_IA = modelo
                 dlg.after(0, lambda: _append("✔  Modelo salvo.", "success"))
-                dlg.after(0, lambda: _append("Testando conexão com a API…", "dim"))
+                dlg.after(0, lambda: _append("Testando conexão com a API OpenRouter…", "dim"))
 
-                from google import genai  # noqa: PLC0415
+                from openai import OpenAI  # noqa: PLC0415
 
-                cliente = genai.Client(api_key=effective_key)
-                response = cliente.models.generate_content(
-                    model=modelo,
-                    contents="Responda apenas com a palavra: OK",
+                cliente = OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=effective_key,
                 )
-                resp_text: str = (response.text or "").strip()
+                response = cliente.chat.completions.create(
+                    model=modelo,
+                    messages=[{"role": "user", "content": "Responda apenas com a palavra: OK"}],
+                )
+                resp_text: str = ""
+                if getattr(response, "choices", None) and len(response.choices) > 0:
+                    resp_text = (response.choices[0].message.content or "").strip()
 
                 if not resp_text:
                     raise ValueError("A IA não retornou conteúdo na resposta.")
