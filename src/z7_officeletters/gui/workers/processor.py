@@ -203,6 +203,7 @@ def _worker_main(
                 q.put(("log", f"  ⚠  Não foi possível criar o template de envelope: {exc}", "warn"))
 
         dados_planilha: list[list[str]] = []
+        envelopes_para_gerar: list[tuple[str, str]] = []  # (nome, endereco) for combined envelope file
         numero_atual: int = inputs["num_inicial"]
         year: int = int(inputs["data_iso"][:4])
         erros = 0
@@ -510,24 +511,10 @@ def _worker_main(
                 except Exception as exc:
                     q.put(("log", f"  ⚠  Erro ao ajustar rodapé de {nome}: {exc}", "warn"))
 
-            # Generate envelope if delivery method is "Carta"
+            # Collect envelope data if delivery method is "Carta"
             if info["envio"] == "Carta":
-                Path(PASTA_ENVELOPES).mkdir(parents=True, exist_ok=True)
-                if modelo_envelope.exists():
-                    try:
-                        doc_env = DocxTemplate(str(modelo_envelope))
-                        doc_env.render(ctx)
-                        _docs.remover_quebras_manuais(doc_env)
-                        nome_dest_safe = _docs._RE_NOME_INVALIDO.sub("", _docs._titlecase_nome(dest0["nome"]))
-                        nome_envelope = f"Envelope - Of. {num_str} - {nome_dest_safe}.docx"
-                        caminho_envelope = os.path.join(PASTA_ENVELOPES, nome_envelope)
-                        doc_env.save(caminho_envelope)
-                        q.put(("log", f"  ✉  Envelope gerado: {nome_envelope}", "success"))
-                    except Exception as exc:
-                        q.put(("log", f"  ✖  Erro ao gerar envelope para {dest0['nome']}: {exc}", "error"))
-                        erros += 1
-                else:
-                    q.put(("log", "  ⚠  Template de envelope não encontrado — ignorando geração do envelope.", "warn"))
+                nome_dest_safe = _docs._RE_NOME_INVALIDO.sub("", _docs._titlecase_nome(dest0["nome"]))
+                envelopes_para_gerar.append((nome_dest_safe, info["destinatario_endereco"]))
 
             if tipo_propositura == "requerimento_pesar":
                 plural_s = "s" if n_props > 1 else ""
@@ -581,6 +568,21 @@ def _worker_main(
             )
             registrar_conferencia_ia(relatorio_conf)
             erros += relatorio_conf.total_incorrigiveis
+
+        # ── Phase 5b: Combined envelope file ─────────────────────────────────
+        if envelopes_para_gerar:
+            Path(PASTA_ENVELOPES).mkdir(parents=True, exist_ok=True)
+            nome_arquivo_env = "Envelopes.docx"
+            caminho_envelopes = os.path.join(PASTA_ENVELOPES, nome_arquivo_env)
+            try:
+                _docs.gerar_envelope_combinado(envelopes_para_gerar, caminho_envelopes)
+                q.put(("log",
+                    f"\n  ✉  Envelopes gerados: {nome_arquivo_env} "
+                    f"({len(envelopes_para_gerar)} destinatário(s))",
+                    "success"))
+            except Exception as exc:
+                q.put(("log", f"  ✖  Erro ao gerar envelopes combinados: {exc}", "error"))
+                erros += 1
 
         # ── Phase 6: Excel spreadsheet ────────────────────────────────────────
         q.put(("log", "\n📊  Gerando planilha Excel…", "accent"))

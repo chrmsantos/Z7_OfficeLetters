@@ -26,6 +26,7 @@ __all__ = [
     "construir_nome_arquivo",
     "criar_modelo_planilha",
     "criar_modelo_envelope",
+    "gerar_envelope_combinado",
     "ajustar_posicao_rodape",
     "remover_quebras_manuais",
 ]
@@ -320,13 +321,13 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
     section.left_margin = Cm(2.0)
     section.right_margin = Cm(2.0)
 
-    # Add Recipient (Destinatário) aligned to the left
+    # Add Recipient name aligned to the left (no treatment/honorific prefix)
     p_dest1 = doc.add_paragraph()
     p_dest1.paragraph_format.space_before = Pt(36)  # Add some spacing from the top
     p_dest1.paragraph_format.space_after = Pt(0)
     p_dest1.paragraph_format.line_spacing = 1.15
 
-    r_dest1 = p_dest1.add_run("{{ TRATAMENTO_RODAPE }} {{ DESTINATARIO_NOME }}")
+    r_dest1 = p_dest1.add_run("{{ DESTINATARIO_NOME }}")
     r_dest1.font.size = Pt(11)
     r_dest1.font.name = "Arial"
 
@@ -340,6 +341,86 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
     r_dest2.font.name = "Arial"
 
     remover_quebras_manuais(doc)
+    doc.save(str(destino))
+    return destino
+
+
+def gerar_envelope_combinado(
+    destinatarios: list[tuple[str, str]],
+    destino: str | Path,
+) -> Path:
+    """Generate a single envelope document with one page per recipient.
+
+    Each page follows the DL envelope format (22 cm × 11 cm, landscape)
+    and contains only the recipient name and address — no honorific prefix.
+
+    Args:
+        destinatarios: List of ``(nome, endereco)`` tuples where *nome* is the
+            recipient name and *endereco* is the multi-line address string.
+        destino: Target file path for the combined envelope document.
+
+    Returns:
+        Path of the file created.
+    """
+    from docx import Document  # type: ignore[import-untyped]  # noqa: PLC0415
+    from docx.oxml import OxmlElement  # type: ignore[import-untyped]  # noqa: PLC0415
+    from docx.oxml.ns import qn  # type: ignore[import-untyped]  # noqa: PLC0415
+    from docx.shared import Cm, Pt  # type: ignore[import-untyped]  # noqa: PLC0415
+
+    doc = Document()
+
+    # Set page size to DL envelope (22 cm x 11 cm in landscape orientation)
+    section = doc.sections[0]
+    section.page_width = Cm(22)
+    section.page_height = Cm(11)
+
+    # Set margins
+    section.top_margin = Cm(1.5)
+    section.bottom_margin = Cm(1.5)
+    section.left_margin = Cm(2.0)
+    section.right_margin = Cm(2.0)
+
+    for i, (nome, endereco) in enumerate(destinatarios):
+        # Add name paragraph
+        p_nome = doc.add_paragraph()
+        p_nome.paragraph_format.space_before = Pt(36)
+        p_nome.paragraph_format.space_after = Pt(0)
+        p_nome.paragraph_format.line_spacing = 1.15
+
+        r_nome = p_nome.add_run(nome)
+        r_nome.font.size = Pt(11)
+        r_nome.font.name = "Arial"
+
+        # Add address lines as separate paragraphs
+        for linha in endereco.split("\n"):
+            linha = linha.strip()
+            if not linha:
+                continue
+            p_end = doc.add_paragraph()
+            p_end.paragraph_format.space_before = Pt(0)
+            p_end.paragraph_format.space_after = Pt(0)
+            p_end.paragraph_format.line_spacing = 1.15
+
+            r_end = p_end.add_run(linha)
+            r_end.font.size = Pt(11)
+            r_end.font.name = "Arial"
+
+        # Add page break after each recipient except the last
+        if i < len(destinatarios) - 1:
+            p_break = doc.add_paragraph()
+            p_break.paragraph_format.space_before = Pt(0)
+            p_break.paragraph_format.space_after = Pt(0)
+            run_elem = p_break._p
+            br = OxmlElement("w:r")
+            br_elem = OxmlElement("w:br")
+            br_elem.set(qn("w:type"), "page")
+            br.append(br_elem)
+            run_elem.append(br)
+
+    remover_quebras_manuais(doc)
+
+    destino = Path(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(destino))
     return destino
 

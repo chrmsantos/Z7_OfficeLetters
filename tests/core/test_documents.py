@@ -179,7 +179,8 @@ class TestCriarModeloEnvelope:
 
         # Read text and verify placeholders exist in the text
         texto_completo = "\n".join(p.text for p in doc.paragraphs)
-        assert "TRATAMENTO_RODAPE" in texto_completo
+        # Envelope should NOT contain TRATAMENTO_RODAPE (no honorific prefix)
+        assert "TRATAMENTO_RODAPE" not in texto_completo
         assert "DESTINATARIO_NOME" in texto_completo
         assert "DESTINATARIO_ENDERECO" in texto_completo
         assert "REMETENTE" not in texto_completo
