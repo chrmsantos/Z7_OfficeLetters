@@ -71,7 +71,23 @@ def main():
             sys.exit(1)
         print("[+] Arquivo de destino está livre para escrita.")
 
-    # 3. Executar o PyInstaller
+    # 3. Regenerar egg-info para garantir que a versão embarcada no exe esteja atualizada
+    print("[*] Regenerando egg-info a partir de pyproject.toml...")
+    egg_info_dir = project_dir / "src" / "z7_officeletters.egg-info"
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-e", ".", "--no-deps", "--no-build-isolation"],
+            cwd=str(project_dir),
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        print("[+] Egg-info atualizado com sucesso.")
+    except subprocess.CalledProcessError as e:
+        print(f"[AVISO] Falha ao regenerar egg-info: {e.stderr.decode(errors='replace').strip()}")
+        print("[*] A versão embarcada pode estar desatualizada. Continuando com egg-info existente...")
+
+    # 4. Executar o PyInstaller
     if not spec_path.exists():
         print(f"[ERRO CRÍTICO] Arquivo de especificação '{spec_path}' não foi encontrado.")
         sys.exit(1)

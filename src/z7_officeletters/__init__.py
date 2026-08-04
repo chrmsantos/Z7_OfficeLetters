@@ -11,9 +11,62 @@ Public exports:
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
 __all__ = ["APP_NAME", "APP_VERSION", "APP_AUTHOR"]
 
 
+def _read_version() -> str:
+    """Return the application version from package metadata or a fallback.
+
+    Resolution order:
+    1. ``pyproject.toml`` — the single source of truth (development mode).
+    2. Bundled ``PKG-INFO`` inside the egg-info directory — works in a frozen
+       PyInstaller executable where the egg-info is shipped as data.
+    3. ``importlib.metadata`` — fallback when the package is pip-installed.
+    4. Hardcoded fallback (must be kept in sync with ``pyproject.toml``).
+    """
+    import re as _re  # noqa: PLC0415
+
+    # 1. Read directly from pyproject.toml (most reliable in dev mode)
+    if not getattr(_sys, "frozen", False):
+        try:
+            _pyproject = _Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+            if _pyproject.exists():
+                _text = _pyproject.read_text(encoding="utf-8")
+                _match = _re.search(r'^version\s*=\s*"([^"]+)"', _text, _re.MULTILINE)
+                if _match:
+                    return _match.group(1)
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 2. Parse PKG-INFO from the bundled egg-info (frozen / PyInstaller)
+    try:
+        if getattr(_sys, "frozen", False):
+            _base = _Path(_sys._MEIPASS)  # type: ignore[attr-defined]
+        else:
+            _base = _Path(__file__).resolve().parent.parent.parent
+        _pkg_info = _base / "z7_officeletters.egg-info" / "PKG-INFO"
+        if _pkg_info.exists():
+            for _line in _pkg_info.read_text(encoding="utf-8").splitlines():
+                if _line.startswith("Version:"):
+                    return _line.split(":", 1)[1].strip()
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 3. importlib.metadata (works when the package is installed via pip)
+    try:
+        from importlib.metadata import version as _pkg_version  # noqa: PLC0415
+
+        return _pkg_version("z7-officeletters")
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 4. Hardcoded fallback — keep in sync with pyproject.toml
+    return "4.7.0"
+
+
 APP_NAME: str = "Z7 OfficeLetters"
-APP_VERSION: str = "4.6.0"
+APP_VERSION: str = _read_version()
 APP_AUTHOR: str = "CMS"
