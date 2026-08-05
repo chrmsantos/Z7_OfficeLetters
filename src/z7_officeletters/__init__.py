@@ -80,7 +80,7 @@ def _read_version() -> str:
         pass
 
     # 4. Hardcoded fallback — keep in sync with pyproject.toml
-    return "4.8.0"
+    return "4.8.1"
 
 
 APP_NAME: str = "Z7 OfficeLetters"

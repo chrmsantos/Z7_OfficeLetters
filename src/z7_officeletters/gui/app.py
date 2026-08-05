@@ -122,11 +122,17 @@ class AutoOficiosApp(ctk.CTk):
             Path(p).mkdir(parents=True, exist_ok=True)
         configurar_logging()
 
-        # Clean up any leftover old executable from a previous update
+        # Clean up any leftover old executable or temp download from a previous update
         try:
             old_exe = Path(sys.executable + ".old")
             if old_exe.exists():
                 old_exe.unlink()
+        except Exception:
+            pass
+        try:
+            tmp_dl = Path(sys.executable).with_suffix(".tmp_download")
+            if tmp_dl.exists():
+                tmp_dl.unlink()
         except Exception:
             pass
         try:

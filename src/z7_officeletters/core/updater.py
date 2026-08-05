@@ -198,6 +198,7 @@ class UpdateProgressWindow:
         parent: tk.Tk | tk.Toplevel,
         download_url: str,
         dest_path: Path,
+        new_version: str = "",
     ) -> None:
         """Initialize the download progress window and start download thread.
 
@@ -205,10 +206,12 @@ class UpdateProgressWindow:
             parent: The parent Tkinter window.
             download_url: The URL to download the update from.
             dest_path: The local destination path for the executable.
+            new_version: The version string being installed (e.g. "4.7.1").
         """
         self.parent = parent
         self.download_url = download_url
         self.dest_path = dest_path
+        self.new_version = new_version
 
         self.win = tk.Toplevel(parent)
         self.win.title("Baixando Atualização")
@@ -508,6 +511,21 @@ class UpdateProgressWindow:
                     )
                 raise rename_exc
 
+            # Persist the new version in a file next to the executable so that
+            # _read_version() picks it up immediately on the next launch, even
+            # if the bundled PKG-INFO or hardcoded fallback is stale.
+            if self.new_version:
+                try:
+                    version_file = current_exe.parent / "version.txt"
+                    version_file.write_text(self.new_version, encoding="utf-8")
+                    logger.info(
+                        "Version file written: %s -> %s",
+                        version_file,
+                        self.new_version,
+                    )
+                except Exception:
+                    logger.warning("Failed to write version.txt after update", exc_info=True)
+
             messagebox.showinfo(
                 "Atualização Concluída",
                 "A atualização foi baixada e instalada com sucesso!\n\n"
@@ -638,7 +656,7 @@ def run_update_check(
                 )
                 if messagebox.askyesno("Atualização Disponível", msg, parent=parent):
                     logger.info("User accepted the update. Spawning UpdateProgressWindow...")
-                    UpdateProgressWindow(parent, download_url, dest_path)
+                    UpdateProgressWindow(parent, download_url, dest_path, new_version=versao_limpa)
                 else:
                     logger.info("User declined the update prompt.")
 

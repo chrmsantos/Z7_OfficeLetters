@@ -72,11 +72,13 @@ def main():
         print("[+] Arquivo de destino está livre para escrita.")
 
     # 3. Regenerar egg-info para garantir que a versão embarcada no exe esteja atualizada
+    #    IMPORTANTE: Usar install NÃO-editável (-e) para que o PKG-INFO dentro
+    #    de src/z7_officeletters.egg-info seja atualizado com a versão correta.
     print("[*] Regenerando egg-info a partir de pyproject.toml...")
     egg_info_dir = project_dir / "src" / "z7_officeletters.egg-info"
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-e", ".", "--no-deps", "--no-build-isolation"],
+            [sys.executable, "-m", "pip", "install", ".", "--no-deps", "--no-build-isolation"],
             cwd=str(project_dir),
             check=True,
             stdout=subprocess.PIPE,
