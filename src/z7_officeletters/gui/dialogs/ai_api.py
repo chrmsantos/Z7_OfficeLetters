@@ -1,8 +1,8 @@
 """AI API settings dialog.
 
-Shows fields for the OpenRouter API key and AI model name. A single "Salvar"
-button persists both values and immediately performs a live connection test,
-displaying the result in an output area within the dialog.
+Shows fields for the OpenRouter API key and AI model name. The "Salvar" button
+persists both values and closes the dialog. A separate "Testar Modelo" button
+performs a live connection test and displays the result in an output area.
 
 Public exports:
     show_ai_api_dialog: Open the AI API settings dialog.
@@ -175,7 +175,7 @@ def show_ai_api_dialog(
         tb.delete("1.0", "end")
         tb.configure(state="disabled")
 
-    # ── Save button ────────────────────────────────────────────────────────────
+    # ── Buttons ────────────────────────────────────────────────────────────────
     save_btn = ctk.CTkButton(
         dlg,
         text="💾  Salvar",
@@ -184,7 +184,17 @@ def show_ai_api_dialog(
         fg_color=_C["accent"], hover_color=_C["accent2"],
         text_color="#ffffff",
     )
-    save_btn.pack(fill="x", padx=20, pady=(14, 6))
+    save_btn.pack(fill="x", padx=20, pady=(14, 4))
+
+    test_btn = ctk.CTkButton(
+        dlg,
+        text="🧪  Testar Modelo",
+        font=ctk.CTkFont(size=12),
+        height=36, corner_radius=8,
+        fg_color=_C["panel"], hover_color=_C["border"],
+        text_color=_C["text"], border_width=1, border_color=_C["border"],
+    )
+    test_btn.pack(fill="x", padx=20, pady=(0, 4))
 
     ctk.CTkButton(
         dlg,
@@ -196,7 +206,8 @@ def show_ai_api_dialog(
         command=lambda: webbrowser.open("https://openrouter.ai/keys"),
     ).pack(fill="x", padx=20, pady=(0, 20))
 
-    def _on_save() -> None:
+    def _validate_inputs() -> tuple[str, str] | None:
+        """Validate inputs and return (effective_key, model) or None on failure."""
         _clear_output()
         api_key = apikey_var.get().strip()
         modelo = modelo_ia_var.get().strip()
@@ -204,37 +215,75 @@ def show_ai_api_dialog(
 
         if not effective_key:
             _append("⚠  Informe uma chave de API.", "warn")
-            return
+            return None
         if not modelo:
             _append("⚠  Informe um nome de modelo.", "warn")
-            return
+            return None
         if api_key and not _RE_API_KEY.match(api_key):
             _append(
                 "✘  Formato de chave inválido.\n"
                 '   Chaves OpenRouter costumam ter o formato "sk-or-v1-…".',
                 "error",
             )
+            return None
+        return effective_key, modelo
+
+    def _save_settings(api_key: str, modelo: str) -> None:
+        """Persist API key, account and model to disk and update runtime state."""
+        if api_key and api_key != get_stored_key():
+            salvar_api_key(api_key)
+            dlg.after(0, lambda: _append("✔  Chave salva.", "success"))
+        else:
+            dlg.after(0, lambda: _append("ℹ  Usando chave já armazenada.", "dim"))
+        _conta = conta_var.get().strip()
+        if _conta:
+            salvar_conta(_conta)
+        salvar_modelo_ia(modelo)
+        _ai.MODELO_IA = modelo
+        dlg.after(0, lambda: _append("✔  Modelo salvo.", "success"))
+
+    def _on_save() -> None:
+        validated = _validate_inputs()
+        if validated is None:
             return
+        effective_key, modelo = validated
 
         save_btn.configure(state="disabled")
+        test_btn.configure(state="disabled")
         _append("Salvando chave e modelo…", "dim")
 
-        def _do_save_and_test() -> None:
+        def _do_save() -> None:
             try:
-                if api_key and api_key != get_stored_key():
-                    salvar_api_key(api_key)
-                    dlg.after(0, lambda: _append("✔  Chave salva.", "success"))
-                else:
-                    dlg.after(0, lambda: _append("ℹ  Usando chave já armazenada.", "dim"))
-                _conta = conta_var.get().strip()
-                if _conta:
-                    salvar_conta(_conta)
-                salvar_modelo_ia(modelo)
-                _ai.MODELO_IA = modelo
-                dlg.after(0, lambda: _append("✔  Modelo salvo.", "success"))
-                dlg.after(0, lambda: _append("Testando conexão com a API OpenRouter…", "dim"))
+                _save_settings(effective_key, modelo)
+                dlg.after(0, lambda: _close_and_save(effective_key, modelo))
+            except Exception as exc:  # noqa: BLE001
+                err_msg = str(exc)
+                dlg.after(0, lambda: _append(f"✘  Falha ao salvar: {err_msg}", "error"))
+            finally:
+                try:
+                    dlg.after(0, lambda: (
+                        save_btn.configure(state="normal"),
+                        test_btn.configure(state="normal"),
+                    ))
+                except Exception:  # noqa: BLE001
+                    pass
 
+        threading.Thread(target=_do_save, daemon=True).start()
+
+    def _on_test() -> None:
+        validated = _validate_inputs()
+        if validated is None:
+            return
+        effective_key, modelo = validated
+
+        test_btn.configure(state="disabled")
+        save_btn.configure(state="disabled")
+
+        def _do_test() -> None:
+            try:
                 from openai import OpenAI  # noqa: PLC0415
+
+                dlg.after(0, lambda: _append("Testando conexão com a API OpenRouter…", "dim"))
 
                 cliente = OpenAI(
                     base_url="https://openrouter.ai/api/v1",
@@ -265,20 +314,27 @@ def show_ai_api_dialog(
                 except Exception:  # noqa: BLE001
                     pass
 
-                on_saved(effective_key, modelo)
-
             except Exception as exc:  # noqa: BLE001
                 err_msg = str(exc)
                 dlg.after(0, lambda: _append(f"✘  Falha na validação: {err_msg}", "error"))
             finally:
                 try:
-                    dlg.after(0, lambda: save_btn.configure(state="normal"))
+                    dlg.after(0, lambda: (
+                        test_btn.configure(state="normal"),
+                        save_btn.configure(state="normal"),
+                    ))
                 except Exception:  # noqa: BLE001
                     pass
 
-        threading.Thread(target=_do_save_and_test, daemon=True).start()
+        threading.Thread(target=_do_test, daemon=True).start()
+
+    def _close_and_save(effective_key: str, modelo: str) -> None:
+        """Close the dialog after a successful save."""
+        on_saved(effective_key, modelo)
+        dlg.destroy()
 
     save_btn.configure(command=_on_save)
+    test_btn.configure(command=_on_test)
 
     def _on_close() -> None:
         # Evita vazar a chave pré-preenchida na var compartilhada ao fechar sem salvar

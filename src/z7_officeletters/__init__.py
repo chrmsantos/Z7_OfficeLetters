@@ -21,6 +21,9 @@ def _read_version() -> str:
     """Return the application version from package metadata or a fallback.
 
     Resolution order:
+   0. ``version.txt`` written next to the executable by the self-updater —
+       ensures the version persists correctly across updates even when the
+       bundled PKG-INFO or hardcoded fallback is stale.
     1. ``pyproject.toml`` — the single source of truth (development mode).
     2. Bundled ``PKG-INFO`` inside the egg-info directory — works in a frozen
        PyInstaller executable where the egg-info is shipped as data.
@@ -28,6 +31,19 @@ def _read_version() -> str:
     4. Hardcoded fallback (must be kept in sync with ``pyproject.toml``).
     """
     import re as _re  # noqa: PLC0415
+
+    # 0. Check for version.txt written by the self-updater (frozen mode only).
+    #    This is the most reliable source after an update because it is written
+    #    atomically by the updater with the exact version that was downloaded.
+    if getattr(_sys, "frozen", False):
+        try:
+            _version_file = _Path(_sys.executable).parent / "version.txt"  # type: ignore[attr-defined]
+            if _version_file.exists():
+                _ver = _version_file.read_text(encoding="utf-8").strip()
+                if _re.match(r"^\d+\.\d+\.\d+", _ver):
+                    return _ver
+        except Exception:  # noqa: BLE001
+            pass
 
     # 1. Read directly from pyproject.toml (most reliable in dev mode)
     if not getattr(_sys, "frozen", False):
@@ -64,7 +80,7 @@ def _read_version() -> str:
         pass
 
     # 4. Hardcoded fallback — keep in sync with pyproject.toml
-    return "4.7.0"
+    return "4.8.0"
 
 
 APP_NAME: str = "Z7 OfficeLetters"
