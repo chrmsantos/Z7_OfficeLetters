@@ -22,6 +22,8 @@ from typing import Any
 __all__ = [
     "formatar_lista_pt",
     "frases_propositura",
+    "abrev_numero",
+    "frase_teor",
     "normalizar_numero_mocao",
     "construir_nome_arquivo",
     "criar_modelo_planilha",
@@ -147,6 +149,42 @@ def frases_propositura(
     if n_props > 1:
         return f"Moções de {tipo_mocao_merged}", "cópias das", "aprovadas"
     return f"Moção de {tipo_mocao_merged}", "cópia da", "aprovada"
+
+
+def abrev_numero(n_props: int) -> str:
+    """Return the number abbreviation agreeing with the proposition count.
+
+    Portuguese official writing pluralises the abbreviation ``nº`` when it
+    introduces more than one numbered proposition::
+
+        n_props == 1 → "nº"
+        n_props  > 1 → "nºs"
+
+    Args:
+        n_props: Number of propositions grouped in the letter.
+
+    Returns:
+        ``"nº"`` (singular) or ``"nºs"`` (plural).
+    """
+    return "nºs" if n_props > 1 else "nº"
+
+
+def frase_teor(n_props: int) -> str:
+    """Return the self-explanatory clause agreeing with the proposition count.
+
+    Examples:
+        ``1`` → ``"cujo teor é autoexplicativo"``
+        ``2`` → ``"cujos teores são autoexplicativos"``
+
+    Args:
+        n_props: Number of propositions grouped in the letter.
+
+    Returns:
+        Singular or plural clause string.
+    """
+    if n_props > 1:
+        return "cujos teores são autoexplicativos"
+    return "cujo teor é autoexplicativo"
 
 
 def normalizar_numero_mocao(numero: str) -> str:

@@ -762,7 +762,7 @@ class TestCorrigirLinhaPlanilha:
         reg = _registro(ctx=ctx, n_props=2)
         linha = _linha_padrao(assunto="Errado")
         corr = _corrigir_linha_planilha(linha, reg)
-        assert corr[3] == "Encaminha Moções de Aplauso nº 124 e 125/2026"
+        assert corr[3] == "Encaminha Moções de Aplauso nºs 124 e 125/2026"
 
     def test_assunto_mocao_com_data_dd_mm_aaaa(self) -> None:
         """Verifica que o assunto gerado extrai corretamente o ano de uma data no formato DD/MM/AAAA."""

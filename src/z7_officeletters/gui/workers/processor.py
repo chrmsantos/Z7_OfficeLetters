@@ -204,6 +204,13 @@ def _worker_main(
 
         dados_planilha: list[list[str]] = []
         envelopes_para_gerar: list[tuple[str, str]] = []  # (nome, endereco) for combined envelope file
+
+        # Display name overrides for the "Vereador" spreadsheet column.
+        # Key: normalized (accent-stripped, lowercased) author name.
+        # Value: display name to use instead of the canonical config name.
+        _AUTOR_DISPLAY_OVERRIDE: dict[str, str] = {
+            _authors.norm("Elton Aparecido Cezaretti"): "Tikinho TK",
+        }
         numero_atual: int = inputs["num_inicial"]
         year: int = int(inputs["data_iso"][:4])
         erros = 0
@@ -413,6 +420,8 @@ def _worker_main(
             _designacao_prop, _copia_art, _aprovada_s = _docs.frases_propositura(
                 tipo_propositura, tipo_mocao_merged, n_props
             )
+            _abrev_num = _docs.abrev_numero(n_props)
+            _cujo_teor = _docs.frase_teor(n_props)
 
             ctx: dict[str, str] = {
                 "num_oficio":            num_str,
@@ -431,6 +440,8 @@ def _worker_main(
                 "designacao_propositura": _designacao_prop,
                 "copia_art":             _copia_art,
                 "aprovada_s":            _aprovada_s,
+                "abrev_num":             _abrev_num,
+                "cujo_teor":             _cujo_teor,
                 # Uppercase aliases for Word template placeholders
                 "NUM_OFICIO":            num_str,
                 "DATA_EXTENSO":          inputs["data_extenso"],
@@ -448,6 +459,8 @@ def _worker_main(
                 "DESIGNACAO_PROPOSITURA": _designacao_prop,
                 "COPIA_ART":             _copia_art,
                 "APROVADA_S":            _aprovada_s,
+                "ABREV_NUM":             _abrev_num,
+                "CUJO_TEOR":             _cujo_teor,
             }
 
             if tipo_propositura == "requerimento_pesar":
@@ -518,10 +531,10 @@ def _worker_main(
 
             if tipo_propositura == "requerimento_pesar":
                 plural_s = "s" if n_props > 1 else ""
-                assunto = f"Encaminha Requerimento{plural_s} de Pesar nº {num_mocao_merged}/{year}"
+                assunto = f"Encaminha Requerimento{plural_s} de Pesar {_abrev_num} {num_mocao_merged}/{year}"
             else:
                 plural_oes = "ções" if n_props > 1 else "ção"
-                assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao_merged} nº {num_mocao_merged}/{year}"
+                assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao_merged} {_abrev_num} {num_mocao_merged}/{year}"
 
             # Convert YYYY-MM-DD to DD/MM/AAAA format for the spreadsheet
             data_planilha = inputs["data_iso"]
@@ -536,7 +549,7 @@ def _worker_main(
                 f"{info['tratamento_rodape']} {_docs._titlecase_nome(info['destinatario_nome'])}".strip(),
                 assunto,
                 ", ".join(
-                    f"{_docs._titlecase_nome(_authors._resolve_casing(a.lower(), _authors.norm(a), a))} ({_authors.sigla_autor(a)})"
+                    f"{_AUTOR_DISPLAY_OVERRIDE.get(_authors.norm(a), _docs._titlecase_nome(_authors._resolve_casing(a.lower(), _authors.norm(a), a)))} ({_authors.sigla_autor(a)})"
                     for a in all_autores
                 ),
                 info["envio"],

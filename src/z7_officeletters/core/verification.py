@@ -31,6 +31,8 @@ from typing import Any
 
 from z7_officeletters.core.documents import formatar_lista_pt as _formatar_lista_pt
 from z7_officeletters.core.documents import frases_propositura as _frases_propositura
+from z7_officeletters.core.documents import abrev_numero as _abrev_numero
+from z7_officeletters.core.documents import frase_teor as _frase_teor
 from z7_officeletters.core.documents import _titlecase_nome, remover_quebras_manuais
 
 __all__ = [
@@ -608,6 +610,21 @@ def _verificar_numero(
             f"Particípio (n={n_props}): ctx='{ctx_aprov}' — esperado='{esp_aprov}'"
         )
 
+    # Abreviação de número (nº/nºs) e cláusula "cujo teor" devem concordar
+    esp_abrev = _abrev_numero(n_props)
+    ctx_abrev = ctx.get("abrev_num", "")
+    if ctx_abrev and ctx_abrev != esp_abrev:
+        erros.append(
+            f"Abreviação de número (n={n_props}): ctx='{ctx_abrev}' — esperado='{esp_abrev}'"
+        )
+
+    esp_teor = _frase_teor(n_props)
+    ctx_teor = ctx.get("cujo_teor", "")
+    if ctx_teor and ctx_teor != esp_teor:
+        erros.append(
+            f"Cláusula de teor (n={n_props}): ctx='{ctx_teor}' — esperado='{esp_teor}'"
+        )
+
 
 def verificar_linha_planilha(
     linha: list[Any], registro: RegistroOficio
@@ -769,6 +786,12 @@ def corrigir_ctx(
         ctx["COPIA_ART"] = art
         ctx["aprovada_s"] = aprov
         ctx["APROVADA_S"] = aprov
+        abrev = _abrev_numero(n_props)
+        ctx["abrev_num"] = abrev
+        ctx["ABREV_NUM"] = abrev
+        teor = _frase_teor(n_props)
+        ctx["cujo_teor"] = teor
+        ctx["CUJO_TEOR"] = teor
 
     return ctx
 
@@ -799,12 +822,13 @@ def _corrigir_linha_planilha(
     num_mocao = ctx.get("num_mocao", "")
     tipo_mocao = ctx.get("tipo_mocao", "")
 
+    abrev = _abrev_numero(n_props)
     if tipo_prop == "requerimento_pesar":
         plural_s = "s" if n_props > 1 else ""
-        assunto = f"Encaminha Requerimento{plural_s} de Pesar nº {num_mocao}/{year}"
+        assunto = f"Encaminha Requerimento{plural_s} de Pesar {abrev} {num_mocao}/{year}"
     else:
         plural_oes = "ções" if n_props > 1 else "ção"
-        assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao} nº {num_mocao}/{year}"
+        assunto = f"Encaminha Mo{plural_oes} de {tipo_mocao} {abrev} {num_mocao}/{year}"
 
     dest_nome_title = _titlecase_nome(info.get('destinatario_nome', ''))
     destinatario = (

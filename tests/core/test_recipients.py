@@ -140,6 +140,19 @@ class TestProcessarDestinatario:
         )
         assert "Médico Cardiologista" in r["destinatario_endereco"]
 
+    def test_pf_funcao_profissao_minuscula_e_capitalizada(self) -> None:
+        """Cargos/profissões em minúsculas devem ser capitalizados no bloco final."""
+        r = processar_destinatario(
+            make_dest_simples(funcao_profissao="trancista")
+        )
+        assert "Trancista" in r["destinatario_endereco"]
+
+    def test_pf_funcao_profissao_composta_capitalizada(self) -> None:
+        r = processar_destinatario(
+            make_dest_simples(funcao_profissao="especialista em saúde pública")
+        )
+        assert "Especialista em Saúde Pública" in r["destinatario_endereco"]
+
     def test_pf_funcao_profissao_tem_prioridade_sobre_cargo_ou_tratamento(self) -> None:
         r = processar_destinatario(
             make_dest_simples(funcao_profissao="Engenheiro", cargo_ou_tratamento="Velho Campo")

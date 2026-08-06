@@ -6,12 +6,40 @@ import pytest
 
 from z7_officeletters.core.documents import (
     _titlecase_nome,
+    abrev_numero,
     construir_nome_arquivo,
+    frase_teor,
     normalizar_numero_mocao,
     criar_modelo_envelope,
     ajustar_posicao_rodape,
     remover_quebras_manuais,
 )
+
+
+# =============================================================================
+# abrev_numero
+# =============================================================================
+class TestAbrevNumero:
+
+    def test_singular(self) -> None:
+        assert abrev_numero(1) == "nº"
+
+    def test_plural(self) -> None:
+        assert abrev_numero(2) == "nºs"
+        assert abrev_numero(5) == "nºs"
+
+
+# =============================================================================
+# frase_teor
+# =============================================================================
+class TestFraseTeor:
+
+    def test_singular(self) -> None:
+        assert frase_teor(1) == "cujo teor é autoexplicativo"
+
+    def test_plural(self) -> None:
+        assert frase_teor(2) == "cujos teores são autoexplicativos"
+        assert frase_teor(3) == "cujos teores são autoexplicativos"
 
 
 # =============================================================================

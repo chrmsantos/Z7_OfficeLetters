@@ -16,6 +16,7 @@ import re
 from typing import Any, TypedDict
 
 from z7_officeletters.core.authors import norm
+from z7_officeletters.core.documents import _titlecase_nome
 import z7_officeletters.core.config as _config
 
 __all__ = [
@@ -401,7 +402,10 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
         if cargo and norm(cargo) == norm(nome):
             cargo = ""
         if cargo:
-            partes_endereco.append(cargo)
+            # Official-writing standard: titles/professions accompanying the
+            # recipient name are capitalised (e.g. "trancista" → "Trancista",
+            # "especialista em saúde pública" → "Especialista em Saúde Pública").
+            partes_endereco.append(_titlecase_nome(cargo))
 
     if endereco:
         partes_endereco.append(endereco)
