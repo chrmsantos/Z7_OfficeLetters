@@ -16,7 +16,7 @@ import re
 from typing import Any, TypedDict
 
 from z7_officeletters.core.authors import norm
-from z7_officeletters.core.documents import _titlecase_nome
+from z7_officeletters.core.documents import _titlecase_nome, _remover_parenteses
 import z7_officeletters.core.config as _config
 
 __all__ = [
@@ -92,6 +92,36 @@ _PREFIXOS_CLERIGO: tuple[str, ...] = (
     "pe.", "pe ", "rev.", "rev ", "fr.", "fr ", "dom ", "irmao ", "irma ", "irma.",
     "padre ", "paroco ", "pastor ", "pastora ", "reverendo ", "reverenda ", "frei "
 )
+
+# Keywords that identify police / military-police / civil-police roles.
+# Matched as substrings against the normalised ``funcao_profissao`` field.
+_FUNCOES_POLICIAL: frozenset[str] = frozenset({
+    "policial", "policia", "policía",
+    "pm", "ppm", "bpm", "rpm",
+    "pc ", "pc.",
+    "delegado", "delegada", "delegacia",
+    "inspetor", "inspetora",
+    "investigador", "investigadora",
+    "escrivao", "escriva",
+    "perito", "perita",
+    "agente policial",
+    "soldado", "cabo", "sargento",
+    "subtenente",
+    "tenente", "capitao", "major",
+    "coronel", "general",
+})
+
+
+def _is_policial(funcao: str, nome: str) -> bool:
+    """Check if the recipient's role indicates a police officer.
+
+    Matches against ``funcao_profissao`` or ``cargo_ou_tratamento``.
+    """
+    for campo in (funcao, nome):
+        campo_norm = norm(campo).strip()
+        if any(kw in campo_norm for kw in _FUNCOES_POLICIAL):
+            return True
+    return False
 
 
 def _is_clergy(funcao: str, nome_rep: str) -> bool:
@@ -354,8 +384,9 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
             vocativo = "Excelentíssima Senhora" if genero == "F" else "Excelentíssimo Senhor"
             pronome_corpo = "Vossa Excelência"
         else:
-            # Default — Vossa Senhoria / Vossa Reverendíssima
+            # Default — Vossa Senhoria / Vossa Reverendíssima / Policial
             funcao_prof = dest.get("funcao_profissao") or ""
+            cargo_ou_trat = dest.get("cargo_ou_tratamento") or ""
             if _is_clergy(funcao_prof, nome):
                 genero_rep = _inferir_genero_representante_clerigo(funcao_prof, nome, genero)
                 if genero_rep == "F":
@@ -365,6 +396,10 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
                     tratamento_rodape = "Ao Reverendíssimo Senhor"
                     vocativo = "Reverendíssimo Senhor"
                 pronome_corpo = "Vossa Reverendíssima"
+            elif _is_policial(funcao_prof, cargo_ou_trat):
+                tratamento_rodape = "À Policial" if genero == "F" else "Ao Policial"
+                vocativo = "Policial"
+                pronome_corpo = "Vossa Senhoria"
             else:
                 tratamento_rodape = "À Ilustríssima Senhora" if genero == "F" else "Ao Ilustríssimo Senhor"
                 vocativo = "Ilustríssima Senhora" if genero == "F" else "Ilustríssimo Senhor"
@@ -422,7 +457,7 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
 
     return DestinatarioProcessado(
         tratamento_rodape=tratamento_rodape,
-        destinatario_nome=nome.upper(),
+        destinatario_nome=_remover_parenteses(nome).upper(),
         destinatario_endereco="\n".join(partes_endereco),
         vocativo=vocativo,
         pronome_corpo=pronome_corpo,

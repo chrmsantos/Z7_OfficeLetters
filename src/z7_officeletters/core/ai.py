@@ -53,7 +53,7 @@ PROMPT_TEMPLATE_PADRAO: str = (
     "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true.\n"
     "    O campo 'numero_mocao' deve conter apenas o número sequencial da moção, sem sufixos de ano ou outros caracteres. Ex: '432' em vez de '432/2026'.\n"
     "    O campo 'tipo_mocao' deve ser classificado como 'Aplauso', 'Apelo', 'Apoio' ou 'Protesto' com base no conteúdo da moção.\n"
-    "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores da moção, conforme mencionados no texto. Se o texto mencionar apenas o cargo (ex: 'os vereadores'), use 'Vereador(a) Indefinido(a)'.\n"
+    "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores da moção, conforme mencionados no texto. ATENÇÃO: o nome do autor pode aparecer apenas no bloco de assinatura ao final do documento (geralmente em letras maiúsculas, seguido de 'Vereador' ou 'Vereadora', ex.: 'ALEX DANTASVereador', 'ESTHER MORAESVereadora'). Extraia o nome desse bloco quando não houver menção explícita no corpo do texto. Somente use 'Vereador(a) Indefinido(a)' se realmente não for possível identificar o autor em nenhuma parte do documento.\n"
     "    O campo 'destinatarios' deve ser a lista de destinatários identificada com extremo cuidado e precisão.\n"
     "    REGRA CRÍTICA DE DESTINATÁRIOS (CUIDADO REDOBRADO): Defina com extrema precisão quem e quantos são os destinatários reais. Inclua na lista 'destinatarios' APENAS e estritamente quem: (a) estiver mencionado na ementa da propositura, ou (b) tiver instrução expressa no texto determinando o encaminhamento do ofício/cópia. Pessoas, autoridades ou instituições citadas meramente a título de informação, contexto histórico, agradecimento ou homenagem na justificativa, sem que haja uma instrução explícita de envio de cópia para elas, NUNCA devem ser incluídas na lista de destinatários. Evite criar destinatários extras ou desnecessários.\n"
     "    REGRA DE APELIDO: Quando o texto mencionar uma pessoa pelo nome completo e também por um apelido ou nome de guerra (ex.: policiais militares e civis, agentes públicos), trate-os como UM ÚNICO destinatário. Inclua ambos no campo 'nome' no formato \"NOME COMPLETO (APELIDO)\". Nunca crie dois destinatários separados para a mesma pessoa por causa de um apelido ou nome de guerra.\n"
@@ -69,7 +69,7 @@ PROMPT_TEMPLATE_PADRAO: str = (
     '      - \'genero\': "M" para masculino ou "F" para feminino. Para PF: infira pelo nome ou cargo do destinatário. Para PJ e Coletivo: infira pelo gênero do representante (se explicitamente mencionado no texto) — NUNCA pelo gênero gramatical do nome da instituição; use "M" como padrão para instituições. Sempre inclua este campo.\n'
     "    Campos exclusivos de PF (incluir apenas se presentes no texto):\n"
     "      - 'funcao_profissao': função ou profissão da pessoa física.\n"
-    "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora').\n"
+    "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora'; policiais recebem tratamento 'Ao Policial' / 'À Policial').\n"
     "    Campos exclusivos de PJ e Coletivo (incluir apenas se presentes no texto):\n"
     "      - 'objeto_atividade': objeto social ou atividade da PJ/Coletivo.\n"
     "      - 'representante': nome do representante da PJ/Coletivo.\n"
@@ -155,7 +155,7 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
     '      - \'genero\': "M" para masculino ou "F" para feminino. Para PF: infira pelo nome ou cargo do destinatário. Para PJ e Coletivo: infira pelo gênero do representante (se explicitamente mencionado no texto) — NUNCA pelo gênero gramatical do nome da instituição; use "M" como padrão para instituições. Sempre inclua este campo.\n'
     "    Campos exclusivos de PF (incluir apenas se presentes no texto):\n"
     "      - 'funcao_profissao': função ou profissão da pessoa física.\n"
-    "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora').\n"
+    "      - 'nivel_protocolo': nível de protocolo da PF. Use 'VE' para autoridades federais e estaduais que recebem tratamento 'A Sua Excelência' (Presidente da República, Ministros de Estado, Governadores, Deputados Federais/Estaduais, Senadores, Secretários de Estado, Embaixadores etc.); use 'VE_M' para autoridades municipais que recebem tratamento 'À Sua Excelência' (Prefeitos, Vereadores e altos cargos municipais eleitos ou de alto protocolo). Omita o campo para as demais pessoas (tratamento padrão 'Ao Ilustríssimo Senhor' ou 'À Ilustríssima Senhora'; policiais recebem tratamento 'Ao Policial' / 'À Policial').\n"
     "    Campos exclusivos de PJ e Coletivo (incluir apenas se presentes no texto):\n"
     "      - 'objeto_atividade': objeto social ou atividade da PJ/Coletivo.\n"
     "      - 'representante': nome do representante da PJ/Coletivo.\n"
@@ -194,6 +194,22 @@ PROMPT_TEMPLATE_PESAR_PADRAO: str = (
 
 # Pre-compiled patterns used in retry logic.
 _RE_RETRY_DELAY: re.Pattern[str] = re.compile(r"retry_delay\s*\{\s*seconds:\s*(\d+)")
+
+# Matches an ALL-CAPS name immediately before "Vereador" or "Vereadora" at the
+# end of a document (signature block).  Example: "CABO DORIGONVereador".
+_RE_ASSINATURA: re.Pattern[str] = re.compile(
+    r"([A-ZÀ-Ú][A-ZÀ-Ú ]+)(?:Vereador(?:a)?)\s*$"
+)
+
+# Placeholder strings the AI uses when the author cannot be identified.
+_PLACEHOLDER_AUTORES: frozenset[str] = frozenset({
+    "vereador(a) indefinido(a)",
+    "vereador indefinido",
+    "vereadora indefinida",
+    "vereador(a) indefinido",
+    "indefinido(a)",
+    "indefinido",
+})
 
 # Base wait (seconds) for the exponential back-off used on transient server
 # errors (HTTP 503 UNAVAILABLE / model overloaded).  The actual wait for
@@ -416,6 +432,33 @@ def validar_dados_mocao(dados: dict[str, Any]) -> None:
             raise ValueError(f"Destinatário {i + 1} sem campo 'nome'.")
 
 
+
+def _try_extrair_autor_assinatura(texto: str) -> str | None:
+    """Try to extract the author name from the document signature block.
+
+    Brazilian legislative documents typically end with a signature line like
+    ``"ALEX DANTASVereador"`` or ``"CABO DORIGONVereador"``.  When the AI
+    cannot identify the author from the body text, it returns a placeholder
+    such as ``"Vereador(a) Indefinido(a)"``.  This function attempts a last
+    resort extraction from the signature block so the author can still be
+    resolved against ``config.MAPA_AUTORES``.
+
+    Args:
+        texto: Raw propositura text (as fed to the AI).
+
+    Returns:
+        The extracted author name (title-cased), or ``None`` if no
+        signature block pattern was found.
+    """
+    m = _RE_ASSINATURA.search(texto)
+    if m:
+        nome = m.group(1).strip().title()
+        if nome:
+            logger.debug("Autor extraído da assinatura: %s", nome)
+            return nome
+    return None
+
+
 def extrair_dados_com_ia(
     texto_mocao: str,
     cliente_ai: Any = None,
@@ -572,6 +615,24 @@ def extrair_dados_com_ia(
                     resultado.get("numero_mocao"),
                     resultado.get("tipo_mocao"),
                 )
+
+            # Post-process: try to extract author from signature block when
+            # the AI returned a placeholder.
+            if not _is_pesar:
+                autores = resultado.get("autores", [])
+                if autores and any(
+                    a.strip().lower() in _PLACEHOLDER_AUTORES for a in autores
+                ):
+                    autor_assinatura = _try_extrair_autor_assinatura(texto_mocao)
+                    if autor_assinatura:
+                        resultado["autores"] = [
+                            autor_assinatura if a.strip().lower() in _PLACEHOLDER_AUTORES else a
+                            for a in autores
+                        ]
+                        logger.debug(
+                            "Autor(es) corrigido(s) via assinatura: %s",
+                            resultado["autores"],
+                        )
 
             try:
                 usage = getattr(response, "usage", None)

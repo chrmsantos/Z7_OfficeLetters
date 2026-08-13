@@ -42,8 +42,25 @@ _RE_ANO_MOCAO: re.Pattern[str] = re.compile(r"[-/]\d{2,4}$")
 # Characters that are illegal in Windows file and folder names.
 _RE_NOME_INVALIDO: re.Pattern[str] = re.compile(r'[\\/*?:"<>|]')
 
+# Matches parenthetical text including the surrounding parentheses.
+_RE_PARENTESES: re.Pattern[str] = re.compile(r"\s*\([^)]*\)\s*")
+
 # Portuguese vowels (all lowercase) — used to detect likely acronyms.
 _VOGAIS: frozenset[str] = frozenset("aeiouáéíóúâêôãõà")
+
+
+def _remover_parenteses(nome: str) -> str:
+    """Remove parenthetical text (including parentheses) from *nome*.
+
+    Examples::
+
+        >>> _remover_parenteses("João (apelido) Silva")
+        'João Silva'
+        >>> _remover_parenteses("Elizabeth Dayane da Silva Bezerra (cabo PM Elizabeth)")
+        'Elizabeth Dayane da Silva Bezerra'
+    """
+    return _RE_PARENTESES.sub(" ", nome).strip()
+
 
 # Portuguese prepositions and articles that should be lowercased mid-name.
 _PREPS_PT: frozenset[str] = frozenset({

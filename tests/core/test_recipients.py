@@ -610,4 +610,117 @@ class TestProcessarDestinatarioClero:
         assert info["pronome_corpo"] == "Vossa Reverendíssima"
 
 
+# =============================================================================
+# Policial — treatment for police / military-police recipients
+# =============================================================================
+class TestPolicialTratamento:
+    """Police officers must use 'Policial' instead of 'Ilustríssimo Senhor'."""
+
+    def test_cabo_pm_masculino(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="João da Silva",
+            funcao_profissao="cabo PM",
+            genero="M",
+        ))
+        assert r["tratamento_rodape"] == "Ao Policial"
+        assert r["vocativo"] == "Policial"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_policial_feminino(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Elizabeth Dayane da Silva Bezerra",
+            funcao_profissao="cabo PM Elizabeth",
+            genero="F",
+        ))
+        assert r["tratamento_rodape"] == "À Policial"
+        assert r["vocativo"] == "Policial"
+        assert r["pronome_corpo"] == "Vossa Senhoria"
+
+    def test_soldado_pm(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Carlos Souza",
+            funcao_profissao="Soldado PM",
+            genero="M",
+        ))
+        assert r["tratamento_rodape"] == "Ao Policial"
+        assert r["vocativo"] == "Policial"
+
+    def test_sargento_pm(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Maria Santos",
+            funcao_profissao="Sargento PM",
+            genero="F",
+        ))
+        assert r["tratamento_rodape"] == "À Policial"
+
+    def test_delegado_de_policia(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Roberto Lima",
+            funcao_profissao="Delegado de Polícia",
+            genero="M",
+        ))
+        assert r["tratamento_rodape"] == "Ao Policial"
+
+    def test_policial_civil(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Ana Pereira",
+            funcao_profissao="Policial Civil",
+            genero="F",
+        ))
+        assert r["tratamento_rodape"] == "À Policial"
+
+    def test_tenente_pm(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Pedro Alves",
+            funcao_profissao="Tenente PM",
+            genero="M",
+        ))
+        assert r["tratamento_rodape"] == "Ao Policial"
+        assert r["vocativo"] == "Policial"
+
+    def test_policial_nao_afeta_nivel_ve(self) -> None:
+        """VE-level authorities keep Excelência even if they are police."""
+        r = processar_destinatario(make_dest_simples(
+            nome="General PM",
+            funcao_profissao="General PM",
+            nivel_protocolo="VE",
+            genero="M",
+        ))
+        assert r["tratamento_rodape"] == "A Sua Excelência o Senhor"
+
+    def test_cargo_ou_tratamento_policial(self) -> None:
+        """Police detection also works via cargo_ou_tratamento field."""
+        r = processar_destinatario(make_dest_simples(
+            nome="João Silva",
+            cargo_ou_tratamento="Policial Militar",
+            genero="M",
+        ))
+        assert r["tratamento_rodape"] == "Ao Policial"
+
+
+# =============================================================================
+# Parenthetical nickname stripping from destinatario_nome
+# =============================================================================
+class TestRemoverParentesesDestinatario:
+    """Parenthetical text must be stripped from destinatario_nome."""
+
+    def test_nome_com_apelido_entre_parenteses(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Elizabeth Dayane da Silva Bezerra (cabo PM Elizabeth)",
+        ))
+        assert "(" not in r["destinatario_nome"]
+        assert ")" not in r["destinatario_nome"]
+        assert r["destinatario_nome"] == "ELIZABETH DAYANE DA SILVA BEZERRA"
+
+    def test_nome_sem_parenteses_nao_alterado(self) -> None:
+        r = processar_destinatario(make_dest_simples(nome="João Silva"))
+        assert r["destinatario_nome"] == "JOÃO SILVA"
+
+    def test_parenteses_no_meio(self) -> None:
+        r = processar_destinatario(make_dest_simples(
+            nome="Maria (apelido) Santos",
+        ))
+        assert r["destinatario_nome"] == "MARIA SANTOS"
+
+
 

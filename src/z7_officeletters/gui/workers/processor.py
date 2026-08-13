@@ -500,7 +500,7 @@ def _worker_main(
                 prefix = "Sra. " if gender == "F" else "Sr. "
                 nome_para_arquivo = prefix + falecido_merged
             else:
-                nome_para_arquivo = dest0["nome"]
+                nome_para_arquivo = _docs._remover_parenteses(dest0["nome"])
 
             nome = _docs.construir_nome_arquivo(
                 num_str,

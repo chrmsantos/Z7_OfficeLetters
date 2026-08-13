@@ -6,6 +6,7 @@ import pytest
 
 from z7_officeletters.core.documents import (
     _titlecase_nome,
+    _remover_parenteses,
     abrev_numero,
     construir_nome_arquivo,
     frase_teor,
@@ -335,5 +336,32 @@ class TestRemoverQuebrasManuais:
         assert doc.paragraphs[0].runs[0].bold is True
         assert doc.paragraphs[0].runs[1].italic is True
         assert doc.paragraphs[1].runs[0].italic is True
+
+
+# =============================================================================
+# _remover_parenteses
+# =============================================================================
+class TestRemoverParenteses:
+
+    def test_remove_single_parenthetical(self) -> None:
+        assert _remover_parenteses("João (apelido) Silva") == "João Silva"
+
+    def test_remove_trailing_parenthetical(self) -> None:
+        assert _remover_parenteses(
+            "Elizabeth Dayane da Silva Bezerra (cabo PM Elizabeth)"
+        ) == "Elizabeth Dayane da Silva Bezerra"
+
+    def test_no_parenthetical_unchanged(self) -> None:
+        assert _remover_parenteses("João Silva") == "João Silva"
+
+    def test_empty_string(self) -> None:
+        assert _remover_parenteses("") == ""
+
+    def test_multiple_parentheticals(self) -> None:
+        assert _remover_parenteses("João (x) da Silva (y)") == "João da Silva"
+
+    def test_nested_not_matched_greedily(self) -> None:
+        # regex is non-greedy on parens; inner ) closes first match
+        assert _remover_parenteses("A (B) C") == "A C"
 
 

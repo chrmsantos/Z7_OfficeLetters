@@ -15,6 +15,8 @@ from z7_officeletters.core.ai import (
     limpar_json_da_resposta,
     validar_dados_mocao,
     validar_dados_requerimento_pesar,
+    _try_extrair_autor_assinatura,
+    _PLACEHOLDER_AUTORES,
 )
 from z7_officeletters.gui.constants import detectar_tipo_propositura, numero_propositura
 from z7_officeletters.core.documents import construir_nome_arquivo
@@ -449,3 +451,68 @@ class TestConstruirNomeArquivoTipoPropositura:
         )
         import re
         assert not re.search(r'[\\/*?:"<>|]', nome)
+
+
+# =============================================================================
+# _try_extrair_autor_assinatura — signature block extraction
+# =============================================================================
+class TestTryExtrairAutorAssinatura:
+    """Extract author name from the signature block at the end of a document."""
+
+    def test_assinatura_cabo_dorigon(self) -> None:
+        texto = (
+            "...aplaude os policiais militares.\n"
+            'Plenário "Dr. Tancredo Neves", 5 de agosto de 2026.\n'
+            "CABO DORIGONVereador"
+        )
+        assert _try_extrair_autor_assinatura(texto) == "Cabo Dorigon"
+
+    def test_assinatura_alex_dantas(self) -> None:
+        texto = (
+            "...aos excelentes serviços prestados.\n"
+            'Plenário "Dr. Tancredo Neves", 5 de agosto de 2026.\n'
+            "ALEX DANTASVereador"
+        )
+        assert _try_extrair_autor_assinatura(texto) == "Alex Dantas"
+
+    def test_assinatura_vereadora(self) -> None:
+        texto = (
+            "...pela conquista.\n"
+            'Plenário "Dr. Tancredo Neves", 10 de agosto de 2026.\n'
+            "ESTHER MORAESVereadora"
+        )
+        assert _try_extrair_autor_assinatura(texto) == "Esther Moraes"
+
+    def test_sem_assinatura_retorna_none(self) -> None:
+        texto = "Moção nº 123/2026. Texto qualquer sem assinatura."
+        assert _try_extrair_autor_assinatura(texto) is None
+
+    def test_texto_vazio_retorna_none(self) -> None:
+        assert _try_extrair_autor_assinatura("") is None
+
+    def test_assinatura_com_espaco_antes_vereador(self) -> None:
+        texto = (
+            "...reconhecimento.\n"
+            "CABO DORIGON Vereador"
+        )
+        assert _try_extrair_autor_assinatura(texto) == "Cabo Dorigon"
+
+
+# =============================================================================
+# _PLACEHOLDER_AUTORES — detection of AI placeholder author names
+# =============================================================================
+class TestPlaceholderAutores:
+    """Verify that common AI placeholder author strings are detected."""
+
+    def test_vereador_indefinido_parenteses(self) -> None:
+        assert "vereador(a) indefinido(a)" in _PLACEHOLDER_AUTORES
+
+    def test_vereador_indefinido_sem_parenteses(self) -> None:
+        assert "vereador indefinido" in _PLACEHOLDER_AUTORES
+
+    def test_vereadora_indefinida(self) -> None:
+        assert "vereadora indefinida" in _PLACEHOLDER_AUTORES
+
+    def test_nome_real_nao_e_placeholder(self) -> None:
+        assert "cabo dorigon" not in _PLACEHOLDER_AUTORES
+        assert "alex dantas" not in _PLACEHOLDER_AUTORES
