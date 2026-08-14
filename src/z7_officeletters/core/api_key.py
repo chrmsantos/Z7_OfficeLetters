@@ -8,7 +8,9 @@ Public exports:
     KEYRING_SERVICE: Service name used as the Credential Manager namespace.
     KEYRING_USERNAME: Username key within the service for OpenRouter API key.
     KEYRING_MODEL_USERNAME: Username key for the AI model name.
+    KEYRING_FALLBACK_MODEL_USERNAME: Username key for the fallback AI model name.
     DEFAULT_MODELO_IA: Default OpenRouter AI model name.
+    DEFAULT_MODELO_FALLBACK: Default fallback AI model name.
     salvar_api_key: Persist an API key to the Credential Manager.
     carregar_api_key: Retrieve the stored API key.
     salvar_modelo_ia: Persist the AI model name to the Credential Manager.
@@ -24,12 +26,16 @@ __all__ = [
     "KEYRING_SERVICE",
     "KEYRING_USERNAME",
     "KEYRING_MODEL_USERNAME",
+    "KEYRING_FALLBACK_MODEL_USERNAME",
     "KEYRING_ACCOUNT_USERNAME",
     "DEFAULT_MODELO_IA",
+    "DEFAULT_MODELO_FALLBACK",
     "salvar_api_key",
     "carregar_api_key",
     "salvar_modelo_ia",
     "carregar_modelo_ia",
+    "salvar_modelo_fallback",
+    "carregar_modelo_fallback",
     "salvar_conta",
     "carregar_conta",
     "migrar_chave_do_registro",
@@ -38,8 +44,10 @@ __all__ = [
 KEYRING_SERVICE: str = "z7_officeletters"
 KEYRING_USERNAME: str = "openrouter_api_key"
 KEYRING_MODEL_USERNAME: str = "openrouter_model"
+KEYRING_FALLBACK_MODEL_USERNAME: str = "openrouter_fallback_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
-DEFAULT_MODELO_IA: str = "deepseek/deepseek-chat"
+DEFAULT_MODELO_IA: str = "meta-llama/llama-3.3-70b-instruct:free"
+DEFAULT_MODELO_FALLBACK: str = "google/gemma-2-9b-it:free"
 DEFAULT_CONTA: str = "sentineltray"
 DEFAULT_API_KEY: str = ""
 
@@ -102,6 +110,34 @@ def carregar_modelo_ia() -> str:
     modelo = keyring.get_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME)
     if not modelo or modelo == "gemini-2.5-flash":
         return DEFAULT_MODELO_IA
+    return modelo
+
+
+def salvar_modelo_fallback(modelo: str) -> None:
+    """Persist the fallback AI model name in the Windows Credential Manager.
+
+    Args:
+        modelo: The fallback model name string to store
+            (e.g. ``"google/gemma-2-9b-it:free"``).
+    """
+    import keyring  # noqa: PLC0415
+
+    keyring.set_password(KEYRING_SERVICE, KEYRING_FALLBACK_MODEL_USERNAME, modelo)
+    logger.info("Modelo fallback IA '%s' persistido no Credential Manager.", modelo)
+
+
+def carregar_modelo_fallback() -> str:
+    """Retrieve the stored fallback AI model name from the Windows Credential Manager.
+
+    Returns:
+        The stored fallback model name, or :data:`DEFAULT_MODELO_FALLBACK`
+        if none is found.
+    """
+    import keyring  # noqa: PLC0415
+
+    modelo = keyring.get_password(KEYRING_SERVICE, KEYRING_FALLBACK_MODEL_USERNAME)
+    if not modelo:
+        return DEFAULT_MODELO_FALLBACK
     return modelo
 
 

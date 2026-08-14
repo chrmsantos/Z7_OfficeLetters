@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
+import threading
+import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 import z7_officeletters.core.logging_setup as _ls_mod
-from z7_officeletters.core.logging_setup import SESSAO_ID, configurar_logging, logger
+from z7_officeletters.core.logging_setup import (
+    SESSAO_ID,
+    configurar_logging,
+    log_operation,
+    logger,
+    registrar_chamada_ia,
+)
 
 
 # =============================================================================
@@ -163,8 +172,8 @@ class TestConfigurarLogging:
             )
             threading.excepthook(args)
             mock_crit.assert_called_once()
-            call_args = mock_crit.call_args[0][0]
-            assert "Thread-Teste" in call_args
+            call_args = mock_crit.call_args[0]
+            assert "Thread-Teste" in call_args[1]
 
     def test_limpa_logs_antigos(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -201,3 +210,146 @@ class TestConfigurarLogging:
         assert not old_ia.exists()
         assert new_log.exists()
         assert new_ia.exists()
+
+    def test_log_file_path_atribuido_corretamente(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that configurar_logging sets the module-level log_file_path."""
+        monkeypatch.setattr(_ls_mod, "PASTA_LOGS", str(tmp_path))
+        path = configurar_logging()
+        assert _ls_mod.log_file_path == path
+
+    def test_context_filter_em_handlers(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that the context filter is attached to all handlers."""
+        monkeypatch.setattr(_ls_mod, "PASTA_LOGS", str(tmp_path))
+        configurar_logging()
+        for handler in logger.handlers:
+            filtros = [f for f in handler.filters if isinstance(f, _ls_mod._ContextFilter)]
+            assert len(filtros) == 1, f"Handler {handler} missing _ContextFilter"
+
+
+# =============================================================================
+# _ContextFilter
+# =============================================================================
+class TestContextFilter:
+
+    def test_injeta_sessao_id(self) -> None:
+        record = logging.LogRecord("test", logging.INFO, "", 0, "msg", (), None)
+        filtro = _ls_mod._ContextFilter()
+        filtro.filter(record)
+        assert record.sessao_id == SESSAO_ID  # type: ignore[attr-defined]
+
+    def test_injeta_python_version(self) -> None:
+        record = logging.LogRecord("test", logging.INFO, "", 0, "msg", (), None)
+        filtro = _ls_mod._ContextFilter()
+        filtro.filter(record)
+        expected = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        assert record.python_version == expected  # type: ignore[attr-defined]
+
+    def test_injeta_is_frozen(self) -> None:
+        record = logging.LogRecord("test", logging.INFO, "", 0, "msg", (), None)
+        filtro = _ls_mod._ContextFilter()
+        filtro.filter(record)
+        assert record.is_frozen == getattr(sys, "frozen", False)  # type: ignore[attr-defined]
+
+    def test_sempre_retorna_true(self) -> None:
+        record = logging.LogRecord("test", logging.INFO, "", 0, "msg", (), None)
+        filtro = _ls_mod._ContextFilter()
+        assert filtro.filter(record) is True
+
+
+# =============================================================================
+# _escrever_jsonl
+# =============================================================================
+class TestEscreverJsonl:
+
+    def setup_method(self) -> None:
+        _ls_mod.ia_log_path = ""
+
+    def test_escreve_jsonl_no_arquivo(self, tmp_path: Path) -> None:
+        caminho = str(tmp_path / "test.jsonl")
+        record = {"teste": 1, "nome": "ação"}
+        _ls_mod._escrever_jsonl(caminho, record)
+        conteudo = Path(caminho).read_text(encoding="utf-8").strip()
+        assert json.loads(conteudo) == record
+
+    def test_escreve_multiplas_linhas(self, tmp_path: Path) -> None:
+        caminho = str(tmp_path / "test.jsonl")
+        for i in range(3):
+            _ls_mod._escrever_jsonl(caminho, {"idx": i})
+        linhas = Path(caminho).read_text(encoding="utf-8").strip().split("\n")
+        assert len(linhas) == 3
+        assert json.loads(linhas[0]) == {"idx": 0}
+        assert json.loads(linhas[2]) == {"idx": 2}
+
+    @patch("builtins.open", side_effect=OSError("disk full"))
+    def test_falha_de_io_nao_explode(self, mock_open: MagicMock) -> None:
+        _ls_mod._escrever_jsonl("/fake/path.jsonl", {"x": 1})
+
+    def test_usa_lock(self) -> None:
+        assert isinstance(_ls_mod._jsonl_lock, type(threading.Lock()))
+
+
+# =============================================================================
+# registrar_chamada_ia
+# =============================================================================
+class TestRegistrarChamadaIa:
+
+    def setup_method(self) -> None:
+        _ls_mod.SESSAO_ID = uuid.uuid4().hex[:8]
+        _ls_mod.ia_log_path = ""
+        logger.setLevel(logging.DEBUG)
+
+    def test_nao_faz_nada_sem_log_path(self) -> None:
+        _ls_mod.ia_log_path = ""
+        registrar_chamada_ia({"teste": 1})
+
+    def test_grava_registro_no_arquivo(self, tmp_path: Path) -> None:
+        caminho = str(tmp_path / "ia.jsonl")
+        _ls_mod.ia_log_path = caminho
+        record = {"tipo": "chamada_ia", "prompt": "teste"}
+        registrar_chamada_ia(record)
+        conteudo = Path(caminho).read_text(encoding="utf-8").strip()
+        assert json.loads(conteudo) == record
+
+
+# =============================================================================
+# log_operation
+# =============================================================================
+class TestLogOperation:
+
+    def setup_method(self) -> None:
+        logger.setLevel(logging.DEBUG)
+
+    def test_sem_excecao_registra_duracao(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger="z7_officeletters"):
+            with log_operation("teste_op"):
+                pass
+        assert any("teste_op" in r.message for r in caplog.records)
+        assert any("finalizada" in r.message for r in caplog.records)
+
+    def test_com_excecao_registra_duracao(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger="z7_officeletters"):
+            with pytest.raises(ValueError):
+                with log_operation("op_erro"):
+                    raise ValueError("boom")
+        assert any("op_erro" in r.message for r in caplog.records)
+
+    def test_contexto_extra_no_log(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger="z7_officeletters"):
+            with log_operation("op_ctx") as ctx:
+                ctx["arquivos"] = 5
+        assert any("arquivos=5" in r.message for r in caplog.records)
+
+    def test_nivel_padrao_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger="z7_officeletters"):
+            with log_operation("op_debug"):
+                pass
+        assert any(r.levelno == logging.DEBUG for r in caplog.records)
+
+    def test_yield_dict_vazio(self) -> None:
+        with log_operation("op") as ctx:
+            assert isinstance(ctx, dict)
+            assert len(ctx) == 0

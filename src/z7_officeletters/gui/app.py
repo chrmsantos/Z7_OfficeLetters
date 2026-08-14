@@ -46,7 +46,7 @@ from z7_officeletters.constants import (
 )
 from z7_officeletters.core import config as _config
 from z7_officeletters.core.documents import criar_modelo_planilha, criar_modelo_envelope
-from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia
+from z7_officeletters.core.api_key import carregar_api_key, migrar_chave_do_registro, carregar_modelo_ia, carregar_modelo_fallback
 from z7_officeletters.core.logging_setup import configurar_logging, logger
 from z7_officeletters.gui.constants import _C, _DARK, _LIGHT
 from z7_officeletters.gui.workers.processor import run_processing_worker
@@ -170,10 +170,12 @@ class AutoOficiosApp(ctk.CTk):
 
         loaded_key = ""
         loaded_model = ""
+        loaded_fallback = ""
         try:
             migrar_chave_do_registro()
             loaded_key = carregar_api_key()
             loaded_model = carregar_modelo_ia()
+            loaded_fallback = carregar_modelo_fallback()
         except Exception:  # noqa: BLE001
             pass
 
@@ -185,12 +187,13 @@ class AutoOficiosApp(ctk.CTk):
         except Exception:  # noqa: BLE001
             pass
 
-        self.after(0, lambda: self._on_init_ready(loaded_key, loaded_model, session_state))
+        self.after(0, lambda: self._on_init_ready(loaded_key, loaded_model, loaded_fallback, session_state))
 
     def _on_init_ready(
         self,
         loaded_key: str,
         loaded_model: str,
+        loaded_fallback: str,
         session_state: dict[str, Any],
     ) -> None:
         self._stored_key = loaded_key
@@ -198,6 +201,10 @@ class AutoOficiosApp(ctk.CTk):
             self._modelo_ia_var.set(loaded_model)
             import z7_officeletters.core.ai as _ai  # noqa: PLC0415
             _ai.MODELO_IA = loaded_model
+        if loaded_fallback:
+            self._modelo_fallback_var.set(loaded_fallback)
+            import z7_officeletters.core.ai as _ai  # noqa: PLC0415
+            _ai.MODELO_FALLBACK = loaded_fallback
 
         self._update_ai_status()
 
@@ -550,6 +557,7 @@ class AutoOficiosApp(ctk.CTk):
 
         self._apikey_var = ctk.StringVar(value="")
         self._modelo_ia_var = ctk.StringVar(value="")
+        self._modelo_fallback_var = ctk.StringVar(value="")
         self._action_frame = ctk.CTkFrame(self._left, fg_color="transparent")
         self._action_frame.grid(row=15, column=0, columnspan=1, sticky="ew", padx=20, pady=(0, 10))
         self._action_frame.grid_columnconfigure(0, weight=3)
@@ -763,7 +771,7 @@ class AutoOficiosApp(ctk.CTk):
     # AI status
     # =========================================================================
     def _update_ai_status(self) -> None:
-        model = self._modelo_ia_var.get() or "deepseek/deepseek-chat"
+        model = self._modelo_ia_var.get() or "meta-llama/llama-3.3-70b-instruct:free"
         has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
         if has_key:
             text = f"🤖 {model}  •  ✔ Validado"
@@ -784,6 +792,7 @@ class AutoOficiosApp(ctk.CTk):
         saved_sigla = self._sigla_var.get()
         saved_data = self._data_var.get()
         saved_modelo = self._modelo_ia_var.get()
+        saved_fallback = self._modelo_fallback_var.get()
         saved_key = self._apikey_var.get()
         saved_log_entries = list(self._log_entries)  # snapshot for tag-aware restore
         saved_summary_text = self._summary_label.cget("text")
@@ -821,6 +830,7 @@ class AutoOficiosApp(ctk.CTk):
         self._sigla_var.set(saved_sigla)
         self._data_var.set(saved_data)
         self._modelo_ia_var.set(saved_modelo)
+        self._modelo_fallback_var.set(saved_fallback)
         self._apikey_var.set(saved_key)
         self._log_entries = saved_log_entries
         self._update_ai_status()
@@ -1001,6 +1011,7 @@ class AutoOficiosApp(ctk.CTk):
                 self,
                 self._apikey_var,
                 self._modelo_ia_var,
+                self._modelo_fallback_var,
                 lambda: self._stored_key,
                 _on_ai_saved,
             )

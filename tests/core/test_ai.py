@@ -116,6 +116,15 @@ class TestValidarDadosMocao:
 class TestExtrairDadosComIA:
     """All AI calls are mocked."""
 
+    def setup_method(self) -> None:
+        import z7_officeletters.core.ai as _ai_mod
+        self._orig_fallback = _ai_mod.MODELO_FALLBACK
+        _ai_mod.MODELO_FALLBACK = ""  # disable fallback for retry tests
+
+    def teardown_method(self) -> None:
+        import z7_officeletters.core.ai as _ai_mod
+        _ai_mod.MODELO_FALLBACK = self._orig_fallback
+
     def _client(self, *responses: Any) -> MagicMock:
         client = MagicMock()
         client.chat.completions.create.side_effect = list(responses)

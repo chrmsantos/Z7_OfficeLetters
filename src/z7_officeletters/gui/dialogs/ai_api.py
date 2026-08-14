@@ -17,7 +17,7 @@ from typing import Callable
 
 import customtkinter as ctk
 
-from z7_officeletters.core.api_key import DEFAULT_MODELO_IA
+from z7_officeletters.core.api_key import DEFAULT_MODELO_IA, DEFAULT_MODELO_FALLBACK
 from z7_officeletters.gui.constants import _C
 
 __all__ = ["show_ai_api_dialog"]
@@ -29,6 +29,7 @@ def show_ai_api_dialog(
     parent: ctk.CTk,
     apikey_var: ctk.StringVar,
     modelo_ia_var: ctk.StringVar,
+    modelo_fallback_var: ctk.StringVar,
     get_stored_key: Callable[[], str],
     on_saved: Callable[[str, str], None],
 ) -> None:
@@ -38,10 +39,11 @@ def show_ai_api_dialog(
         parent: The root window (used to centre the dialog).
         apikey_var: StringVar bound to the API key entry.
         modelo_ia_var: StringVar bound to the model name entry.
+        modelo_fallback_var: StringVar bound to the fallback model name entry.
         get_stored_key: Callable returning the currently persisted key (empty if none).
         on_saved: Callback invoked with ``(api_key, modelo)`` after a successful save.
     """
-    from z7_officeletters.core.api_key import salvar_api_key, salvar_modelo_ia, salvar_conta, carregar_conta  # noqa: PLC0415
+    from z7_officeletters.core.api_key import salvar_api_key, salvar_modelo_ia, salvar_modelo_fallback, salvar_conta, carregar_conta  # noqa: PLC0415
     import z7_officeletters.core.ai as _ai  # noqa: PLC0415
 
     apikey_visible: list[bool] = [False]
@@ -51,7 +53,7 @@ def show_ai_api_dialog(
 
     dlg = ctk.CTkToplevel(parent)
     dlg.title("API de IA (OpenRouter)")
-    dlg.geometry("480x610")
+    dlg.geometry("480x700")
     dlg.resizable(False, False)
     dlg.grab_set()
     dlg.configure(fg_color=_C["bg"])
@@ -59,7 +61,7 @@ def show_ai_api_dialog(
     dlg.update_idletasks()
     px, py = parent.winfo_x(), parent.winfo_y()
     pw, ph = parent.winfo_width(), parent.winfo_height()
-    dlg.geometry(f"480x610+{px + (pw - 480) // 2}+{py + (ph - 610) // 2}")
+    dlg.geometry(f"480x700+{px + (pw - 480) // 2}+{py + (ph - 700) // 2}")
 
     # ── Section: API Key ───────────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -138,6 +140,31 @@ def show_ai_api_dialog(
         placeholder_text=f"Ex: {DEFAULT_MODELO_IA}",
         font=ctk.CTkFont(size=13), height=36,
     ).grid(row=0, column=0, sticky="ew")
+
+    # ── Section: Fallback Model ───────────────────────────────────────────────
+    ctk.CTkLabel(
+        dlg, text="MODELO FALLBACK (alternativa temporária)",
+        font=ctk.CTkFont(size=11, weight="bold"),
+        text_color=_C["accent"], anchor="w",
+    ).pack(fill="x", padx=20, pady=(14, 2))
+    ctk.CTkFrame(dlg, height=1, fg_color=_C["border"]).pack(fill="x", padx=20, pady=(0, 8))
+
+    fallback_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+    fallback_frame.pack(fill="x", padx=20)
+    fallback_frame.grid_columnconfigure(0, weight=1)
+
+    ctk.CTkEntry(
+        fallback_frame, textvariable=modelo_fallback_var,
+        placeholder_text=f"Ex: {DEFAULT_MODELO_FALLBACK}",
+        font=ctk.CTkFont(size=13), height=36,
+    ).grid(row=0, column=0, sticky="ew")
+
+    ctk.CTkLabel(
+        dlg,
+        text="Usado automaticamente quando o modelo principal estiver lento/indisponível.",
+        font=ctk.CTkFont(size=10),
+        text_color=_C["dim"], anchor="w",
+    ).pack(fill="x", padx=22, pady=(2, 0))
 
     # ── Output area ────────────────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -241,6 +268,11 @@ def show_ai_api_dialog(
         salvar_modelo_ia(modelo)
         _ai.MODELO_IA = modelo
         dlg.after(0, lambda: _append("✔  Modelo salvo.", "success"))
+        modelo_fb = modelo_fallback_var.get().strip()
+        if modelo_fb:
+            salvar_modelo_fallback(modelo_fb)
+            _ai.MODELO_FALLBACK = modelo_fb
+            dlg.after(0, lambda: _append(f"✔  Modelo fallback salvo: {modelo_fb}", "success"))
 
     def _on_save() -> None:
         validated = _validate_inputs()

@@ -36,6 +36,7 @@ __all__ = [
     "PROMPT_TEMPLATE_PESAR_PADRAO",
     "PROMPT_TEMPLATE_PESAR",
     "MODELO_IA",
+    "MODELO_FALLBACK",
     "carregar_prompt_template",
     "carregar_prompt_template_pesar",
     "limpar_json_da_resposta",
@@ -363,6 +364,22 @@ def _load_modelo_ia() -> str:
 MODELO_IA: str = _load_modelo_ia()
 
 
+def _load_modelo_fallback() -> str:
+    try:
+        from z7_officeletters.core.api_key import carregar_modelo_fallback  # noqa: PLC0415
+        return carregar_modelo_fallback()
+    except Exception as exc:  # noqa: BLE001
+        from z7_officeletters.core.api_key import DEFAULT_MODELO_FALLBACK  # noqa: PLC0415
+        logger.warning(
+            "Falha ao carregar modelo fallback: %s. Usando padrão '%s'.",
+            exc, DEFAULT_MODELO_FALLBACK,
+        )
+        return DEFAULT_MODELO_FALLBACK
+
+
+MODELO_FALLBACK: str = _load_modelo_fallback()
+
+
 def limpar_json_da_resposta(texto: str) -> str:
     """Strip Markdown code fences from an AI text response.
 
@@ -523,6 +540,79 @@ def extrair_dados_com_ia(
                 msg = str(exc)
                 tipo_erro = _classificar_erro_transitorio(msg)
                 if tipo_erro is not None:
+                    # ── Fallback: tentar modelo alternativo antes de esperar ──
+                    if MODELO_FALLBACK and MODELO_FALLBACK != MODELO_IA:
+                        logger.info(
+                            "Modelo principal falhou (%s). Tentando fallback '%s'...",
+                            tipo_erro, MODELO_FALLBACK,
+                        )
+                        if on_rate_limit is not None:
+                            on_rate_limit(
+                                f"⏳  Modelo principal indisponível. Tentando fallback ({MODELO_FALLBACK})…"
+                            )
+                        try:
+                            fb_response = client.chat.completions.create(
+                                model=MODELO_FALLBACK,
+                                messages=[{"role": "user", "content": prompt}],
+                                response_format={"type": "json_object"},
+                            )
+                            fb_raw: str = ""
+                            if getattr(fb_response, "choices", None) and len(fb_response.choices) > 0:
+                                fb_raw = fb_response.choices[0].message.content or ""
+                            elif hasattr(fb_response, "text"):
+                                fb_raw = str(fb_response.text)
+                            if fb_raw:
+                                fb_json_str = limpar_json_da_resposta(fb_raw)
+                                fb_data: Any = json.loads(fb_json_str)
+                                resultado_fb: dict[str, Any] = cast(
+                                    dict[str, Any], fb_data[0] if isinstance(fb_data, list) else fb_data
+                                )
+                                _validar(resultado_fb)
+                                logger.info(
+                                    "Fallback '%s' respondeu com sucesso na tentativa %d.",
+                                    MODELO_FALLBACK, tentativa + 1,
+                                )
+                                # ── Post-processamento (mesmo fluxo do modelo principal) ──
+                                if not _is_pesar:
+                                    autores_fb = resultado_fb.get("autores", [])
+                                    if autores_fb and any(
+                                        a.strip().lower() in _PLACEHOLDER_AUTORES for a in autores_fb
+                                    ):
+                                        autor_fb = _try_extrair_autor_assinatura(texto_mocao)
+                                        if autor_fb:
+                                            resultado_fb["autores"] = [
+                                                autor_fb if a.strip().lower() in _PLACEHOLDER_AUTORES else a
+                                                for a in autores_fb
+                                            ]
+                                try:
+                                    usage_fb = getattr(fb_response, "usage", None)
+                                    p_fb = int(getattr(usage_fb, "prompt_tokens", 0) or 0) if usage_fb else 0
+                                    c_fb = int(getattr(usage_fb, "completion_tokens", 0) or getattr(usage_fb, "candidates_token_count", 0) or 0) if usage_fb else 0
+                                    t_fb = int(getattr(usage_fb, "total_tokens", 0) or (p_fb + c_fb)) if usage_fb else 0
+                                    resultado_fb["_usage"] = {
+                                        "prompt_tokens": p_fb,
+                                        "candidates_tokens": c_fb,
+                                        "total_tokens": t_fb,
+                                    }
+                                except Exception:  # noqa: BLE001
+                                    resultado_fb["_usage"] = {
+                                        "prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0,
+                                    }
+                                _alertas_fb = _gerar_alertas(tipo_propositura, resultado_fb, _tentativas_log)
+                                resultado_fb["_alertas"] = _alertas_fb
+                                _tentativa_info.update({
+                                    "status": "sucesso_fallback",
+                                    "modelo_fallback": MODELO_FALLBACK,
+                                })
+                                _tentativas_log.append(_tentativa_info)
+                                _resultado_final = resultado_fb
+                                return resultado_fb
+                        except Exception as fb_exc:  # noqa: BLE001
+                            logger.warning(
+                                "Fallback '%s' também falhou: %s. Prosseguindo com retry do modelo principal.",
+                                MODELO_FALLBACK, fb_exc,
+                            )
+                    # ── Fim do fallback ──
                     match = _RE_RETRY_DELAY.search(msg)
                     if match:
                         espera = int(match.group(1)) + 2
