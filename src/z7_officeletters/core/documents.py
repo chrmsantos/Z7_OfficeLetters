@@ -91,7 +91,13 @@ def _titlecase_nome(nome: str) -> str:
 
     Known Portuguese prepositions/articles are lowercased (except at
     position 0).  All other tokens are capitalised.
+
+    Apostrophe contractions (e.g. ``d'Oeste``, ``d'Ávila``) keep the
+    contraction prefix lowercased and capitalise the word after the
+    apostrophe.  Both ASCII apostrophe (U+0027) and typographic
+    right-single-quote (U+2019) are recognised.
     """
+    _APOSTROPHES = ("'", "\u2019")  # ASCII ' and typographic ’
     words = nome.split()
     if not words:
         return nome
@@ -110,6 +116,16 @@ def _titlecase_nome(nome: str) -> str:
         elif i > 0 and w_lower in _PREPS_PT:
             # Mid-name preposition/article → lowercase
             result.append(w_lower)
+        elif any(ap in word for ap in _APOSTROPHES):
+            # Apostrophe contraction (d'Oeste, d\u2019Oeste) — lowercase the
+            # prefix before the apostrophe, capitalise after.
+            for ap in _APOSTROPHES:
+                if ap in word:
+                    parts = word.split(ap, 1)
+                    prefix = parts[0].lower()
+                    suffix = parts[1].capitalize() if len(parts) > 1 else ""
+                    result.append(f"{prefix}'{suffix}")
+                    break
         else:
             result.append(word.capitalize())
     return " ".join(result)

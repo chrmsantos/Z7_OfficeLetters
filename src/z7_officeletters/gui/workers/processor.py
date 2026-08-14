@@ -1,4 +1,4 @@
-"""Background processing worker.
+﻿"""Background processing worker.
 
 Runs the full pipeline (read → AI extraction → docx generation → xlsx export)
 in a daemon thread, posting progress and result messages to a ``queue.Queue``
@@ -71,9 +71,9 @@ def _get_min_prop_number(grupo_items: list[tuple[dict, dict, dict]]) -> int:
 
 
 def _ordenar_grupos(
-    grupos: dict[tuple[str, str], list[tuple[dict, dict, dict]]]
-) -> list[tuple[tuple[str, str], list[tuple[dict, dict, dict]]]]:
-    """Sort groups: requerimento_pesar first, then mocao. Within type, sort by min number, then recipient name."""
+    grupos: dict[tuple[str, int], list[tuple[dict, dict, dict]]]
+) -> list[tuple[tuple[str, int], list[tuple[dict, dict, dict]]]]:
+    """Sort groups: requerimento_pesar first, then mocao. Within type, sort by min number, then propositura order."""
     return sorted(
         grupos.items(),
         key=lambda x: (
@@ -121,6 +121,7 @@ def _worker_main(
     cancel_event: threading.Event,
 ) -> None:
     """Main worker body — executed in a daemon thread."""
+    word_app = None
     try:
         from openai import OpenAI  # noqa: PLC0415
         from docxtpl import DocxTemplate  # noqa: PLC0415
@@ -128,7 +129,6 @@ def _worker_main(
 
         q.put(("log", f"📋  Log: {log_file_path}", "dim"))
 
-        word_app = None
         salvar_api_key(inputs["api_key"])
         cliente = OpenAI(
             base_url="https://openrouter.ai/api/v1",
@@ -288,39 +288,46 @@ def _worker_main(
                 _sum_label += f" · {_falecido_extr}"
             q.put(("log", f"  ↳  {_sum_label}  →  {_dests_str}", "dim"))
 
-        # ── Phase 2: group by (tipo_propositura, recipient) ───────────────────
-        # When multiple propositions share the same recipient, they are merged
-        # into a single office letter so that one ofício covers all of them.
+        # ── Phase 2: one group per propositura ─────────────────────────────
+        # Each propositura (moção or requerimento) produces exactly one
+        # ofício, using the first (primary) destinatário returned by the AI.
+        # Different proposituras are never merged, even if they share the
+        # same recipient.
         #
-        # Key:   (tipo_propositura, normalized_dest_name)
+        # Key:   (tipo_propositura, propositura_index)
         # Value: list of (dados, raw_dest_dict, processed_info) triples
-        grupos: dict[tuple[str, str], list[tuple[dict, dict, dict]]] = {}
+        grupos: dict[tuple[str, int], list[tuple[dict, dict, dict]]] = {}
 
-        for tipo_propositura, dados in extracted:
-            for dest in dados["destinatarios"]:
-                # Enrich recipient data: DB (priority 1) > propositura (priority 2)
-                dest_proc = dict(dest)  # shallow copy to avoid mutating AI data
-                db_entry = _addr_db.buscar_endereco(dest["nome"], db_path=_db_path)
-                if db_entry:
-                    # DB is the most authoritative source — override all fields it supplies.
-                    dest_proc["nome"] = db_entry.nome
-                    if db_entry.cargo:
-                        dest_proc["cargo_ou_tratamento"] = db_entry.cargo
-                    if db_entry.endereco:
-                        dest_proc["endereco"] = db_entry.endereco
-                    if db_entry.email:
-                        dest_proc["email"] = db_entry.email
+        for prop_idx, (tipo_propositura, dados) in enumerate(extracted):
+            dests = dados.get("destinatarios", [])
+            if not dests:
+                q.put(("log", f"  ⚠  Propositura {dados.get('numero_mocao', '?')} sem destinatários — ignorada.", "warn"))
+                continue
 
-                info = _recipients.processar_destinatario(dest_proc)
+            # Use only the first (primary) destinatário
+            dest = dests[0]
 
-                # Override honorifics when DB supplies a richer tratamento string.
-                if db_entry:
-                    _recipients.aplicar_tratamento_db(info, db_entry.tratamento)
+            # Enrich recipient data: DB (priority 1) > propositura (priority 2)
+            dest_proc = dict(dest)  # shallow copy to avoid mutating AI data
+            db_entry = _addr_db.buscar_endereco(dest["nome"], db_path=_db_path)
+            if db_entry:
+                # DB is the most authoritative source — override all fields it supplies.
+                dest_proc["nome"] = db_entry.nome
+                if db_entry.cargo:
+                    dest_proc["cargo_ou_tratamento"] = db_entry.cargo
+                if db_entry.endereco:
+                    dest_proc["endereco"] = db_entry.endereco
+                if db_entry.email:
+                    dest_proc["email"] = db_entry.email
 
-                dest_key = (tipo_propositura, _normalizar_dest(dest_proc["nome"]))
-                if dest_key not in grupos:
-                    grupos[dest_key] = []
-                grupos[dest_key].append((dados, dest, info))
+            info = _recipients.processar_destinatario(dest_proc)
+
+            # Override honorifics when DB supplies a richer tratamento string.
+            if db_entry:
+                _recipients.aplicar_tratamento_db(info, db_entry.tratamento)
+
+            dest_key = (tipo_propositura, prop_idx)
+            grupos[dest_key] = [(dados, dest, info)]
 
         n_grupos = len(grupos)
         q.put(("progress", total, total))
@@ -407,7 +414,7 @@ def _worker_main(
             _agrup_label = f"  ({n_props}×)" if n_props > 1 else ""
             num_str = f"{numero_atual:03d}"
             q.put(("log",
-                f"\n  📄  Ofício {num_str}{_agrup_label}  ·  {_tipo_ofc}  →  {dest_key[1]}",
+                f"\n  📄  Ofício {num_str}{_agrup_label}  ·  {_tipo_ofc}  →  {info['destinatario_nome']}",
                 "bold"))
             _autores_log = "  /  ".join(all_autores) if all_autores else "—"
             q.put(("log", f"      {_autores_log}", "dim"))

@@ -1,4 +1,4 @@
-"""Tests for the pure helper functions in the processing worker."""
+﻿"""Tests for the pure helper functions in the processing worker."""
 
 from __future__ import annotations
 
@@ -83,7 +83,7 @@ class TestAgrupamentoPorDestinatario:
 def _info_base_masculino() -> dict:
     """Recipient info as produced by processar_destinatario for a generic male."""
     return {
-        "tratamento_rodape": "Ao Ilustríssimo Senhor",
+        "tratamento_rodape": "Ao Ilustríssimo Senhor,",
         "vocativo": "Ilustríssimo Senhor",
         "pronome_corpo": "Vossa Senhoria",
     }
@@ -92,7 +92,7 @@ def _info_base_masculino() -> dict:
 def _info_base_feminino() -> dict:
     """Recipient info as produced by processar_destinatario for a generic female."""
     return {
-        "tratamento_rodape": "À Ilustríssima Senhora",
+        "tratamento_rodape": "À Ilustríssima Senhora,",
         "vocativo": "Ilustríssima Senhora",
         "pronome_corpo": "Vossa Senhoria",
     }
@@ -101,7 +101,7 @@ def _info_base_feminino() -> dict:
 def _info_ai_genero_errado() -> dict:
     """Simulates the AI guessing masculine when the DB says the recipient is female."""
     return {
-        "tratamento_rodape": "Ao Ilustríssimo Senhor",
+        "tratamento_rodape": "Ao Ilustríssimo Senhor,",
         "vocativo": "Ilustríssimo Senhor",
         "pronome_corpo": "Vossa Senhoria",
     }
@@ -134,15 +134,15 @@ class TestAplicarTratamentoDB:
     def test_ilustrissima_corrige_genero_errado_pela_ia(self) -> None:
         """DB diz 'Ilustríssima Senhora' mas IA inferiu masculino — deve corrigir."""
         info = _info_ai_genero_errado()
-        _aplicar_tratamento_db(info, "À Ilustríssima Senhora")
-        assert info["tratamento_rodape"] == "À Ilustríssima Senhora"
+        _aplicar_tratamento_db(info, "À Ilustríssima Senhora,")
+        assert info["tratamento_rodape"] == "À Ilustríssima Senhora,"
         assert info["vocativo"] == "Ilustríssima Senhora"
         assert info["pronome_corpo"] == "Vossa Senhoria"
 
     def test_ilustrissimo_mantem_masculino(self) -> None:
         info = _info_base_masculino()
-        _aplicar_tratamento_db(info, "Ao Ilustríssimo Senhor")
-        assert info["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+        _aplicar_tratamento_db(info, "Ao Ilustríssimo Senhor,")
+        assert info["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
         assert info["vocativo"] == "Ilustríssimo Senhor"
         assert info["pronome_corpo"] == "Vossa Senhoria"
 
@@ -254,14 +254,14 @@ class TestAplicarTratamentoDB_Consistencia:
     def test_ilustrissimo_pronome_singular(self) -> None:
         """Ao Ilustríssimo Senhor must keep singular pronome."""
         info = _info_base_masculino()
-        _aplicar_tratamento_db(info, "Ao Ilustríssimo Senhor")
+        _aplicar_tratamento_db(info, "Ao Ilustríssimo Senhor,")
         assert info["vocativo"] == "Ilustríssimo Senhor"
         assert info["pronome_corpo"] == "Vossa Senhoria"
 
     def test_ilustrissima_pronome_singular(self) -> None:
         """'À Ilustríssima Senhora' must keep singular feminine forms."""
         info = _info_base_feminino()
-        _aplicar_tratamento_db(info, "À Ilustríssima Senhora")
+        _aplicar_tratamento_db(info, "À Ilustríssima Senhora,")
         assert info["vocativo"] == "Ilustríssima Senhora"
         assert info["pronome_corpo"] == "Vossa Senhoria"
 

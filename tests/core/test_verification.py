@@ -1,4 +1,4 @@
-"""Tests for z7_officeletters.core.verification."""
+﻿"""Tests for z7_officeletters.core.verification."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def _ctx_mocao(
     num_mocao: str = "124",
     vocativo: str = "Ilustríssimo Senhor",
     pronome_corpo: str = "Vossa Senhoria",
-    tratamento_rodape: str = "Ao Ilustríssimo Senhor",
+    tratamento_rodape: str = "Ao Ilustríssimo Senhor,",
     destinatario_nome: str = "Fulano de Tal",
     destinatario_endereco: str = "",
     designacao_propositura: str = "Moção de Aplauso",
@@ -98,7 +98,7 @@ def _dados_pesar(numero: str = "45", falecido: str = "João Silva") -> dict[str,
 def _info_padrao(
     vocativo: str = "Ilustríssimo Senhor",
     pronome_corpo: str = "Vossa Senhoria",
-    tratamento_rodape: str = "Ao Ilustríssimo Senhor",
+    tratamento_rodape: str = "Ao Ilustríssimo Senhor,",
     destinatario_nome: str = "Fulano de Tal",
     destinatario_endereco: str = "",
     envio: str = "Em Mãos",
@@ -163,10 +163,10 @@ def _registro(
 def _linha_padrao(
     num_oficio: str = "001",
     data_iso: str = "2026-05-15",
-    destinatario: str = "Ao Ilustríssimo Senhor Fulano de Tal",
-    assunto: str = "Encaminha Moção de Aplauso nº 124/2026",
+    destinatario: str = "Ao Ilustr\u00edssimo Senhor, Fulano de Tal",
+    assunto: str = "Encaminha Mo\u00e7\u00e3o de Aplauso n\u00ba 124/2026",
     vereadores: str = "Alex Dantas (ad)",
-    envio: str = "Em Mãos",
+    envio: str = "Em M\u00e3os",
     sigla: str = "ajc",
 ) -> list[Any]:
     return [num_oficio, data_iso, destinatario, assunto, vereadores, envio, sigla]
@@ -323,7 +323,7 @@ class TestVerificarConsistenciaPronomes:
     def test_ilustrissimo_vossa_senhoria(self) -> None:
         erros: list[str] = []
         _verificar_consistencia_pronomes(
-            erros, "Ilustríssimo Senhor", "Vossa Senhoria", "Ao Ilustríssimo Senhor"
+            erros, "Ilustríssimo Senhor", "Vossa Senhoria", "Ao Ilustríssimo Senhor,"
         )
         assert erros == []
 
@@ -351,7 +351,7 @@ class TestVerificarConsistenciaPronomes:
     def test_consistencia_genero_vocativo_tratamento_divergente(self) -> None:
         erros: list[str] = []
         _verificar_consistencia_pronomes(
-            erros, "Ilustríssima Senhora", "Vossa Senhoria", "Ao Ilustríssimo Senhor"
+            erros, "Ilustríssima Senhora", "Vossa Senhoria", "Ao Ilustríssimo Senhor,"
         )
         assert any("masculina" in e or "feminina" in e or "feminino" in e for e in erros)
 
@@ -411,7 +411,7 @@ class TestVerificarConcordanciaLinguistica:
             ctx=_ctx_mocao(
                 vocativo="Ilustríssimo Senhor",
                 pronome_corpo="Vossa Senhoria",
-                tratamento_rodape="Ao Ilustríssimo Senhor",
+                tratamento_rodape="Ao Ilustríssimo Senhor,",
             ),
             dest_raw=_dest_raw(genero="M"),
         )
@@ -422,7 +422,7 @@ class TestVerificarConcordanciaLinguistica:
             ctx=_ctx_mocao(
                 vocativo="Ilustríssima Senhora",
                 pronome_corpo="Vossa Senhoria",
-                tratamento_rodape="À Ilustríssima Senhora",
+                tratamento_rodape="À Ilustríssima Senhora,",
             ),
             dest_raw=_dest_raw(genero="F"),
         )
@@ -433,7 +433,7 @@ class TestVerificarConcordanciaLinguistica:
             ctx=_ctx_mocao(
                 vocativo="Ilustríssimo Senhor",
                 pronome_corpo="Vossa Senhoria",
-                tratamento_rodape="Ao Ilustríssimo Senhor",
+                tratamento_rodape="Ao Ilustríssimo Senhor,",
             ),
             dest_raw=_dest_raw(genero="F"),
         )
@@ -489,7 +489,7 @@ class TestVerificarConcordanciaLinguistica:
             ctx=_ctx_mocao(
                 vocativo="Ilustríssima Senhora",
                 pronome_corpo="Vossa Senhoria",
-                tratamento_rodape="À Ilustríssima Senhora",
+                tratamento_rodape="À Ilustríssima Senhora,",
             ),
             dest_raw=dest,
         )
@@ -556,7 +556,7 @@ class TestVerificarConcordanciaLinguistica:
             ctx=_ctx_mocao(
                 vocativo="Ilustríssima Senhor",  # "Senhor" instead of "Senhora"
                 pronome_corpo="Vossa Senhoria",
-                tratamento_rodape="À Ilustríssima Senhora",
+                tratamento_rodape="À Ilustríssima Senhora,",
             ),
             dest_raw=_dest_raw(genero="F"),
         )
@@ -646,18 +646,18 @@ class TestCorrigirCtx:
         ctx = _ctx_mocao(
             vocativo="Ilustríssimo Senhor",  # wrong gender
             pronome_corpo="Vossa Senhoria",
-            tratamento_rodape="Ao Ilustríssimo Senhor",
+            tratamento_rodape="Ao Ilustríssimo Senhor,",
         )
         info_fem = _info_padrao(
             vocativo="Ilustríssima Senhora",
             pronome_corpo="Vossa Senhoria",
-            tratamento_rodape="À Ilustríssima Senhora",
+            tratamento_rodape="À Ilustríssima Senhora,",
             destinatario_nome="MARIA SILVA",
         )
         reg = _registro(ctx=ctx, info=info_fem)
         ctx_corr = corrigir_ctx(reg, [], ["Gênero F — vocativo com forma masculina: 'Ilustríssimo Senhor'"])
         assert ctx_corr["vocativo"] == "Ilustríssima Senhora"
-        assert ctx_corr["tratamento_rodape"] == "À Ilustríssima Senhora"
+        assert ctx_corr["tratamento_rodape"] == "À Ilustríssima Senhora,"
 
     def test_corrige_concordancia_numero(self) -> None:
         ctx = _ctx_mocao(
@@ -699,7 +699,7 @@ class TestCorrigirLinhaPlanilha:
         reg = _registro()
         linha = _linha_padrao(destinatario="Errado")
         corr = _corrigir_linha_planilha(linha, reg)
-        assert corr[2] == "Ao Ilustríssimo Senhor Fulano de Tal"
+        assert corr[2] == "Ao Ilustr\u00edssimo Senhor, Fulano de Tal"
 
     def test_corrige_assunto_mocao(self) -> None:
         reg = _registro()
@@ -742,7 +742,7 @@ class TestCorrigirLinhaPlanilha:
         corr = _corrigir_linha_planilha(linha_curta, reg)
         assert len(corr) >= 6
         assert corr[0] == reg.ctx.get("num_oficio")
-        assert corr[2] == "Ao Ilustríssimo Senhor Fulano de Tal"
+        assert corr[2] == "Ao Ilustr\u00edssimo Senhor, Fulano de Tal"
         
         linha_vazia: list[Any] = []
         corr_vazia = _corrigir_linha_planilha(linha_vazia, reg)
@@ -880,7 +880,7 @@ class TestVerificationClergy:
             ctx=_ctx_mocao(
                 vocativo="Reverendíssimo Senhor",
                 pronome_corpo="Vossa Reverendíssima",
-                tratamento_rodape="Ao Reverendíssimo Senhor",
+                tratamento_rodape="Ao Reverendíssimo Senhor,",
             ),
             dest_raw=dest,
         )
@@ -899,7 +899,7 @@ class TestVerificationClergy:
             ctx=_ctx_mocao(
                 vocativo="Ilustríssimo Senhor",
                 pronome_corpo="Vossa Senhoria",
-                tratamento_rodape="Ao Ilustríssimo Senhor",
+                tratamento_rodape="Ao Ilustríssimo Senhor,",
             ),
             dest_raw=dest,
         )
@@ -913,7 +913,7 @@ class TestVerificationClergy:
             ctx=_ctx_mocao(
                 vocativo="Reverendíssimo Senhor",
                 pronome_corpo="Vossa Reverendíssima",
-                tratamento_rodape="Ao Reverendíssimo Senhor",
+                tratamento_rodape="Ao Reverendíssimo Senhor,",
             ),
             dest_raw=dest,
         )

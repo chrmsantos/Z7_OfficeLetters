@@ -1,4 +1,4 @@
-"""Conferência e correção automática dos ofícios e planilha gerados.
+﻿"""Conferência e correção automática dos ofícios e planilha gerados.
 
 Implementa a Fase 6 do fluxo de processamento: após a geração de todos os
 ofícios (.docx), este módulo verifica a consistência e a correção linguística
@@ -313,7 +313,7 @@ def verificar_concordancia_linguistica(registro: RegistroOficio) -> list[str]:
         if ctx.get("vocativo") != "Ilustríssimos Senhores(as)":
             erros.append(
                 f"Requerimento de pesar — vocativo: "
-                f"ctx='{ctx.get('vocativo')}' esperado='Ilustríssimos Senhores(as)'"
+                f"ctx='{ctx.get('vocativo')}' esperado='Ilustríssimos Senhores(as),'"
             )
         if ctx.get("pronome_corpo") != "Vossas Senhorias":
             erros.append(

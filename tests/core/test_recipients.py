@@ -1,4 +1,4 @@
-"""Tests for z7_officeletters.core.recipients."""
+﻿"""Tests for z7_officeletters.core.recipients."""
 
 from __future__ import annotations
 
@@ -60,11 +60,11 @@ class TestProcessarDestinatario:
 
     def test_pessoa_fisica_masculino_tratamento(self) -> None:
         r = processar_destinatario(make_dest_simples(genero="M"))
-        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
 
     def test_pessoa_fisica_feminino_tratamento(self) -> None:
         r = processar_destinatario(make_dest_simples(genero="F"))
-        assert r["tratamento_rodape"] == "À Ilustríssima Senhora"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora,"
 
     def test_pronome_pessoa_fisica(self) -> None:
         r = processar_destinatario(make_dest_simples())
@@ -98,7 +98,7 @@ class TestProcessarDestinatario:
         r = processar_destinatario(
             make_dest_simples(nome="Associação das Mães", is_instituicao=True, genero="F")
         )
-        assert r["vocativo"] == "Ilustríssimas Senhoras"
+        assert r["vocativo"] == "Ilustríssimos Senhores"
 
     def test_pessoa_fisica_masculino_vocativo(self) -> None:
         r = processar_destinatario(make_dest_simples(genero="M"))
@@ -258,7 +258,7 @@ class TestNivelProtocolo:
             funcao_profissao="Secretário Municipal de Saúde",
             genero="M",
         ))
-        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
         assert r["pronome_corpo"] == "Vossa Senhoria"
 
 
@@ -282,7 +282,7 @@ class TestProcessarDestinatarioPJ:
 
     def test_pj_vocativo_feminino(self) -> None:
         r = processar_destinatario(make_dest_pj(genero="F"))
-        assert r["vocativo"] == "Ilustríssimas Senhoras"
+        assert r["vocativo"] == "Ilustríssimos Senhores"
 
     def test_pj_objeto_atividade_incluido_no_endereco(self) -> None:
         r = processar_destinatario(
@@ -344,11 +344,11 @@ class TestProcessarDestinatarioColetivo:
 
     def test_coletivo_tratamento_ao(self) -> None:
         r = processar_destinatario(make_dest_coletivo(nome="Conselho Tutelar"))
-        assert r["tratamento_rodape"] == "Ao"
+        assert r["tratamento_rodape"] == "Aos"
 
     def test_coletivo_comeca_com_a_usa_crase(self) -> None:
         r = processar_destinatario(make_dest_coletivo(nome="Associação Recreativa"))
-        assert r["tratamento_rodape"] == "À"
+        assert r["tratamento_rodape"] == "Aos"
 
     def test_coletivo_pronome_plural(self) -> None:
         r = processar_destinatario(make_dest_coletivo())
@@ -379,7 +379,7 @@ class TestProcessarDestinatarioComRepresentante:
         ))
         assert r["vocativo"] == "Ilustríssimo Senhor"
         assert r["pronome_corpo"] == "Vossa Senhoria"
-        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
 
     def test_pj_representante_feminino_honorifico_singular(self) -> None:
         """Diretora (feminine role ending in 'a') → singular feminine honorifics."""
@@ -390,7 +390,7 @@ class TestProcessarDestinatarioComRepresentante:
         ))
         assert r["vocativo"] == "Ilustríssima Senhora"
         assert r["pronome_corpo"] == "Vossa Senhoria"
-        assert r["tratamento_rodape"] == "À Ilustríssima Senhora"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora,"
 
     def test_escola_com_diretora_reflete_caso_real(self) -> None:
         """Real-world case: Escola Estadual com Diretora nomeada → formas singulares femininas."""
@@ -402,7 +402,7 @@ class TestProcessarDestinatarioComRepresentante:
         ))
         assert r["vocativo"] == "Ilustríssima Senhora"
         assert r["pronome_corpo"] == "Vossa Senhoria"
-        assert r["tratamento_rodape"] == "À Ilustríssima Senhora"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora,"
         assert "Diretora: Magda de Moraes" in r["destinatario_endereco"]
 
     def test_pj_representante_sem_funcao_usa_genero_ai_masculino(self) -> None:
@@ -442,7 +442,7 @@ class TestProcessarDestinatarioComRepresentante:
         ))
         assert r["vocativo"] == "Ilustríssimo Senhor"
         assert r["pronome_corpo"] == "Vossa Senhoria"
-        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
 
     def test_pj_sem_representante_ainda_usa_plural(self) -> None:
         """Backward compat: institutions WITHOUT a representative still use plural."""
@@ -486,8 +486,8 @@ class TestConsistenciaPronomes:
 
     # PF — default VS
     @pytest.mark.parametrize("genero,exp_tratamento,exp_vocativo", [
-        ("M", "Ao Ilustríssimo Senhor", "Ilustríssimo Senhor"),
-        ("F", "À Ilustríssima Senhora", "Ilustríssima Senhora"),
+        ("M", "Ao Ilustríssimo Senhor,", "Ilustríssimo Senhor"),
+        ("F", "À Ilustríssima Senhora,", "Ilustríssima Senhora"),
     ])
     def test_vs_campos_consistentes(self, genero: str, exp_tratamento: str, exp_vocativo: str) -> None:
         r = processar_destinatario(make_dest_simples(genero=genero))
@@ -505,7 +505,7 @@ class TestConsistenciaPronomes:
     # PJ
     @pytest.mark.parametrize("genero,exp_vocativo", [
         ("M", "Ilustríssimos Senhores"),
-        ("F", "Ilustríssimas Senhoras"),
+        ("F", "Ilustríssimos Senhores"),
     ])
     def test_pj_campos_consistentes(self, genero: str, exp_vocativo: str) -> None:
         r = processar_destinatario(make_dest_pj(genero=genero))
@@ -514,8 +514,8 @@ class TestConsistenciaPronomes:
 
     # Coletivo
     @pytest.mark.parametrize("genero,exp_vocativo", [
-        ("M", "Ilustríssimos Senhores"),
-        ("F", "Ilustríssimas Senhoras"),
+        ("M", "Ilustríssimos Senhores(as)"),
+        ("F", "Ilustríssimos Senhores(as)"),
     ])
     def test_coletivo_campos_consistentes(self, genero: str, exp_vocativo: str) -> None:
         r = processar_destinatario(make_dest_coletivo(genero=genero))
@@ -573,7 +573,7 @@ class TestProcessarDestinatarioClero:
         ))
         assert r["vocativo"] == "Reverendíssimo Senhor"
         assert r["pronome_corpo"] == "Vossa Reverendíssima"
-        assert r["tratamento_rodape"] == "Ao Reverendíssimo Senhor"
+        assert r["tratamento_rodape"] == "Ao Reverendíssimo Senhor,"
 
     def test_pj_representante_pastora_feminino(self) -> None:
         r = processar_destinatario(make_dest_pj(
@@ -583,7 +583,7 @@ class TestProcessarDestinatarioClero:
         ))
         assert r["vocativo"] == "Reverendíssima Senhora"
         assert r["pronome_corpo"] == "Vossa Reverendíssima"
-        assert r["tratamento_rodape"] == "À Reverendíssima Senhora"
+        assert r["tratamento_rodape"] == "À Reverendíssima Senhora,"
 
     def test_pf_clerigo_masculino(self) -> None:
         r = processar_destinatario(make_dest_simples(
@@ -592,20 +592,20 @@ class TestProcessarDestinatarioClero:
         ))
         assert r["vocativo"] == "Reverendíssimo Senhor"
         assert r["pronome_corpo"] == "Vossa Reverendíssima"
-        assert r["tratamento_rodape"] == "Ao Reverendíssimo Senhor"
+        assert r["tratamento_rodape"] == "Ao Reverendíssimo Senhor,"
 
     def test_database_override_clerigo(self) -> None:
         from z7_officeletters.core.recipients import aplicar_tratamento_db
         info = {
-            "tratamento_rodape": "Ao Ilustríssimo Senhor",
+            "tratamento_rodape": "Ao Ilustríssimo Senhor,",
             "vocativo": "Ilustríssimo Senhor",
             "pronome_corpo": "Vossa Senhoria",
             "destinatario_nome": "KLEBER FERNANDES DANELON",
             "destinatario_endereco": "",
             "envio": "Em Mãos",
         }
-        aplicar_tratamento_db(info, "Ao Reverendíssimo Senhor")
-        assert info["tratamento_rodape"] == "Ao Reverendíssimo Senhor"
+        aplicar_tratamento_db(info, "Ao Reverendíssimo Senhor,")
+        assert info["tratamento_rodape"] == "Ao Reverendíssimo Senhor,"
         assert info["vocativo"] == "Reverendíssimo Senhor"
         assert info["pronome_corpo"] == "Vossa Reverendíssima"
 
@@ -614,7 +614,7 @@ class TestProcessarDestinatarioClero:
 # Policial — treatment for police / military-police recipients
 # =============================================================================
 class TestPolicialTratamento:
-    """Police officers must use 'Policial' instead of 'Ilustríssimo Senhor'."""
+    """Police officers use 'Ilustríssimo Senhor'/'Ilustríssima Senhora'."""
 
     def test_cabo_pm_masculino(self) -> None:
         r = processar_destinatario(make_dest_simples(
@@ -622,8 +622,8 @@ class TestPolicialTratamento:
             funcao_profissao="cabo PM",
             genero="M",
         ))
-        assert r["tratamento_rodape"] == "Ao Policial"
-        assert r["vocativo"] == "Policial"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
+        assert r["vocativo"] == "Ilustríssimo Senhor"
         assert r["pronome_corpo"] == "Vossa Senhoria"
 
     def test_policial_feminino(self) -> None:
@@ -632,8 +632,8 @@ class TestPolicialTratamento:
             funcao_profissao="cabo PM Elizabeth",
             genero="F",
         ))
-        assert r["tratamento_rodape"] == "À Policial"
-        assert r["vocativo"] == "Policial"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora,"
+        assert r["vocativo"] == "Ilustríssima Senhora"
         assert r["pronome_corpo"] == "Vossa Senhoria"
 
     def test_soldado_pm(self) -> None:
@@ -642,8 +642,8 @@ class TestPolicialTratamento:
             funcao_profissao="Soldado PM",
             genero="M",
         ))
-        assert r["tratamento_rodape"] == "Ao Policial"
-        assert r["vocativo"] == "Policial"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
+        assert r["vocativo"] == "Ilustríssimo Senhor"
 
     def test_sargento_pm(self) -> None:
         r = processar_destinatario(make_dest_simples(
@@ -651,7 +651,7 @@ class TestPolicialTratamento:
             funcao_profissao="Sargento PM",
             genero="F",
         ))
-        assert r["tratamento_rodape"] == "À Policial"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora,"
 
     def test_delegado_de_policia(self) -> None:
         r = processar_destinatario(make_dest_simples(
@@ -659,7 +659,7 @@ class TestPolicialTratamento:
             funcao_profissao="Delegado de Polícia",
             genero="M",
         ))
-        assert r["tratamento_rodape"] == "Ao Policial"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
 
     def test_policial_civil(self) -> None:
         r = processar_destinatario(make_dest_simples(
@@ -667,7 +667,7 @@ class TestPolicialTratamento:
             funcao_profissao="Policial Civil",
             genero="F",
         ))
-        assert r["tratamento_rodape"] == "À Policial"
+        assert r["tratamento_rodape"] == "À Ilustríssima Senhora,"
 
     def test_tenente_pm(self) -> None:
         r = processar_destinatario(make_dest_simples(
@@ -675,8 +675,8 @@ class TestPolicialTratamento:
             funcao_profissao="Tenente PM",
             genero="M",
         ))
-        assert r["tratamento_rodape"] == "Ao Policial"
-        assert r["vocativo"] == "Policial"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
+        assert r["vocativo"] == "Ilustríssimo Senhor"
 
     def test_policial_nao_afeta_nivel_ve(self) -> None:
         """VE-level authorities keep Excelência even if they are police."""
@@ -695,7 +695,7 @@ class TestPolicialTratamento:
             cargo_ou_tratamento="Policial Militar",
             genero="M",
         ))
-        assert r["tratamento_rodape"] == "Ao Policial"
+        assert r["tratamento_rodape"] == "Ao Ilustríssimo Senhor,"
 
 
 # =============================================================================

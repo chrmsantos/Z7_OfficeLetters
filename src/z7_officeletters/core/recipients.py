@@ -1,4 +1,4 @@
-"""Recipient address and honorific processing.
+﻿"""Recipient address and honorific processing.
 
 Applies Brazilian legislative formatting rules to the structured recipient
 data returned by the AI, producing the address block, vocative, and pronoun
@@ -343,32 +343,41 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
         genero_inst = determinar_genero_instituicao(nome)
         representante_nome: str = dest.get("representante") or ""
         funcao_rep_hint: str = dest.get("funcao_representante") or ""
+        is_coletivo = dest.get("tipo") == "Coletivo"
 
         if representante_nome:
             # Named representative present → address that person directly (singular).
             if _is_clergy(funcao_rep_hint, representante_nome):
                 genero_rep = _inferir_genero_representante_clerigo(funcao_rep_hint, representante_nome, genero)
                 if genero_rep == "F":
-                    tratamento_rodape = "À Reverendíssima Senhora"
+                    tratamento_rodape = "À Reverendíssima Senhora,"
                     vocativo = "Reverendíssima Senhora"
                 else:
-                    tratamento_rodape = "Ao Reverendíssimo Senhor"
+                    tratamento_rodape = "Ao Reverendíssimo Senhor,"
                     vocativo = "Reverendíssimo Senhor"
                 pronome_corpo = "Vossa Reverendíssima"
             else:
                 genero_rep = _inferir_genero_representante(funcao_rep_hint, genero)
                 if genero_rep == "F":
-                    tratamento_rodape = "À Ilustríssima Senhora"
+                    tratamento_rodape = "À Ilustríssima Senhora,"
                     vocativo = "Ilustríssima Senhora"
                 else:
-                    tratamento_rodape = "Ao Ilustríssimo Senhor"
+                    tratamento_rodape = "Ao Ilustríssimo Senhor,"
                     vocativo = "Ilustríssimo Senhor"
                 pronome_corpo = "Vossa Senhoria"
         else:
             # No named representative → address the institution generically (plural).
-            tratamento_rodape = "À" if genero_inst == "F" else "Ao"
-            vocativo = "Ilustríssimas Senhoras" if genero == "F" else "Ilustríssimos Senhores"
-            pronome_corpo = "Vossas Senhorias"
+            if is_coletivo:
+                # Collective: "Aos" + plural vocativo
+                tratamento_rodape = "Aos"
+                vocativo = "Ilustríssimos Senhores(as)"
+                pronome_corpo = "Vossas Senhorias"
+            else:
+                # PJ: article + plural vocativo
+                art = "À" if genero_inst == "F" else "Ao"
+                tratamento_rodape = art
+                vocativo = "Ilustríssimos Senhores"
+                pronome_corpo = "Vossas Senhorias"
     else:
         # PF — four protocol levels
         nivel: str = dest.get("nivel_protocolo") or "VS"
@@ -384,24 +393,20 @@ def processar_destinatario(dest: dict[str, Any]) -> DestinatarioProcessado:
             vocativo = "Excelentíssima Senhora" if genero == "F" else "Excelentíssimo Senhor"
             pronome_corpo = "Vossa Excelência"
         else:
-            # Default — Vossa Senhoria / Vossa Reverendíssima / Policial
+            # Default — Vossa Senhoria / Vossa Reverendíssima
             funcao_prof = dest.get("funcao_profissao") or ""
             cargo_ou_trat = dest.get("cargo_ou_tratamento") or ""
             if _is_clergy(funcao_prof, nome):
                 genero_rep = _inferir_genero_representante_clerigo(funcao_prof, nome, genero)
                 if genero_rep == "F":
-                    tratamento_rodape = "À Reverendíssima Senhora"
+                    tratamento_rodape = "À Reverendíssima Senhora,"
                     vocativo = "Reverendíssima Senhora"
                 else:
-                    tratamento_rodape = "Ao Reverendíssimo Senhor"
+                    tratamento_rodape = "Ao Reverendíssimo Senhor,"
                     vocativo = "Reverendíssimo Senhor"
                 pronome_corpo = "Vossa Reverendíssima"
-            elif _is_policial(funcao_prof, cargo_ou_trat):
-                tratamento_rodape = "À Policial" if genero == "F" else "Ao Policial"
-                vocativo = "Policial"
-                pronome_corpo = "Vossa Senhoria"
             else:
-                tratamento_rodape = "À Ilustríssima Senhora" if genero == "F" else "Ao Ilustríssimo Senhor"
+                tratamento_rodape = "À Ilustríssima Senhora," if genero == "F" else "Ao Ilustríssimo Senhor,"
                 vocativo = "Ilustríssima Senhora" if genero == "F" else "Ilustríssimo Senhor"
                 pronome_corpo = "Vossa Senhoria"
 

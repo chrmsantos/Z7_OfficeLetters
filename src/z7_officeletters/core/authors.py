@@ -117,6 +117,10 @@ def _resolve_casing(autor_lower: str, autor_norm: str, fallback: str) -> str:
     Uses the same two-pass lookup as ``_resolve_sigla``; falls back to
     ``str.title()`` of the original name when not found in config.
 
+    When multiple config keys match (e.g. both ``"Júlio César"`` and
+    ``"Júlio César Santos da Silva"``), the **longest** key wins so that
+    the most specific (full) canonical name is preferred.
+
     Args:
         autor_lower: Lowercased version of the AI-returned author name.
         autor_norm: Accent-stripped + lowercased version of the same name.
@@ -125,11 +129,19 @@ def _resolve_casing(autor_lower: str, autor_norm: str, fallback: str) -> str:
     Returns:
         Canonical-cased name string.
     """
-    return (
-        next((v for k, v in _MAPA_AUTORES_CASING.items() if k in autor_lower), None)
-        or next((v for k, v in _MAPA_AUTORES_CASING_NORM.items() if k in autor_norm), None)
-        or fallback.title()
-    )
+    best: str | None = None
+    best_len = 0
+    for k, v in _MAPA_AUTORES_CASING.items():
+        if k in autor_lower and len(k) > best_len:
+            best = v
+            best_len = len(k)
+    if best:
+        return best
+    for k, v in _MAPA_AUTORES_CASING_NORM.items():
+        if k in autor_norm and len(k) > best_len:
+            best = v
+            best_len = len(k)
+    return best or fallback.title()
 
 
 def formatar_autores(lista_autores: list[str]) -> tuple[str, str]:

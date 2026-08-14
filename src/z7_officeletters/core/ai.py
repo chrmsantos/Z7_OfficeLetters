@@ -48,15 +48,14 @@ __all__ = [
 # ── Built-in prompt (shipped with the application) ───────────────────────────
 PROMPT_TEMPLATE_PADRAO: str = (
     "    Atue como um assistente legislativo. Leia o texto da(s) propositura(s) (moção(ões) e/ou requerimento(s) de pesar) abaixo e extraia os dados estritamente no formato JSON.\n"
-    "    Cada propositura pode conter um ou mais destinatários. Para cada destinatário, classifique o tipo e extraia apenas os campos efetivamente presentes no texto.\n"
     "    REGRA FUNDAMENTAL: Omita do JSON qualquer campo que não esteja presente no texto da propositura. Não inclua campos vazios, não deixe valores em branco e não mencione ausência de dados.\n"
-    "    Se houver múltiplos destinatários exigidos em uma propositura, retorne todos na lista 'destinatarios'.\n"
+    "    Cada propositura (cada moção ou requerimento individual) tem EXATAMENTE UM destinatário. Retorne SEMPRE um único destinatário na lista 'destinatarios'.\n"
+    "    O destinatário é a pessoa, instituição ou coletivo principal a quem a moção/homenagem se destina, conforme indicado na EMENTA (primeira linha ou frase introdutória da propositura, geralmente começando com 'Manifesta', 'Requer', etc.).\n"
+    "    ATENÇÃO: NÃO inclua como destinatário pessoas ou entidades citadas meramente como contexto, colegas de equipe, participantes de eventos, ou justificativa. Apenas o HOMENAGEADO/Destinatário principal da ementa deve constar na lista.\n"
     "    Se o texto mencionar que o destinatário é o prefeito ou a prefeitura, marque 'is_prefeito' como true.\n"
     "    O campo 'numero_mocao' deve conter apenas o número sequencial da moção, sem sufixos de ano ou outros caracteres. Ex: '432' em vez de '432/2026'.\n"
     "    O campo 'tipo_mocao' deve ser classificado como 'Aplauso', 'Apelo', 'Apoio' ou 'Protesto' com base no conteúdo da moção.\n"
     "    O campo 'autores' deve ser uma lista de nomes completos dos vereadores autores da moção, conforme mencionados no texto. ATENÇÃO: o nome do autor pode aparecer apenas no bloco de assinatura ao final do documento (geralmente em letras maiúsculas, seguido de 'Vereador' ou 'Vereadora', ex.: 'ALEX DANTASVereador', 'ESTHER MORAESVereadora'). Extraia o nome desse bloco quando não houver menção explícita no corpo do texto. Somente use 'Vereador(a) Indefinido(a)' se realmente não for possível identificar o autor em nenhuma parte do documento.\n"
-    "    O campo 'destinatarios' deve ser a lista de destinatários identificada com extremo cuidado e precisão.\n"
-    "    REGRA CRÍTICA DE DESTINATÁRIOS (CUIDADO REDOBRADO): Defina com extrema precisão quem e quantos são os destinatários reais. Inclua na lista 'destinatarios' APENAS e estritamente quem: (a) estiver mencionado na ementa da propositura, ou (b) tiver instrução expressa no texto determinando o encaminhamento do ofício/cópia. Pessoas, autoridades ou instituições citadas meramente a título de informação, contexto histórico, agradecimento ou homenagem na justificativa, sem que haja uma instrução explícita de envio de cópia para elas, NUNCA devem ser incluídas na lista de destinatários. Evite criar destinatários extras ou desnecessários.\n"
     "    REGRA DE APELIDO: Quando o texto mencionar uma pessoa pelo nome completo e também por um apelido ou nome de guerra (ex.: policiais militares e civis, agentes públicos), trate-os como UM ÚNICO destinatário. Inclua ambos no campo 'nome' no formato \"NOME COMPLETO (APELIDO)\". Nunca crie dois destinatários separados para a mesma pessoa por causa de um apelido ou nome de guerra.\n"
     "    Classifique cada destinatário pelo campo 'tipo':\n"
     "      - 'PF': pessoa física individual.\n"
