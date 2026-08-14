@@ -277,8 +277,8 @@ PREFEITO: PrefeitoConfig        # {"nome": "...", "endereco": "..."}
 Stores the OpenRouter API key encrypted in **Windows Credential Manager** via `keyring` (replaces the legacy plain-text Registry entry). Provides one-time migration with `migrar_chave_do_registro()`.
 
 ```python
-DEFAULT_MODELO_IA = "meta-llama/llama-3.3-70b-instruct:free"
-DEFAULT_MODELO_FALLBACK = "google/gemma-2-9b-it:free"
+DEFAULT_MODELO_IA = "deepseek/deepseek-v4-pro"
+DEFAULT_MODELO_FALLBACK = "deepseek/deepseek-v4-flash"
 salvar_api_key(chave: str) -> None
 carregar_api_key() -> str
 salvar_modelo_ia(modelo: str) -> None
@@ -433,8 +433,8 @@ Input text is split at each `MOÇÃO Nº` / `REQUERIMENTO Nº` header using `RE_
 
 ### AI extraction (Gemini)
 
-- Default model: `meta-llama/llama-3.3-70b-instruct:free`
-- Fallback model: `google/gemma-2-9b-it:free` — tried immediately when primary model fails with transient errors (429/503) (stored in `keyring`; overridable per-session via Advanced dialog).
+- Default model: `deepseek/deepseek-v4-pro`
+- Fallback model: `deepseek/deepseek-v4-flash` — tried immediately when primary model fails with transient errors (429/503) (stored in `keyring`; overridable per-session via Advanced dialog).
 - Schema returned by AI (moção):
 
 ```json

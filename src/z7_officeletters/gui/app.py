@@ -771,7 +771,7 @@ class AutoOficiosApp(ctk.CTk):
     # AI status
     # =========================================================================
     def _update_ai_status(self) -> None:
-        model = self._modelo_ia_var.get() or "meta-llama/llama-3.3-70b-instruct:free"
+        model = self._modelo_ia_var.get() or "deepseek/deepseek-v4-pro"
         has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
         if has_key:
             text = f"🤖 {model}  •  ✔ Validado"

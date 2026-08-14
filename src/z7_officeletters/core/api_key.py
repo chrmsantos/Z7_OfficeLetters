@@ -46,8 +46,8 @@ KEYRING_USERNAME: str = "openrouter_api_key"
 KEYRING_MODEL_USERNAME: str = "openrouter_model"
 KEYRING_FALLBACK_MODEL_USERNAME: str = "openrouter_fallback_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
-DEFAULT_MODELO_IA: str = "meta-llama/llama-3.3-70b-instruct:free"
-DEFAULT_MODELO_FALLBACK: str = "google/gemma-2-9b-it:free"
+DEFAULT_MODELO_IA: str = "deepseek/deepseek-v4-pro"
+DEFAULT_MODELO_FALLBACK: str = "deepseek/deepseek-v4-flash"
 DEFAULT_CONTA: str = "sentineltray"
 DEFAULT_API_KEY: str = ""
 
@@ -108,7 +108,8 @@ def carregar_modelo_ia() -> str:
     import keyring  # noqa: PLC0415
 
     modelo = keyring.get_password(KEYRING_SERVICE, KEYRING_MODEL_USERNAME)
-    if not modelo or modelo == "gemini-2.5-flash":
+    _legacy_models = {"gemini-2.5-flash", "meta-llama/llama-3.3-70b-instruct:free"}
+    if not modelo or modelo in _legacy_models:
         return DEFAULT_MODELO_IA
     return modelo
 
@@ -118,7 +119,7 @@ def salvar_modelo_fallback(modelo: str) -> None:
 
     Args:
         modelo: The fallback model name string to store
-            (e.g. ``"google/gemma-2-9b-it:free"``).
+            (e.g. ``"deepseek/deepseek-v4-flash"``).
     """
     import keyring  # noqa: PLC0415
 
