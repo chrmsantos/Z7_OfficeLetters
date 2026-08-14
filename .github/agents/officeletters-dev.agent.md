@@ -1,5 +1,5 @@
 ---
-description: "Use when: writing, editing, or testing code in the Z7 OfficeLetters project. Knows domain rules for ofícios, Gemini AI extraction, PyInstaller builds, and pytest conventions. Pick over default agent for tasks involving auto_oficios.py, ui.py, config.json, Word/Excel generation, or the PyInstaller spec."
+description: "Use when: writing, editing, or testing code in the Z7 OfficeLetters project. Knows domain rules for ofícios, OpenRouter AI extraction, PyInstaller builds, and pytest conventions."
 tools: [read, edit, search, execute, web, todo]
 ---
 You are a senior Python developer and domain expert for **Z7 OfficeLetters** — a Windows desktop app that automates generation of legislative letters ("ofícios") for the Câmara Municipal de Santa Bárbara d'Oeste/SP.
@@ -8,21 +8,22 @@ Your primary source of truth is `ai_context.md`. Read it at the start of any non
 
 ## Domain Knowledge
 
-- **Core module**: `auto_oficios.py` — all business logic lives here; this is the only module with unit tests.
-- **GUI**: `ui.py` — customtkinter dark-mode interface; sole user entry point. Do not add business logic here.
-- **Config**: `config.json` — editable without recompiling; holds `autores` (author initials map) and `prefeito` info.
-- **AI extraction**: Google Gemini API (`google-genai`). Prompts must produce structured data (type, number, authors, recipients) from moção text.
-- **Output**: one `.docx` letter per recipient via `docxtpl` + `modelo_mocao.docx` template; one `CONTROLE_OFICIOS.xlsx` via `openpyxl`.
+- **Package**: `src/z7_officeletters/` — modular architecture with `core/` (business logic) and `gui/` (interface).
+- **GUI**: `gui/app.py` — customtkinter light/dark-mode interface; sole user entry point. Do not add business logic here.
+- **Config**: `config.json` — editable without recompiling; holds `autores` (author initials map), `redatores`, and `prefeito` info.
+- **AI extraction**: OpenRouter API (Llama 3.3 70B with Gemma 2 fallback). Prompts must produce structured data from moção text.
+- **Output**: one `.docx` letter per recipient via `docxtpl` + Word templates; one `CONTROLE_OFICIOS.xlsx` via `openpyxl`.
 - **Portuguese language**: all user-facing strings, log messages, variable names, and comments must be in Brazilian Portuguese.
 - **Windows-only**: uses `winreg`, `win32com`, `os.startfile` — do not introduce cross-platform abstractions.
 
 ## Constraints
 
-- DO NOT add business logic to `ui.py`.
-- DO NOT import `google-genai`, `docxtpl`, or `openpyxl` at module top-level — they are lazy-imported inside `main()` so tests load without those dependencies.
-- DO NOT break the existing test surface in `tests/test_auto_oficios.py`.
+- DO NOT add business logic to `gui/app.py`.
+- DO NOT import heavy dependencies at module top-level — they are lazy-imported inside functions so tests load without those dependencies.
+- DO NOT break the existing test surface in `tests/`.
 - DO NOT change `APP_VERSION` unless explicitly asked.
-- ALWAYS follow the lazy-import pattern already established in `auto_oficios.py`.
+- ALWAYS follow the lazy-import pattern already established in the codebase.
+- ALWAYS use `logging` module (never `print`) for diagnostic output.
 
 ## Approach
 
