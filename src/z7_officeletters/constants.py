@@ -82,7 +82,12 @@ ENDERECAMENTO_PADRAO: str = "ender/enderecamentos_padrao.docx"
 # ── User-data directories ─────────────────────────────────────────────────────
 # All user-generated data lives inside the project's /local directory
 # (excluded from version control via .gitignore).
-BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent / "local"
+# In frozen (PyInstaller) mode, __file__ points to a temp extraction dir,
+# so we anchor BASE_DIR next to the executable instead.
+if getattr(sys, "frozen", False):
+    BASE_DIR: Path = Path(sys.executable).parent / "local"
+else:
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent / "local"
 
 PASTA_SAIDA: str = str(BASE_DIR / "oficios_gerados")
 # Logs live inside the project tree (dev) or next to the exe (frozen).

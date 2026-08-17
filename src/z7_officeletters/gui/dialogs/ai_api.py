@@ -54,7 +54,7 @@ def show_ai_api_dialog(
 
     dlg = ctk.CTkToplevel(parent)
     dlg.title("API de IA (OpenRouter)")
-    dlg.geometry("480x700")
+    dlg.geometry("480x760")
     dlg.resizable(False, False)
     dlg.grab_set()
     dlg.configure(fg_color=_C["bg"])
@@ -62,7 +62,7 @@ def show_ai_api_dialog(
     dlg.update_idletasks()
     px, py = parent.winfo_x(), parent.winfo_y()
     pw, ph = parent.winfo_width(), parent.winfo_height()
-    dlg.geometry(f"480x700+{px + (pw - 480) // 2}+{py + (ph - 700) // 2}")
+    dlg.geometry(f"480x760+{px + (pw - 480) // 2}+{py + (ph - 760) // 2}")
 
     # ── Section: API Key ───────────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -166,7 +166,7 @@ def show_ai_api_dialog(
         dlg,
         font=ctk.CTkFont(family="Consolas", size=11),
         fg_color=_C["panel"], text_color=_C["text"],
-        corner_radius=8, height=130,
+        corner_radius=8, height=190,
         state="disabled",
     )
     output_box.pack(fill="x", padx=20)
@@ -204,7 +204,7 @@ def show_ai_api_dialog(
 
     test_btn = ctk.CTkButton(
         dlg,
-        text="🧪  Testar Modelo",
+        text="🧪  Testar Modelos",
         font=ctk.CTkFont(size=12),
         height=36, corner_radius=8,
         fg_color=_C["panel"], hover_color=_C["border"],
@@ -297,19 +297,25 @@ def show_ai_api_dialog(
             return
         effective_key, modelo = validated
 
+        modelo_fb = modelo_fallback_var.get().strip()
+
         test_btn.configure(state="disabled")
         save_btn.configure(state="disabled")
 
         def _do_test() -> None:
+            from openai import OpenAI  # noqa: PLC0415
+
+            cliente = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=effective_key,
+            )
+
+            # ── Teste do modelo principal ───────────────────────────────────
+            dlg.after(0, lambda: _append("━━━ MODELO PRINCIPAL ━━━", "dim"))
+            dlg.after(0, lambda: _append(f"   Modelo: {modelo}", "dim"))
+
+            main_ok = False
             try:
-                from openai import OpenAI  # noqa: PLC0415
-
-                dlg.after(0, lambda: _append("Testando conexão com a API OpenRouter…", "dim"))
-
-                cliente = OpenAI(
-                    base_url="https://openrouter.ai/api/v1",
-                    api_key=effective_key,
-                )
                 response = cliente.chat.completions.create(
                     model=modelo,
                     messages=[{"role": "user", "content": "Responda apenas com a palavra: OK"}],
@@ -321,9 +327,45 @@ def show_ai_api_dialog(
                 if not resp_text:
                     raise ValueError("A IA não retornou conteúdo na resposta.")
 
-                dlg.after(0, lambda: _append("✔  IA respondeu — configuração válida.", "success"))
+                dlg.after(0, lambda: _append("✔  Respondeu — configuração válida.", "success"))
                 dlg.after(0, lambda: _append(f"   Resposta: {resp_text}"))
+                main_ok = True
 
+            except Exception as exc:  # noqa: BLE001
+                err_msg = str(exc)
+                dlg.after(0, lambda: _append(f"✘  Falha: {err_msg}", "error"))
+
+            # ── Teste do modelo fallback ────────────────────────────────────
+            if modelo_fb:
+                dlg.after(0, lambda: _append(""))
+                dlg.after(0, lambda: _append("━━━ MODELO FALLBACK ━━━", "dim"))
+                dlg.after(0, lambda: _append(f"   Modelo: {modelo_fb}", "dim"))
+
+                try:
+                    response_fb = cliente.chat.completions.create(
+                        model=modelo_fb,
+                        messages=[{"role": "user", "content": "Responda apenas com a palavra: OK"}],
+                    )
+                    resp_text_fb: str = ""
+                    if getattr(response_fb, "choices", None) and len(response_fb.choices) > 0:
+                        resp_text_fb = (response_fb.choices[0].message.content or "").strip()
+
+                    if not resp_text_fb:
+                        raise ValueError("A IA não retornou conteúdo na resposta.")
+
+                    dlg.after(0, lambda: _append("✔  Respondeu — configuração válida.", "success"))
+                    dlg.after(0, lambda: _append(f"   Resposta: {resp_text_fb}"))
+
+                except Exception as exc:  # noqa: BLE001
+                    err_msg = str(exc)
+                    dlg.after(0, lambda: _append(f"✘  Falha: {err_msg}", "error"))
+            else:
+                dlg.after(0, lambda: _append(""))
+                dlg.after(0, lambda: _append("━━━ MODELO FALLBACK ━━━", "dim"))
+                dlg.after(0, lambda: _append("⚠  Nenhum modelo fallback configurado.", "warn"))
+
+            # ── Atualizar status geral ──────────────────────────────────────
+            if main_ok:
                 try:
                     dlg.after(
                         0,
@@ -335,17 +377,13 @@ def show_ai_api_dialog(
                 except Exception:  # noqa: BLE001
                     pass
 
-            except Exception as exc:  # noqa: BLE001
-                err_msg = str(exc)
-                dlg.after(0, lambda: _append(f"✘  Falha na validação: {err_msg}", "error"))
-            finally:
-                try:
-                    dlg.after(0, lambda: (
-                        test_btn.configure(state="normal"),
-                        save_btn.configure(state="normal"),
-                    ))
-                except Exception:  # noqa: BLE001
-                    pass
+            try:
+                dlg.after(0, lambda: (
+                    test_btn.configure(state="normal"),
+                    save_btn.configure(state="normal"),
+                ))
+            except Exception:  # noqa: BLE001
+                pass
 
         threading.Thread(target=_do_test, daemon=True).start()
 

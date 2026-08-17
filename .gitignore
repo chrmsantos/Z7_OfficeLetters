@@ -26,6 +26,8 @@ templates/
 # PyInstaller build artifacts
 build/
 dist/
+build_out*.txt
+build_err*.txt
 
 # Excel / Word generated files (keep only the model)
 CONTROLE_OFICIOS_FINAL.xlsx
