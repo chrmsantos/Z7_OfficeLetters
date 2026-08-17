@@ -36,7 +36,8 @@ def show_api_key_dialog(
     """
     from z7_officeletters.core.api_key import salvar_api_key  # noqa: PLC0415
 
-    apikey_visible: list[bool] = [False]
+    # Segurança: nunca exibir a chave armazenada no campo de entrada.
+    apikey_var.set("")
 
     dlg = ctk.CTkToplevel(parent)
     dlg.title("Chave de API (OpenRouter)")
@@ -69,18 +70,6 @@ def show_api_key_dialog(
     )
     entry.grid(row=0, column=0, sticky="ew")
     entry.focus_set()
-
-    def _toggle_visibility() -> None:
-        apikey_visible[0] = not apikey_visible[0]
-        entry.configure(show="" if apikey_visible[0] else "•")
-
-    ctk.CTkButton(
-        api_frame, text="👁", width=42, height=42,
-        font=ctk.CTkFont(size=16),
-        fg_color=_C["panel"], hover_color=_C["border"],
-        text_color=_C["text"],
-        command=_toggle_visibility,
-    ).grid(row=0, column=1, padx=(6, 0))
 
     status_label = ctk.CTkLabel(
         dlg,
@@ -146,6 +135,8 @@ def show_api_key_dialog(
 
     def _on_close() -> None:
         apikey_var.trace_remove("write", trace_id)
+        # Segurança: sempre limpar a chave digitada ao fechar
+        apikey_var.set("")
         dlg.destroy()
 
     dlg.protocol("WM_DELETE_WINDOW", _on_close)

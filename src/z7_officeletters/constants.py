@@ -14,13 +14,13 @@ Public exports:
     PASTA_LOGS: Absolute path to the rotating log files folder.
     PASTA_PROPOSITURAS: Absolute path to the proposition input folder.
     PASTA_PLANILHA: Absolute path to the generated spreadsheet folder.
+    PASTA_PROPOSITURAS_FONTE: Absolute path to the source propositions backup folder.
     MAX_TENTATIVAS_IA: Maximum Gemini API retry attempts per call.
     RETRY_DELAY_PADRAO_S: Default wait (seconds) on a 429 rate-limit.
 """
 
 from __future__ import annotations
 
-import os
 import re
 import sys
 from pathlib import Path
@@ -40,6 +40,7 @@ __all__ = [
     "PASTA_LOG_IA",
     "PASTA_PLANILHA",
     "PASTA_ENVELOPES",
+    "PASTA_PROPOSITURAS_FONTE",
     "MAX_TENTATIVAS_IA",
     "RETRY_DELAY_PADRAO_S",
     "RE_PROPOSITURA_SPLIT",
@@ -79,14 +80,9 @@ MODELO_ENVELOPE: str = "templates/modelo_envelope.docx"
 ENDERECAMENTO_PADRAO: str = "ender/enderecamentos_padrao.docx"
 
 # ── User-data directories ─────────────────────────────────────────────────────
-BASE_DIR: Path = (
-    Path(os.environ.get("USERPROFILE", str(Path.home())))
-    / "AppData"
-    / "Local"
-    / "Z7"
-    / "Tmp"
-    / "OfficeLetters"
-)
+# All user-generated data lives inside the project's /local directory
+# (excluded from version control via .gitignore).
+BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent / "local"
 
 PASTA_SAIDA: str = str(BASE_DIR / "oficios_gerados")
 # Logs live inside the project tree (dev) or next to the exe (frozen).
@@ -97,6 +93,7 @@ else:
 PASTA_LOG_IA: str = str(Path(PASTA_LOGS) / "ia")
 PASTA_PLANILHA: str = str(BASE_DIR / "planilha_gerada")
 PASTA_ENVELOPES: str = str(BASE_DIR / "envelopes_gerados")
+PASTA_PROPOSITURAS_FONTE: str = str(BASE_DIR / "proposituras_fonte")
 
 # ── AI retry policy ───────────────────────────────────────────────────────────
 MAX_TENTATIVAS_IA: int = 5

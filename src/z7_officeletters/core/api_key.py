@@ -46,8 +46,8 @@ KEYRING_USERNAME: str = "openrouter_api_key"
 KEYRING_MODEL_USERNAME: str = "openrouter_model"
 KEYRING_FALLBACK_MODEL_USERNAME: str = "openrouter_fallback_model"
 KEYRING_ACCOUNT_USERNAME: str = "google_account"
-DEFAULT_MODELO_IA: str = "deepseek/deepseek-v4-pro"
-DEFAULT_MODELO_FALLBACK: str = "deepseek/deepseek-v4-flash"
+DEFAULT_MODELO_IA: str = "deepseek/deepseek-chat"
+DEFAULT_MODELO_FALLBACK: str = "google/gemini-2.5-flash"
 DEFAULT_CONTA: str = "sentineltray"
 DEFAULT_API_KEY: str = ""
 
@@ -119,7 +119,7 @@ def salvar_modelo_fallback(modelo: str) -> None:
 
     Args:
         modelo: The fallback model name string to store
-            (e.g. ``"deepseek/deepseek-v4-flash"``).
+            (e.g. ``"google/gemini-2.5-flash"``).
     """
     import keyring  # noqa: PLC0415
 

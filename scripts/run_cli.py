@@ -10,7 +10,6 @@ results to the console, useful for testing and iteration.
 from __future__ import annotations
 
 import io
-import os
 import queue
 import sys
 import threading
@@ -30,9 +29,11 @@ if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
 from z7_officeletters.constants import (
+    BASE_DIR,
     PASTA_SAIDA,
     PASTA_PLANILHA,
     PASTA_ENVELOPES,
+    PASTA_PROPOSITURAS_FONTE,
 )
 from z7_officeletters.core.api_key import carregar_api_key, carregar_modelo_ia, carregar_modelo_fallback
 from z7_officeletters.core.logging_setup import configurar_logging
@@ -56,7 +57,7 @@ def run_cli() -> None:
     print(f"Fallback: {modelo_fallback}")
 
     # Clean previous output
-    for folder in [PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES]:
+    for folder in [PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES, PASTA_PROPOSITURAS_FONTE]:
         p = Path(folder)
         if p.exists():
             import shutil
@@ -64,7 +65,7 @@ def run_cli() -> None:
             print(f"Cleaned: {folder}")
 
     # Find propositura files
-    proposituras_dir = Path(os.environ.get("USERPROFILE", str(Path.home()))) / "AppData" / "Local" / "Z7" / "Tmp" / "OfficeLetters" / "proposituras"
+    proposituras_dir = BASE_DIR / "proposituras"
     arquivos = sorted(proposituras_dir.glob("*"))
     arquivos = [str(f) for f in arquivos if f.suffix.lower() in {".txt", ".docx", ".pdf", ".odt"}]
 

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 __all__ = ["confirm_cleanup"]
 
 
-def confirm_cleanup(parent: ctk.CTk, total_files: int, pasta_saida: str, pasta_planilha: str) -> bool:
+def confirm_cleanup(parent: ctk.CTk, total_files: int, pasta_saida: str, pasta_planilha: str, pasta_propos_fonte: str = "") -> bool:
     """Show a modal warning and ask the user to confirm the cleanup.
 
     Args:
@@ -31,6 +31,7 @@ def confirm_cleanup(parent: ctk.CTk, total_files: int, pasta_saida: str, pasta_p
         total_files: Total number of files that will be moved to the Recycle Bin.
         pasta_saida: Path string of the output (letters) folder.
         pasta_planilha: Path string of the spreadsheet folder.
+        pasta_propos_fonte: Path string of the proposituras source folder (optional).
 
     Returns:
         ``True`` if the user clicks "Prosseguir", ``False`` otherwise.
@@ -49,7 +50,7 @@ def confirm_cleanup(parent: ctk.CTk, total_files: int, pasta_saida: str, pasta_p
 
     pw, ph = parent.winfo_width(), parent.winfo_height()
     px, py = parent.winfo_x(), parent.winfo_y()
-    W, H = 460, 210
+    W, H = 460, 230
     dlg.geometry(f"{W}x{H}+{px + (pw - W) // 2}+{py + (ph - H) // 2}")
 
     ctk.CTkLabel(
@@ -64,6 +65,8 @@ def confirm_cleanup(parent: ctk.CTk, total_files: int, pasta_saida: str, pasta_p
         "  • " + Path(pasta_saida).name,
         "  • " + Path(pasta_planilha).name,
     ]
+    if pasta_propos_fonte:
+        _nomes.append("  • " + Path(pasta_propos_fonte).name)
     _desc = (
         f"Os {total_files} arquivo(s) nas pastas abaixo serão enviados para a Lixeira "
         f"antes da geração:\n\n" + "\n".join(_nomes)

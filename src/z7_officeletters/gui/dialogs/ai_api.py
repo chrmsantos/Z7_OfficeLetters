@@ -46,10 +46,11 @@ def show_ai_api_dialog(
     from z7_officeletters.core.api_key import salvar_api_key, salvar_modelo_ia, salvar_modelo_fallback, salvar_conta, carregar_conta  # noqa: PLC0415
     import z7_officeletters.core.ai as _ai  # noqa: PLC0415
 
-    apikey_visible: list[bool] = [False]
     _stored_key = get_stored_key()
-    if _stored_key and not apikey_var.get().strip():
-        apikey_var.set(_stored_key)
+
+    # Segurança: nunca exibir a chave armazenada no campo de entrada.
+    # O campo começa vazio; o usuário pode digitar uma nova chave.
+    apikey_var.set("")
 
     dlg = ctk.CTkToplevel(parent)
     dlg.title("API de IA (OpenRouter)")
@@ -110,18 +111,6 @@ def show_ai_api_dialog(
     )
     api_entry.grid(row=0, column=0, sticky="ew")
     api_entry.focus_set()
-
-    def _toggle_api_visibility() -> None:
-        apikey_visible[0] = not apikey_visible[0]
-        api_entry.configure(show="" if apikey_visible[0] else "•")
-
-    ctk.CTkButton(
-        api_frame, text="👁", width=36, height=36,
-        font=ctk.CTkFont(size=16),
-        fg_color=_C["panel"], hover_color=_C["border"],
-        text_color=_C["text"],
-        command=_toggle_api_visibility,
-    ).grid(row=0, column=1, padx=(6, 0))
 
     # ── Section: AI Model ──────────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -369,9 +358,8 @@ def show_ai_api_dialog(
     test_btn.configure(command=_on_test)
 
     def _on_close() -> None:
-        # Evita vazar a chave pré-preenchida na var compartilhada ao fechar sem salvar
-        if apikey_var.get().strip() == get_stored_key():
-            apikey_var.set("")
+        # Segurança: sempre limpar a chave digitada ao fechar sem salvar
+        apikey_var.set("")
         dlg.destroy()
 
     dlg.protocol("WM_DELETE_WINDOW", _on_close)

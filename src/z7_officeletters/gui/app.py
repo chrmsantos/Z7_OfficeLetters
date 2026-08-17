@@ -41,6 +41,7 @@ from z7_officeletters.constants import (
     PASTA_PLANILHA,
     PASTA_SAIDA,
     PASTA_ENVELOPES,
+    PASTA_PROPOSITURAS_FONTE,
     BASE_DIR,
     ENDERECAMENTO_PADRAO,
 )
@@ -118,7 +119,7 @@ class AutoOficiosApp(ctk.CTk):
         pass
 
     def _run_init_bg(self) -> None:
-        for p in (PASTA_LOGS, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES):
+        for p in (PASTA_LOGS, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES, PASTA_PROPOSITURAS_FONTE):
             Path(p).mkdir(parents=True, exist_ok=True)
         configurar_logging()
 
@@ -771,7 +772,7 @@ class AutoOficiosApp(ctk.CTk):
     # AI status
     # =========================================================================
     def _update_ai_status(self) -> None:
-        model = self._modelo_ia_var.get() or "deepseek/deepseek-v4-pro"
+        model = self._modelo_ia_var.get() or "deepseek/deepseek-chat"
         has_key = bool(self._apikey_var.get().strip()) or bool(self._stored_key)
         if has_key:
             text = f"🤖 {model}  •  ✔ Validado"
@@ -1076,7 +1077,7 @@ class AutoOficiosApp(ctk.CTk):
     # Processing
     # =========================================================================
     def _limpar_pastas_saida(self) -> None:
-        for pasta in (Path(PASTA_SAIDA), Path(PASTA_PLANILHA), Path(PASTA_ENVELOPES)):
+        for pasta in (Path(PASTA_SAIDA), Path(PASTA_PLANILHA), Path(PASTA_ENVELOPES), Path(PASTA_PROPOSITURAS_FONTE)):
             if pasta.exists():
                 for arq in pasta.iterdir():
                     if arq.is_file():
@@ -1177,12 +1178,12 @@ class AutoOficiosApp(ctk.CTk):
 
         from z7_officeletters.gui.dialogs.confirmation import confirm_cleanup  # noqa: PLC0415
 
-        pastas = [Path(PASTA_SAIDA), Path(PASTA_PLANILHA), Path(PASTA_ENVELOPES)]
+        pastas = [Path(PASTA_SAIDA), Path(PASTA_PLANILHA), Path(PASTA_ENVELOPES), Path(PASTA_PROPOSITURAS_FONTE)]
         total_files = sum(
             sum(1 for f in p.iterdir() if f.is_file())
             for p in pastas if p.exists()
         )
-        if not confirm_cleanup(self, total_files, PASTA_SAIDA, PASTA_PLANILHA):
+        if not confirm_cleanup(self, total_files, PASTA_SAIDA, PASTA_PLANILHA, PASTA_PROPOSITURAS_FONTE):
             return
         self._limpar_pastas_saida()
 

@@ -34,5 +34,11 @@ CONTROLE_OFICIOS_FINAL.xlsx
 .DS_Store
 Thumbs.db
 
+# Cline AI assistant
+.cline/
+
 # EXAMPLES
 examples/
+
+# Local data (user-specific, not versioned)
+local/

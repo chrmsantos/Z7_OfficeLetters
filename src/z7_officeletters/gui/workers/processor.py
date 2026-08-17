@@ -34,13 +34,14 @@ from __future__ import annotations
 import os
 import queue
 import re
+import shutil
 import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
-from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, MODELO_ENVELOPE, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES, RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
+from z7_officeletters.constants import MODELO_OFICIO, MODELO_REQUERIMENTO_PESAR, MODELO_PLANILHA, MODELO_ENVELOPE, ENDERECAMENTO_PADRAO, PASTA_SAIDA, PASTA_PLANILHA, PASTA_ENVELOPES, PASTA_PROPOSITURAS_FONTE, RE_PROPOSITURA_SPLIT, detectar_tipo_propositura, numero_propositura
 from z7_officeletters.core import ai as _ai
 from z7_officeletters.core import address_db as _addr_db
 from z7_officeletters.core import authors as _authors
@@ -139,6 +140,16 @@ def _worker_main(
 
         arquivos_proc: list[str] = inputs["arquivos"]
         todos_textos: list[tuple[str, str]] = []
+
+        # Copiar proposituras-fonte para a pasta de referência
+        _pasta_fonte = Path(PASTA_PROPOSITURAS_FONTE)
+        _pasta_fonte.mkdir(parents=True, exist_ok=True)
+        for arq in arquivos_proc:
+            try:
+                shutil.copy2(arq, _pasta_fonte / Path(arq).name)
+            except Exception:  # noqa: BLE001
+                pass
+
         for arq in arquivos_proc:
             q.put(("log", f"📂  Lendo: {Path(arq).name}", "accent"))
             conteudo = _files.ler_arquivo_mocoes(arq)

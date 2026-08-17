@@ -64,7 +64,7 @@ A interface gráfica permite configurar número do ofício inicial, redator, dat
 ### Saídas geradas
 
 ```text
-%LOCALAPPDATA%/Z7/Tmp/OfficeLetters/
+local/
 ├── oficios_gerados/          # Documentos .docx gerados
 ├── planilha_gerada/          # Planilha de controle
 └── envelopes_gerados/        # Envelopes gerados

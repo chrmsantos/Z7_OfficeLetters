@@ -118,13 +118,14 @@ Z7_OfficeLetters/
     └── Z7_OfficeLetters.exe # Compiled standalone executable
 ```
 
-**User data** (created automatically) lives under `%USERPROFILE%\AppData\Local\Z7\Tmp\OfficeLetters\`:
+**User data** (created automatically) lives under `<project_root>/local/`:
 
 | Constant | Path |
 | --- | --- |
-| `PASTA_PROPOSITURAS` | `…\proposituras\` |
 | `PASTA_SAIDA` | `…\oficios_gerados\` |
 | `PASTA_PLANILHA` | `…\planilha_gerada\` |
+| `PASTA_ENVELOPES` | `…\envelopes_gerados\` |
+| `PASTA_PROPOSITURAS_FONTE` | `…\proposituras_fonte\` |
 
 **Logs** live inside the project tree in dev mode or next to the exe when frozen:
 
@@ -277,8 +278,8 @@ PREFEITO: PrefeitoConfig        # {"nome": "...", "endereco": "..."}
 Stores the OpenRouter API key encrypted in **Windows Credential Manager** via `keyring` (replaces the legacy plain-text Registry entry). Provides one-time migration with `migrar_chave_do_registro()`.
 
 ```python
-DEFAULT_MODELO_IA = "deepseek/deepseek-v4-pro"
-DEFAULT_MODELO_FALLBACK = "deepseek/deepseek-v4-flash"
+DEFAULT_MODELO_IA = "deepseek/deepseek-chat"
+DEFAULT_MODELO_FALLBACK = "google/gemini-2.5-flash"
 salvar_api_key(chave: str) -> None
 carregar_api_key() -> str
 salvar_modelo_ia(modelo: str) -> None
@@ -331,7 +332,7 @@ Appearance: dark/light toggle (saved per session). Window: 1140×680 (min 920×5
 2. Iniciais do redator — combobox (from `MAPA_REDATORES`)
 3. Data dos ofícios — button opens `tkcalendar.Calendar` (pt_BR)
 4. Propositura — combobox (readonly) + refresh `↺` + browse `📂`
-5. Chave Gemini API — masked entry + toggle `👁` + Advanced (model selection)
+5. Chave API — masked entry + Advanced (model selection)
 6. "⚡ GERAR OFÍCIOS" button
 
 **Cancel:** `threading.Event` checked between proposituras. Cancel button replaces "GERAR" during processing.
@@ -433,8 +434,8 @@ Input text is split at each `MOÇÃO Nº` / `REQUERIMENTO Nº` header using `RE_
 
 ### AI extraction (Gemini)
 
-- Default model: `deepseek/deepseek-v4-pro`
-- Fallback model: `deepseek/deepseek-v4-flash` — tried immediately when primary model fails with transient errors (429/503) (stored in `keyring`; overridable per-session via Advanced dialog).
+- Default model: `deepseek/deepseek-chat`
+- Fallback model: `google/gemini-2.5-flash` — tried immediately when primary model fails with transient errors (429/503) (stored in `keyring`; overridable per-session via Advanced dialog).
 - Schema returned by AI (moção):
 
 ```json
