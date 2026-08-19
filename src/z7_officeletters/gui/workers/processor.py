@@ -214,7 +214,7 @@ def _worker_main(
                 q.put(("log", f"  ⚠  Não foi possível criar o template de envelope: {exc}", "warn"))
 
         dados_planilha: list[list[str]] = []
-        envelopes_para_gerar: list[tuple[str, str]] = []  # (nome, endereco) for combined envelope file
+        envelopes_para_gerar: list[tuple[str, str, str]] = []  # (tratamento, nome, endereco) for combined envelope file
 
         # Display name overrides for the "Vereador" spreadsheet column.
         # Key: normalized (accent-stripped, lowercased) author name.
@@ -545,7 +545,8 @@ def _worker_main(
             # Collect envelope data if delivery method is "Carta"
             if info["envio"] == "Carta":
                 nome_dest_safe = _docs._RE_NOME_INVALIDO.sub("", _docs._titlecase_nome(dest0["nome"]))
-                envelopes_para_gerar.append((nome_dest_safe, info["destinatario_endereco"]))
+                # Use tratamento_rodape from ctx (which may be overridden for requerimento_pesar)
+                envelopes_para_gerar.append((ctx["tratamento_rodape"], nome_dest_safe, info["destinatario_endereco"]))
 
             if tipo_propositura == "requerimento_pesar":
                 plural_s = "s" if n_props > 1 else ""

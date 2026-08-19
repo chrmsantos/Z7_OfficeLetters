@@ -417,17 +417,19 @@ def criar_modelo_envelope(destino: str | Path | None = None) -> Path:
 
 
 def gerar_envelope_combinado(
-    destinatarios: list[tuple[str, str]],
+    destinatarios: list[tuple[str, str, str]],
     destino: str | Path,
 ) -> Path:
     """Generate a single envelope document with one page per recipient.
 
     Each page follows the DL envelope format (22 cm × 11 cm, landscape)
-    and contains only the recipient name and address — no honorific prefix.
+    and contains the treatment prefix, recipient name, and address.
 
     Args:
-        destinatarios: List of ``(nome, endereco)`` tuples where *nome* is the
-            recipient name and *endereco* is the multi-line address string.
+        destinatarios: List of ``(tratamento, nome, endereco)`` tuples where
+            *tratamento* is the honorific prefix (e.g. ``"À Família do Senhor"``),
+            *nome* is the recipient name, and *endereco* is the multi-line
+            address string.
         destino: Target file path for the combined envelope document.
 
     Returns:
@@ -451,16 +453,28 @@ def gerar_envelope_combinado(
     section.left_margin = Cm(2.0)
     section.right_margin = Cm(2.0)
 
-    for i, (nome, endereco) in enumerate(destinatarios):
+    for i, (tratamento, nome, endereco) in enumerate(destinatarios):
+        # Add treatment prefix paragraph (e.g. "À Família do Senhor")
+        if tratamento:
+            p_trat = doc.add_paragraph()
+            p_trat.paragraph_format.space_before = Pt(0)
+            p_trat.paragraph_format.space_after = Pt(0)
+            p_trat.paragraph_format.line_spacing = 1.15
+
+            r_trat = p_trat.add_run(tratamento)
+            r_trat.font.size = Pt(11)
+            r_trat.font.name = "Arial"
+
         # Add name paragraph
         p_nome = doc.add_paragraph()
-        p_nome.paragraph_format.space_before = Pt(36)
+        p_nome.paragraph_format.space_before = Pt(0)
         p_nome.paragraph_format.space_after = Pt(0)
         p_nome.paragraph_format.line_spacing = 1.15
 
         r_nome = p_nome.add_run(nome)
         r_nome.font.size = Pt(11)
         r_nome.font.name = "Arial"
+        r_nome.bold = True
 
         # Add address lines as separate paragraphs
         for linha in endereco.split("\n"):
