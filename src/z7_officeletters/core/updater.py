@@ -2,7 +2,10 @@
 
 Handles checking the GitHub Releases API for new updates, comparing version
 strings using SemVer, downloading updates with visual progress, and replacing the
-running executable in-place.
+running executable in-place.  After a successful update the application is
+automatically restarted on the new version via a multi-strategy approach that
+does **not** require admin privileges and is defensive against system security
+restrictions.
 
 Public exports:
     obter_ultima_versao: Query GitHub for the latest release details.
@@ -15,7 +18,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
@@ -188,6 +193,139 @@ def _get_target_path() -> Path:
     if not is_frozen:
         return _get_project_root() / "dist" / "Z7_OfficeLetters.exe"
     return Path(sys.executable)
+
+
+# ---------------------------------------------------------------------------
+# Application restart helpers
+# ---------------------------------------------------------------------------
+# After a successful update the running (old) process must give way to the
+# newly installed executable.  The strategies below are **independent of admin
+# privileges** and defensive against common security restrictions (e.g. UAC,
+# AppLocker, constrained execution).
+#
+# Resolution order:
+#   1. ``subprocess.Popen`` — launches the new exe detached, then terminates
+#      the current process via ``os._exit(0)``.
+#   2. CMD launcher script — a ``*.cmd`` is written to ``tempfile.gettempdir()``
+#      which waits for the current PID to exit, starts the new exe, and
+#      self-deletes.
+#   3. Graceful fallback — asks the user to restart manually.
+
+
+def _launch_new_instance(exe_path: Path) -> bool:
+    """Attempt to launch the new executable via ``subprocess.Popen``.
+
+    Uses ``CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`` so the child is
+    fully independent of the dying parent.  Returns ``True`` on success.
+    """
+    try:
+        logger.info("Tentando iniciar nova instância via subprocess.Popen: %s", exe_path)
+        subprocess.Popen(
+            [str(exe_path)],
+            close_fds=True,
+            creationflags=(
+                subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+            ),
+        )
+        logger.info("Nova instância lançada com sucesso via Popen.")
+        return True
+    except Exception as exc:
+        logger.warning("Falha ao iniciar nova instância via Popen: %s", exc)
+        return False
+
+
+def _generate_restart_script(exe_path: Path) -> str | None:
+    """Generate a ``.cmd`` restart script in the system temp directory.
+
+    The script waits (polling ``tasklist``) until the current PID is gone,
+    then launches the new executable and self-deletes.
+    Returns the path to the created script, or ``None`` on failure.
+    """
+    try:
+        tmp_dir = Path(tempfile.gettempdir())
+        script_path = tmp_dir / f"z7_restart_{os.getpid()}.cmd"
+
+        script_content = (
+            "@echo off\r\n"
+            f"set TARGET_PID={os.getpid()}\r\n"
+            "set /a COUNTER=0\r\n"
+            ":WAIT_LOOP\r\n"
+            "tasklist /FI \"PID eq %TARGET_PID%\" 2>NUL"
+            " | find /I \"%TARGET_PID%\" >NUL\r\n"
+            "if not errorlevel 1 (\r\n"
+            "    if %COUNTER% GEQ 20 goto LAUNCH\r\n"
+            "    set /a COUNTER+=1\r\n"
+            "    timeout /t 1 /nobreak >NUL\r\n"
+            "    goto WAIT_LOOP\r\n"
+            ")\r\n"
+            ":LAUNCH\r\n"
+            f'start "" "{exe_path}"\r\n'
+            "(goto) 2>NUL & del /f /q \"%~f0\"\r\n"
+        )
+
+        script_path.write_text(script_content, encoding="ascii")
+        logger.info("Script de reinicialização gerado: %s", script_path)
+        return str(script_path)
+    except Exception as exc:
+        logger.warning("Falha ao gerar script de reinicialização: %s", exc)
+        return None
+
+
+def _reiniciar_aplicativo(exe_path: Path, parent: tk.Tk | tk.Toplevel) -> None:
+    """Restart the application using the best available strategy.
+
+    Tries each technique in order and only falls through if the previous one
+    fails.  On total failure the user is asked to restart manually.
+    """
+    # --- Strategy 1: Direct Popen ----------------------------------------
+    logger.info("Iniciando processo de reinicialização do aplicativo...")
+    if _launch_new_instance(exe_path):
+        logger.info(
+            "Reinicialização via Popen bem-sucedida. Encerrando processo atual (PID=%d).",
+            os.getpid(),
+        )
+        try:
+            parent.destroy()
+        except Exception:
+            pass
+        time.sleep(0.3)
+        os._exit(0)  # noqa: S104  — immediate exit is intentional here.
+
+    # --- Strategy 2: CMD launcher script ----------------------------------
+    logger.info("Estratégia Popen falhou. Tentando via script .cmd...")
+    script = _generate_restart_script(exe_path)
+    if script is not None:
+        try:
+            subprocess.Popen(
+                ["cmd.exe", "/c", script],
+                close_fds=True,
+                creationflags=(
+                    subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+                ),
+            )
+            logger.info("Script de reinicialização disparado: %s", script)
+            try:
+                parent.destroy()
+            except Exception:
+                pass
+            time.sleep(0.3)
+            os._exit(0)  # noqa: S104
+        except Exception as exc:
+            logger.warning("Falha ao disparar script .cmd: %s", exc)
+
+    # --- Strategy 3: Graceful fallback (manual restart) -------------------
+    logger.warning(
+        "Todas as estratégias automáticas de reinicialização falharam. "
+        "Solicitando reinício manual ao usuário."
+    )
+    messagebox.showinfo(
+        "Atualização Concluída",
+        "A atualização foi baixada e instalada com sucesso!\n\n"
+        f"O novo executável está em:\n{exe_path}\n\n"
+        "Não foi possível reiniciar automaticamente. "
+        "Por favor, feche e reabra o aplicativo para usar a nova versão.",
+        parent=parent,
+    )
 
 
 class UpdateProgressWindow:
@@ -526,13 +664,10 @@ class UpdateProgressWindow:
                 except Exception:
                     logger.warning("Failed to write version.txt after update", exc_info=True)
 
-            messagebox.showinfo(
-                "Atualização Concluída",
-                "A atualização foi baixada e instalada com sucesso!\n\n"
-                "A nova versão estará ativa na próxima inicialização do aplicativo.",
-                parent=self.parent,
-            )
+            # Close the download window and restart the app on the new version.
+            logger.info("Update finalizado com sucesso. Iniciando reinicialização...")
             self.win.destroy()
+            _reiniciar_aplicativo(current_exe, self.parent)
         except Exception as exc:
             logger.exception("Failed to install update")
             if temp_dest.exists():

@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
+import os
 from io import BytesIO
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 import pytest
 
-from z7_officeletters.core.updater import comparar_versoes, obter_ultima_versao
+from z7_officeletters.core.updater import (
+    comparar_versoes,
+    obter_ultima_versao,
+    _launch_new_instance,
+    _generate_restart_script,
+    _reiniciar_aplicativo,
+)
 
 
 # =============================================================================
@@ -224,3 +232,203 @@ class TestDownloadFlow:
             with pytest.raises(RuntimeError, match="O arquivo baixado está vazio"):
                 if temp_path.stat().st_size == 0:
                     raise RuntimeError("O arquivo baixado está vazio.")
+
+
+# =============================================================================
+# _launch_new_instance
+# =============================================================================
+class TestLaunchNewInstance:
+
+    @patch("z7_officeletters.core.updater.subprocess.Popen")
+    def test_sucesso_popen(self, mock_popen: MagicMock) -> None:
+        """Strategy 1 succeeds: Popen launches the new exe."""
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+        result = _launch_new_instance(exe)
+        assert result is True
+        mock_popen.assert_called_once()
+        args, kwargs = mock_popen.call_args
+        assert args[0] == [str(exe)]
+        assert kwargs["close_fds"] is True
+
+    @patch("z7_officeletters.core.updater.subprocess.Popen")
+    def test_falha_popen(self, mock_popen: MagicMock) -> None:
+        """Strategy 1 fails: Popen raises an exception."""
+        mock_popen.side_effect = OSError("Access denied")
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+        result = _launch_new_instance(exe)
+        assert result is False
+
+
+# =============================================================================
+# _generate_restart_script
+# =============================================================================
+class TestGenerateRestartScript:
+
+    @patch("z7_officeletters.core.updater.os.getpid", return_value=9999)
+    def test_script_criado_com_sucesso(self, _mock_pid: MagicMock, tmp_path: Path) -> None:
+        """Script is created in temp dir with correct PID and exe path."""
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+        with patch("z7_officeletters.core.updater.tempfile.gettempdir", return_value=str(tmp_path)):
+            result = _generate_restart_script(exe)
+
+        assert result is not None
+        script_path = Path(result)
+        assert script_path.exists()
+        assert script_path.name == "z7_restart_9999.cmd"
+
+        content = script_path.read_text(encoding="ascii")
+        assert "9999" in content
+        assert str(exe) in content
+        assert "@echo off" in content
+        assert "tasklist" in content
+        assert "timeout /t 1 /nobreak" in content
+        assert "del" in content  # self-delete
+
+    @patch("z7_officeletters.core.updater.os.getpid", return_value=1234)
+    def test_script_contem_logica_de_espera(self, _mock_pid: MagicMock, tmp_path: Path) -> None:
+        """Script contains the wait-loop logic for PID exit detection."""
+        exe = Path(r"C:\Test\app.exe")
+        with patch("z7_officeletters.core.updater.tempfile.gettempdir", return_value=str(tmp_path)):
+            result = _generate_restart_script(exe)
+
+        assert result is not None
+        content = Path(result).read_text(encoding="ascii")
+        assert "WAIT_LOOP" in content
+        assert "LAUNCH" in content
+        assert "set TARGET_PID=1234" in content
+        assert "COUNTER" in content
+
+    @patch("z7_officeletters.core.updater.os.getpid", return_value=5555)
+    def test_falha_escrita_retorna_none(self, _mock_pid: MagicMock) -> None:
+        """Returns None when the temp dir is not writable."""
+        with patch("z7_officeletters.core.updater.Path.write_text", side_effect=OSError("disk full")):
+            result = _generate_restart_script(Path(r"C:\app.exe"))
+        assert result is None
+
+
+# =============================================================================
+# _reiniciar_aplicativo
+# =============================================================================
+class TestReiniciarAplicativo:
+
+    @patch("z7_officeletters.core.updater.messagebox.showinfo")
+    @patch("z7_officeletters.core.updater.os._exit", side_effect=SystemExit(0))
+    @patch("z7_officeletters.core.updater.time.sleep")
+    @patch("z7_officeletters.core.updater._launch_new_instance", return_value=True)
+    def test_estrategia_1_popen_sucesso(
+        self,
+        mock_launch: MagicMock,
+        _mock_sleep: MagicMock,
+        mock_exit: MagicMock,
+        _mock_msgbox: MagicMock,
+    ) -> None:
+        """Strategy 1 (Popen) succeeds: parent is destroyed and process exits."""
+        parent = MagicMock()
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+
+        with pytest.raises(SystemExit):
+            _reiniciar_aplicativo(exe, parent)
+
+        mock_launch.assert_called_once_with(exe)
+        parent.destroy.assert_called_once()
+        mock_exit.assert_called_once_with(0)
+
+    @patch("z7_officeletters.core.updater.messagebox.showinfo")
+    @patch("z7_officeletters.core.updater.os._exit", side_effect=SystemExit(0))
+    @patch("z7_officeletters.core.updater.time.sleep")
+    @patch("z7_officeletters.core.updater.subprocess.Popen")
+    @patch("z7_officeletters.core.updater._generate_restart_script", return_value=r"C:\Temp\z7_restart_123.cmd")
+    @patch("z7_officeletters.core.updater._launch_new_instance", return_value=False)
+    def test_estrategia_2_script_cmd_sucesso(
+        self,
+        mock_launch: MagicMock,
+        mock_gen_script: MagicMock,
+        mock_popen: MagicMock,
+        _mock_sleep: MagicMock,
+        mock_exit: MagicMock,
+        _mock_msgbox: MagicMock,
+    ) -> None:
+        """Strategy 1 fails, Strategy 2 (CMD script) succeeds."""
+        parent = MagicMock()
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+
+        with pytest.raises(SystemExit):
+            _reiniciar_aplicativo(exe, parent)
+
+        mock_launch.assert_called_once_with(exe)
+        mock_gen_script.assert_called_once_with(exe)
+        mock_popen.assert_called_once()
+        popen_args = mock_popen.call_args[0][0]
+        assert popen_args[0] == "cmd.exe"
+        assert popen_args[1] == "/c"
+        parent.destroy.assert_called_once()
+        mock_exit.assert_called_once_with(0)
+
+    @patch("z7_officeletters.core.updater.messagebox.showinfo")
+    @patch("z7_officeletters.core.updater.subprocess.Popen", side_effect=OSError("blocked"))
+    @patch("z7_officeletters.core.updater._generate_restart_script", return_value=None)
+    @patch("z7_officeletters.core.updater._launch_new_instance", return_value=False)
+    def test_todas_estrategias_falham_mostra_mensagem(
+        self,
+        mock_launch: MagicMock,
+        mock_gen_script: MagicMock,
+        mock_popen: MagicMock,
+        mock_msgbox: MagicMock,
+    ) -> None:
+        """All strategies fail: shows manual restart messagebox."""
+        parent = MagicMock()
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+
+        _reiniciar_aplicativo(exe, parent)
+
+        mock_launch.assert_called_once_with(exe)
+        mock_gen_script.assert_called_once_with(exe)
+        mock_popen.assert_not_called()
+        mock_msgbox.assert_called_once()
+        msg_args = mock_msgbox.call_args
+        assert "Atualização Concluída" in msg_args[0][0]
+        assert "reabra o aplicativo" in msg_args[0][1]
+        assert msg_args[1]["parent"] is parent
+
+    @patch("z7_officeletters.core.updater.messagebox.showinfo")
+    @patch("z7_officeletters.core.updater.subprocess.Popen", side_effect=OSError("blocked"))
+    @patch("z7_officeletters.core.updater._generate_restart_script", return_value=r"C:\Temp\z7_restart_123.cmd")
+    @patch("z7_officeletters.core.updater._launch_new_instance", return_value=False)
+    def test_estrategia_2_popen_falha_mostra_mensagem(
+        self,
+        mock_launch: MagicMock,
+        mock_gen_script: MagicMock,
+        mock_popen: MagicMock,
+        mock_msgbox: MagicMock,
+    ) -> None:
+        """Strategy 2 Popen also fails: falls through to manual restart message."""
+        parent = MagicMock()
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+
+        _reiniciar_aplicativo(exe, parent)
+
+        mock_popen.assert_called_once()
+        mock_msgbox.assert_called_once()
+        assert "reabra o aplicativo" in mock_msgbox.call_args[0][1]
+
+    @patch("z7_officeletters.core.updater.messagebox.showinfo")
+    @patch("z7_officeletters.core.updater.os._exit", side_effect=SystemExit(0))
+    @patch("z7_officeletters.core.updater.time.sleep")
+    @patch("z7_officeletters.core.updater._launch_new_instance", return_value=True)
+    def test_parent_destroy_falha_nao_impede_exit(
+        self,
+        mock_launch: MagicMock,
+        _mock_sleep: MagicMock,
+        mock_exit: MagicMock,
+        _mock_msgbox: MagicMock,
+    ) -> None:
+        """Even if parent.destroy() fails, os._exit(0) is still called."""
+        parent = MagicMock()
+        parent.destroy.side_effect = Exception("already destroyed")
+        exe = Path(r"C:\Apps\Z7_OfficeLetters.exe")
+
+        with pytest.raises(SystemExit):
+            _reiniciar_aplicativo(exe, parent)
+
+        parent.destroy.assert_called_once()
+        mock_exit.assert_called_once_with(0)
