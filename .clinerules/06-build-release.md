@@ -23,7 +23,7 @@ O `build.py` executa a sequência segura e idempotente:
 - `python -m pytest` verde.
 - `ruff check` + `ruff format --check` + `pyright src/` limpos.
 - Versão sincronizada nos 3 pontos (ver `07-git-versioning.md`):
-  `pyproject.toml` ↔ `__init__.py` (fallback) ↔ `ai_context.md`.
+  `pyproject.toml` ↔ `__init__.py` (fallback) ↔ `.clinerules/01-project-context.md`.
 - `auto_oficios.spec` contém `hiddenimports` de qualquer módulo/diálogo novo.
 - `config.json` e templates presentes (o spec embute `config.json` + templates; `ender/` é distribuído à parte).
 

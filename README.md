@@ -79,7 +79,7 @@ Z7_OfficeLetters/
 ├── auto_oficios.spec        # Spec PyInstaller
 ├── build.py                 # Script de compilação segura
 ├── icon.ico                 # Ícone da aplicação
-├── ai_context.md            # Documentação de referência
+├── .clinerules/              # Regras de desenvolvimento (AI context)
 ├── src/
 │   └── z7_officeletters/
 │       ├── __main__.py      # Ponto de entrada

@@ -18,8 +18,8 @@ A versão vive em **3 lugares** e todos devem estar em sincronia:
 
 1. `pyproject.toml` → `version = "X.Y.Z"` (fonte da verdade).
 2. `src/z7_officeletters/__init__.py` → fallback hardcoded no fim de `_read_version()`
-   (`return "X.Y.Z"`). **Atualmente defasado (4.15.0 vs 4.17.0).**
-3. `ai_context.md` → tabela "Version" na seção Repository. **Atualmente defasado (4.12.0).**
+   (`return "X.Y.Z"`).
+3. `.clinerules/01-project-context.md` → seção "Identidade", campo "Versão corrente".
 
 Ao alterar a versão, usar o skill **`version-bump`** (atualiza os 3 pontos de uma vez e confere o resultado).
 Não mudar a versão sem pedido explícito do usuário.
